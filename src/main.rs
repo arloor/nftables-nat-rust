@@ -1,81 +1,48 @@
-mod local_ip;
+mod IP;
+mod config;
 
 use std::collections::HashMap;
-use std::process::exit;
+use std::process::{exit, Command};
+use crate::IP::remote_ip;
+use std::fs::File;
+use std::io::Write;
 
 fn main() {
-    let (mut port_mark, local_ip) = init();
-    println!("{}", local_ip);
-    read_old();
-}
+    //脚本的前缀
+    let script_prefix=String::from("#!/usr/sbin/nft -f\n\
+    \n\
+    flush ruleset\n\
+    add table ip nat\n\
+    add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
+    add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n");
 
-#[derive(Debug)]
-enum nat_cell {
-    SINGLE {
-        local_port: i32,
-        remote_port: i32,
-        remote_domain: String,
-    },
-    RANGE {
-        port_start: i32,
-        port_end: i32,
-        remote_domain: String,
-    },
-}
+    let vec = config::read_config();
+    let mut script = String::new();
+    script += &script_prefix;
 
-impl nat_cell {
-    fn getType(&self) -> nat_cell {
-        match &self {
-            nat_cell::SINGLE { local_port, remote_port, remote_domain } => {
-                nat_cell::SINGLE {
-                    local_port: 0,
-                    remote_port: 0,
-                    remote_domain: "".to_string(),
-                }
-            }
-            _ =>nat_cell::RANGE {
-                port_start: 0,
-                port_end: 0,
-                remote_domain: "".to_string()
-            }
-        }
+    for x in vec.iter() {
+        let (domain, ip) = x.get_target_ip();
+        println!("{}-{}", domain, ip);
+        let string = x.build();
+        script += &string;
+//        println!("{}",string)
     }
-}
+    println!("{}", script);
 
-// 生成一个长度为65536的数组，用于标记端口占用情况
-// 返回本地IP
-fn init() -> ([i8; 65536], String) {
-    let local_ip = local_ip::get();
-    let local_ip = match local_ip {
-        Some(val) => {
-            val
-        }
-        None => {
-            println!("不能获取本地IP。退出程序");
-            exit(-1);
-        }
-    };
-    ([0; 65536], local_ip)
-}
-
-
-//读取旧的配置
-fn read_old() {
-    let mut nat_cells = vec![];
-    nat_cells.push(nat_cell::RANGE {
-        port_start: 1,
-        port_end: 100,
-        remote_domain: String::from("arloor.com"),
-    });
-
-    let cell = nat_cells.get(0).expect("aaaa");
-
-    println!("{:#?}", cell);
-     match cell {
-        nat_cell::SINGLE { local_port, remote_port, remote_domain } => {
-            println!("single");
-        }
-
-        _ => {}
+    let mut f=File::create("temp.nft");
+    if let Ok(mut file) = f{
+        {println!("{:?}",file)}
+        file.write_all(script.as_bytes()).expect("写失败");
+    }
+    let output = Command::new("/usr/sbin/nft")
+        .arg("-f")
+        .arg("temp.nft")
+        .output()
+        .unwrap_or_else(|e| panic!("wg panic because:{}", e));
+    println!("output:");
+    let st = String::from_utf8_lossy(&output.stdout);
+    let lines = st.split("\n");
+    for line in lines {
+        println!("{}", line);
     }
 }
