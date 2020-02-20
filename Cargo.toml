@@ -1,5 +1,5 @@
 [package]
-name = "rust1"
+name = "nat"
 version = "0.1.0"
 authors = ["arloor <admin@arloor.com>"]
 edition = "2018"
