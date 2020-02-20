@@ -2,7 +2,7 @@
 
 > 仅适用于centos8、redhat8
 
-## 开始之前
+## 准备工作
 
 1. 关闭firewalld
 2. 关闭selinux
@@ -41,10 +41,9 @@ RANGE,1000,2000,baidu.com
 - SINGLE：单端口转发：本机443端口转发到baidu.com:443
 - RANGE：范围端口转发：本机1000-2000转发到baidu.com:1000-2000
 
-## 执行示例
+## 输出示例
 
 ```$xslt
-is not valid(不用关心这一行)
 nftables脚本如下：
 #!/usr/sbin/nft -f
 
