@@ -39,7 +39,7 @@ fn main() {
         script += &string;
 //        println!("{}",string)
     }
-    println!("{}", script);
+    println!("nftables脚本如下：\n{}", script);
 
     let mut f = File::create("temp.nft");
     if let Ok(mut file) = f {
@@ -52,7 +52,7 @@ fn main() {
             .arg("temp.nft")
             .output()
             .unwrap_or_else(|e| panic!("wg panic because:{}", e));
-        println!("status: {}", output.status);
+        println!("执行/usr/sbin/nft -f temp.nft\n执行结果: {}", output.status);
         io::stdout().write_all(&output.stdout).unwrap();
         io::stderr().write_all(&output.stderr).unwrap();
     }
