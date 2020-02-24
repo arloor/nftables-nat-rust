@@ -1,3 +1,5 @@
+-----------------------------------------------------------------
+
 ## centos8 nftables nat规则生成工具
 
 > 仅适用于centos8、redhat8
@@ -25,7 +27,7 @@ fi
 ## 使用方式：
 
 ```
-wget -O nat http://cdn.arloor.com/nat
+wget -O nat http://cdn.arloor.com/tool/nat
 chmod +x nat
 ./nat nat.conf
 ```
