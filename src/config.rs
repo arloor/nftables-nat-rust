@@ -95,7 +95,7 @@ pub fn read_config(conf: String) -> Vec<nat_cell> {
 
     let strs = contents.split("\n");
     for str in strs {
-        let cells = str.split(",").collect::<Vec<&str>>();
+        let cells = str.trim().split(",").collect::<Vec<&str>>();
         if cells.len() == 4 {
             if cells[0] == "RANGE" {
                 nat_cells.push(nat_cell::RANGE {
@@ -111,7 +111,7 @@ pub fn read_config(conf: String) -> Vec<nat_cell> {
                     remote_domain: String::from(cells[3]),
                 });
             }
-        } else {
+        } else if str.trim().len() != 0 {
             println!("{} is not valid", str)
         }
     }

@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::Write;
 use std::{io, env};
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -42,26 +42,30 @@ fn main() {
             let string = x.build();
             script += &string;
         }
-        println!("nftables脚本如下：\n{}", script);
 
         //如果是linux，且生成的脚本产生变化，则写到文件，并且执行
-        if cfg!(target_os = "linux") && script!=latest_script {
-            let mut f = File::create("/etc/nftables/nat-diy.nft");
-            if let Ok(mut file) = f {
-                file.write_all(script.as_bytes()).expect("写失败");
-            }
+        if script != latest_script {
+            println!("nftables脚本如下：\n{}", script);
+            latest_script = script.clone();
+            if cfg!(target_os = "linux") {
+                let mut f = File::create("/etc/nftables/nat-diy.nft");
+                if let Ok(mut file) = f {
+                    file.write_all(script.as_bytes()).expect("写失败");
+                }
 
-            let output = Command::new("/usr/sbin/nft")
-                .arg("-f")
-                .arg("/etc/nftables/nat-diy.nft")
-                .output()
-                .unwrap_or_else(|e| panic!("wg panic because:{}", e));
-            println!("执行/usr/sbin/nft -f /etc/nftables/nat-diy.nft\n执行结果: {}", output.status);
-            io::stdout().write_all(&output.stdout).unwrap();
-            io::stderr().write_all(&output.stderr).unwrap();
+                let output = Command::new("/usr/sbin/nft")
+                    .arg("-f")
+                    .arg("/etc/nftables/nat-diy.nft")
+                    .output()
+                    .unwrap_or_else(|e| panic!("wg panic because:{}", e));
+                println!("执行/usr/sbin/nft -f /etc/nftables/nat-diy.nft\n执行结果: {}", output.status);
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                println!("WAIT:等待配置或目标IP发生改变....\n");
+            }
         }
 
         //等待60秒
-        sleep(Duration::new(60,0));
+        sleep(Duration::new(6, 0));
     }
 }
