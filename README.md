@@ -92,4 +92,4 @@ RANGE,50000,50010,baidu.com
 1. 本工具会清空所有防火墙规则（当然，防火墙没那么重要～
 2. 本机多个网卡的情况未作测试（大概率会有问题）
 3. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
-4. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)，在两个工具之间切换时，请重装指定系统！
+4. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
