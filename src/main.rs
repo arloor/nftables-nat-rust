@@ -66,6 +66,6 @@ fn main() {
         }
 
         //等待60秒
-        sleep(Duration::new(6, 0));
+        sleep(Duration::new(60, 0));
     }
 }

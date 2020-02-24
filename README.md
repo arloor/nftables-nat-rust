@@ -31,13 +31,13 @@ fi
 # sudo su
 
 # 下载可执行文件
-wget -O /usr/local/bin/nat http://cdn.arloor.com/test/nat
+wget -O /usr/local/bin/nat http://cdn.arloor.com/tool/dnat
 chmod +x /usr/local/bin/nat
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat.conf <<EOF
-SINGLE,443,443,baidu.com
-RANGE,1000,2000,baidu.com
+SINGLE,49999,59999,baidu.com
+RANGE,50000,50010,baidu.com
 EOF
 
 # 创建systemd服务
@@ -69,13 +69,13 @@ systemctl start nat
 `/etc/nat.conf`如下：
 
 ```$xslt
-SINGLE,443,443,baidu.com
-RANGE,1000,2000,baidu.com
+SINGLE,49999,59999,baidu.com
+RANGE,50000,50010,baidu.com
 ```
 
 - 每行代表一个规则；每行以英文逗号分隔；逗号前后不能有空格
-- SINGLE：单端口转发：本机443端口转发到baidu.com:443
-- RANGE：范围端口转发：本机1000-2000转发到baidu.com:1000-2000
+- SINGLE：单端口转发：本机49999端口转发到baidu.com:59999
+- RANGE：范围端口转发：本机50000-50010转发到baidu.com:50000-50010
 
 请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
@@ -89,5 +89,7 @@ RANGE,1000,2000,baidu.com
 
 ## 一些需要注意的东西
 
-1. 本机多个网卡的情况未作测试（大概率会有问题）
-2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+1. 本工具会清空所有防火墙规则（当然，防火墙没那么重要～
+2. 本机多个网卡的情况未作测试（大概率会有问题）
+3. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+4. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)，在两个工具之间切换时，请重装指定系统！

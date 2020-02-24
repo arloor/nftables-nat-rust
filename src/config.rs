@@ -97,22 +97,22 @@ pub fn read_config(conf: String) -> Vec<nat_cell> {
     for str in strs {
         let cells = str.trim().split(",").collect::<Vec<&str>>();
         if cells.len() == 4 {
-            if cells[0] == "RANGE" {
+            if cells[0].trim() == "RANGE" {
                 nat_cells.push(nat_cell::RANGE {
-                    port_start: cells[1].parse::<i32>().unwrap(),
-                    port_end: cells[2].parse::<i32>().unwrap(),
-                    remote_domain: String::from(cells[3]),
+                    port_start: cells[1].trim().parse::<i32>().unwrap(),
+                    port_end: cells[2].trim().parse::<i32>().unwrap(),
+                    remote_domain: String::from(cells[3].trim()),
                 });
             }
-            if cells[0] == "SINGLE" {
+            if cells[0].trim() == "SINGLE" {
                 nat_cells.push(nat_cell::SINGLE {
-                    local_port: cells[1].parse::<i32>().unwrap(),
-                    remote_port: cells[2].parse::<i32>().unwrap(),
-                    remote_domain: String::from(cells[3]),
+                    local_port: cells[1].trim().parse::<i32>().unwrap(),
+                    remote_port: cells[2].trim().parse::<i32>().unwrap(),
+                    remote_domain: String::from(cells[3].trim()),
                 });
             }
         } else if str.trim().len() != 0 {
-            println!("{} is not valid", str)
+            println!("#! {} is not valid", str)
         }
     }
     nat_cells
