@@ -2,7 +2,7 @@
 
 ## centos8 nftables nat规则生成工具
 
-> 仅适用于centos8、redhat8
+> 仅适用于centos8、redhat8、fedora31
 
 ## 准备工作
 
@@ -24,56 +24,70 @@ fi
 ```
 
 
-## 使用方式：
+## 使用说明
 
 ```
-wget -O nat http://cdn.arloor.com/tool/nat
-chmod +x nat
-./nat nat.conf
+# 必须是root用户
+# sudo su
+
+# 下载可执行文件
+wget -O /usr/local/bin/nat http://cdn.arloor.com/test/nat
+chmod +x /usr/local/bin/nat
+
+# 生成配置文件，配置文件可按需求修改（请看下文）
+cat > /etc/nat.conf <<EOF
+SINGLE,443,443,baidu.com
+RANGE,1000,2000,baidu.com
+EOF
+
+# 创建systemd服务
+cat > /lib/systemd/system/nat.service <<EOF
+[Unit]
+Description=动态设置nat规则
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/socks5
+ExecStart=/usr/local/bin/nat /etc/nat.conf
+LimitNOFILE=100000
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 设置开机启动，并启动该服务
+systemctl daemon-reload
+systemctl enable nat
+systemctl start nat
 ```
 
-其中`nat.conf`类似如下：
+**配置文件内容说明**
+
+`/etc/nat.conf`如下：
 
 ```$xslt
 SINGLE,443,443,baidu.com
 RANGE,1000,2000,baidu.com
 ```
 
-- 每行代表一个规则
+- 每行代表一个规则；每行以英文逗号分隔；逗号前后不能有空格
 - SINGLE：单端口转发：本机443端口转发到baidu.com:443
 - RANGE：范围端口转发：本机1000-2000转发到baidu.com:1000-2000
 
-## 输出示例
-
-```$xslt
-nftables脚本如下：
-#!/usr/sbin/nft -f
-
-flush ruleset
-add table ip nat
-add chain nat PREROUTING { type nat hook prerouting priority -100 ; }
-add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }
-
-#SINGLE { local_port: 10000, remote_port: 443, remote_domain: "baidu.com" }
-add rule ip nat PREROUTING tcp dport 10000 counter dnat to 39.156.69.79:443
-add rule ip nat PREROUTING udp dport 10000 counter dnat to 39.156.69.79:443
-add rule ip nat POSTROUTING ip daddr 39.156.69.79 tcp dport 443 counter snat to 172.17.37.225
-add rule ip nat POSTROUTING ip daddr 39.156.69.79 udp dport 443 counter snat to 172.17.37.225
-
-#RANGE { port_start: 1000, port_end: 2000, remote_domain: "baidu.com" }
-add rule ip nat PREROUTING tcp dport 1000-2000 counter dnat to 220.181.38.148:1000-2000
-add rule ip nat PREROUTING udp dport 1000-2000 counter dnat to 220.181.38.148:1000-2000
-add rule ip nat POSTROUTING ip daddr 220.181.38.148 tcp dport 1000-2000 counter snat to 172.17.37.225
-add rule ip nat POSTROUTING ip daddr 220.181.38.148 udp dport 1000-2000 counter snat to 172.17.37.225
+请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
 
-执行/usr/sbin/nft -f temp.nft
-执行结果: exit code: 0
-```
+## 优势
 
-## 注意
+1. 实现动态nat：自动探测配置文件和目标域名IP的变化
+2. 支持IP和域名
+3. 以配置文件保存转发规则，可备份或迁移到其他机器
+4. 自动探测本机ip
 
-1. 重启会转发规则会失效，此时重新执行`./nat nat.conf`即可
-2. 当本机ip或目标主机ip变化时，需要手动执行`./nat nat.conf`
-3. 本机多个网卡的情况未作测试
-4. 本工具在centos8上有效，其他发行版未作测试
+## 一些需要注意的东西
+
+1. 本机多个网卡的情况未作测试（大概率会有问题）
+2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
