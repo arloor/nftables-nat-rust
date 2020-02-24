@@ -48,7 +48,6 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/socks5
 ExecStart=/usr/local/bin/nat /etc/nat.conf
 LimitNOFILE=100000
 Restart=always
