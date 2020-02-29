@@ -9,6 +9,7 @@
 1. 关闭firewalld
 2. 关闭selinux
 3. 开启内核端口转发
+4. 安装nftables（一般情况下，centos8默认包含nftables，但是依然加上这一步）
 
 以下一键完成：
 
@@ -21,6 +22,7 @@ sed -n '/^net.ipv4.ip_forward=1/'p /etc/sysctl.conf | grep -q "net.ipv4.ip_forwa
 if [ $? -ne 0 ]; then
     echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
 fi
+yum install -y  nftables
 ```
 
 
