@@ -2,7 +2,7 @@
 
 ## centos8 nftables nat规则生成工具
 
-用途：便捷地设置nat流量转发规则
+用途：便捷地设置nat流量转发
 
 > 仅适用于centos8、redhat8、fedora31
 
