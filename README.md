@@ -32,6 +32,14 @@ fi
 yum install -y  nftables
 ```
 
+**debian系说明** 如果有朋友非常不想用centos8，也可以用可以装nftables的debian系系统，但是需要执行两个额外操作：
+
+```
+1. 安装nftabls（如果你进群问我debian怎么装nftables，我会很崩溃的）
+2. mkdir /etc/nftables
+```
+
+感谢[issue 1](https://github.com/arloor/nftables-nat-rust/issues/1)
 
 ## 使用说明
 
