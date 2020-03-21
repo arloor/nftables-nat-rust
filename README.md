@@ -1,10 +1,10 @@
 -----------------------------------------------------------------
 
-## centos8 nftables nat规则生成工具
+## nftables nat规则生成工具
 
 用途：便捷地设置nat流量转发
 
-> 仅适用于centos8、redhat8、fedora31
+> 适用于centos8、redhat8、fedora31和支持nftables的debian系linux发行版
 
 ## 电报讨论组
 
@@ -15,7 +15,7 @@
 1. 关闭firewalld
 2. 关闭selinux
 3. 开启内核端口转发
-4. 安装nftables（一般情况下，centos8默认包含nftables，但是依然加上这一步）
+4. 安装nftables（一般情况下，centos8默认包含nftables）
 
 以下一键完成：
 
@@ -32,12 +32,7 @@ fi
 yum install -y  nftables
 ```
 
-**debian系说明** 如果有朋友非常不想用centos8，也可以用可以装nftables的debian系系统，但是需要执行两个额外操作：
-
-```
-1. 安装nftabls（如果你进群问我debian怎么装nftables，我会很崩溃的）
-2. mkdir /etc/nftables
-```
+**debian系说明** 请自行使用apt安装nftables
 
 感谢[issue 1](https://github.com/arloor/nftables-nat-rust/issues/1)
 
