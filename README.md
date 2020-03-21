@@ -2,13 +2,20 @@
 
 ## centos8 nftables nat规则生成工具
 
+用途：便捷地设置nat流量转发
+
 > 仅适用于centos8、redhat8、fedora31
+
+## 电报讨论组
+
+电报讨论组 https://t.me/popstary
 
 ## 准备工作
 
 1. 关闭firewalld
 2. 关闭selinux
 3. 开启内核端口转发
+4. 安装nftables（一般情况下，centos8默认包含nftables，但是依然加上这一步）
 
 以下一键完成：
 
@@ -18,11 +25,21 @@ systemctl disable firewalld
 setenforce 0
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config  
 sed -n '/^net.ipv4.ip_forward=1/'p /etc/sysctl.conf | grep -q "net.ipv4.ip_forward=1"
+echo 1 > /proc/sys/net/ipv4/ip_forward
 if [ $? -ne 0 ]; then
     echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
 fi
+yum install -y  nftables
 ```
 
+**debian系说明** 如果有朋友非常不想用centos8，也可以用可以装nftables的debian系系统，但是需要执行两个额外操作：
+
+```
+1. 安装nftabls（如果你进群问我debian怎么装nftables，我会很崩溃的）
+2. mkdir /etc/nftables
+```
+
+感谢[issue 1](https://github.com/arloor/nftables-nat-rust/issues/1)
 
 ## 使用说明
 
@@ -31,13 +48,13 @@ fi
 # sudo su
 
 # 下载可执行文件
-wget -O /usr/local/bin/nat http://cdn.arloor.com/test/nat
+wget -O /usr/local/bin/nat http://cdn.arloor.com/tool/dnat
 chmod +x /usr/local/bin/nat
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat.conf <<EOF
-SINGLE,443,443,baidu.com
-RANGE,1000,2000,baidu.com
+SINGLE,49999,59999,baidu.com
+RANGE,50000,50010,baidu.com
 EOF
 
 # 创建systemd服务
@@ -48,7 +65,6 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/socks5
 ExecStart=/usr/local/bin/nat /etc/nat.conf
 LimitNOFILE=100000
 Restart=always
@@ -69,25 +85,41 @@ systemctl start nat
 `/etc/nat.conf`如下：
 
 ```$xslt
-SINGLE,443,443,baidu.com
-RANGE,1000,2000,baidu.com
+SINGLE,49999,59999,baidu.com
+RANGE,50000,50010,baidu.com
 ```
 
-- 每行代表一个规则；每行以英文逗号分隔；逗号前后不能有空格
-- SINGLE：单端口转发：本机443端口转发到baidu.com:443
-- RANGE：范围端口转发：本机1000-2000转发到baidu.com:1000-2000
+- 每行代表一个规则；行内以英文逗号分隔为4段内容
+- SINGLE：单端口转发：本机49999端口转发到baidu.com:59999
+- RANGE：范围端口转发：本机50000-50010转发到baidu.com:50000-50010
+- 请确保配置文件符合格式要求，否则程序可能会出现不可预期的错误，包括但不限于你和你的服务器炸掉（认真
 
-请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
+如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
 
 ## 优势
 
-1. 实现动态nat：自动探测配置文件和目标域名IP的变化
+1. 实现动态nat：自动探测配置文件和目标域名IP的变化，除变更配置外无需任何手工介入
 2. 支持IP和域名
 3. 以配置文件保存转发规则，可备份或迁移到其他机器
 4. 自动探测本机ip
+5. 开机自启动
+6. 支持端口段
 
 ## 一些需要注意的东西
 
-1. 本机多个网卡的情况未作测试（大概率会有问题）
-2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+1. 本工具会清空所有防火墙规则（当然，防火墙没那么重要～
+2. 本机多个网卡的情况未作测试（大概率会有问题）
+3. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+4. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
+
+## 如何停止以及卸载
+
+```shell
+## 停止定时监听域名解析地任务
+service nat stop
+## 清空nat规则
+nft flush ruleset
+## 禁止开机启动
+systemctl disable nat
+```
