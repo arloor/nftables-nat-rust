@@ -11,6 +11,11 @@ use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 
 fn main() {
+    match std::fs::write("/proc/sys/net/ipv4/ip_forward","1") {
+        Ok(s)=>{println!("ip_forward enabled!\n")}
+        Err(e)=>{println!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n",e)}
+    };
+
     let args: Vec<String> = env::args().collect();
     let mut latest_script = String::new();
 
