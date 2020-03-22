@@ -101,7 +101,7 @@ RANGE,50000,50010,baidu.com
 
 ## 一些需要注意的东西
 
-1. 本机多个网卡的情况未作测试（大概率会有问题）
+1. 不支持多网卡
 2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
 3. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
 
