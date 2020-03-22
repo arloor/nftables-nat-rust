@@ -35,8 +35,7 @@ fn main() {
         let script_prefix = String::from("#!/usr/sbin/nft -f\n\
     \n\
     add table ip nat\n\
-    flush table ip nat\n\
-    \n\
+    delete table ip nat\n\
     add table ip nat\n\
     add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
     add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\n");
