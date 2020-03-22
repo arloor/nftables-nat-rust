@@ -32,9 +32,7 @@ fi
 yum install -y  nftables
 ```
 
-**debian系说明** 请自行使用apt安装nftables
-
-感谢[issue 1](https://github.com/arloor/nftables-nat-rust/issues/1)
+**debian系说明** 请自行使用apt安装nftables，并禁用iptables
 
 ## 使用说明
 
@@ -103,10 +101,9 @@ RANGE,50000,50010,baidu.com
 
 ## 一些需要注意的东西
 
-1. 本工具会清空所有防火墙规则（当然，防火墙没那么重要～
-2. 本机多个网卡的情况未作测试（大概率会有问题）
-3. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
-4. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
+1. 本机多个网卡的情况未作测试（大概率会有问题）
+2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+3. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
 
 ## 如何停止以及卸载
 
@@ -118,3 +115,8 @@ nft flush ruleset
 ## 禁止开机启动
 systemctl disable nat
 ```
+
+## 致谢
+
+1. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
+2. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
