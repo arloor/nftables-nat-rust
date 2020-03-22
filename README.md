@@ -111,7 +111,8 @@ RANGE,50000,50010,baidu.com
 ## 停止定时监听域名解析地任务
 service nat stop
 ## 清空nat规则
-nft flush ruleset
+nft add table ip nat
+nft delete table ip nat
 ## 禁止开机启动
 systemctl disable nat
 ```
