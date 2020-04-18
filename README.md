@@ -44,16 +44,10 @@ yum install -y  nftables
 wget -O /usr/local/bin/nat http://cdn.arloor.com/tool/dnat
 chmod +x /usr/local/bin/nat
 
-# 生成配置文件，配置文件可按需求修改（请看下文）
-cat > /etc/nat.conf <<EOF
-SINGLE,49999,59999,baidu.com
-RANGE,50000,50010,baidu.com
-EOF
-
 # 创建systemd服务
 cat > /lib/systemd/system/nat.service <<EOF
 [Unit]
-Description=动态设置nat规则
+Description=dnat-service
 After=network-online.target
 Wants=network-online.target
 
@@ -71,6 +65,12 @@ EOF
 systemctl daemon-reload
 systemctl enable nat
 systemctl start nat
+
+# 生成配置文件，配置文件可按需求修改（请看下文）
+cat > /etc/nat.conf <<EOF
+SINGLE,49999,59999,baidu.com
+RANGE,50000,50010,baidu.com
+EOF
 ```
 
 **配置文件内容说明**
