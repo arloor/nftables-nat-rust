@@ -64,13 +64,14 @@ EOF
 # 设置开机启动，并启动该服务
 systemctl daemon-reload
 systemctl enable nat
-systemctl start nat
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat.conf <<EOF
 SINGLE,49999,59999,baidu.com
 RANGE,50000,50010,baidu.com
 EOF
+
+systemctl start nat
 ```
 
 **自定义转发规则**
