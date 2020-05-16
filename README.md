@@ -122,3 +122,13 @@ systemctl disable nat
 
 1. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
 2. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
+
+## 关于centos8
+
+有些小云服务商没有提供centos8镜像，这里提供一个内存大于2G内存的vps上安装centos8的一键脚本。
+
+```
+wget -O kickstart.sh http://arloor.com/centos8-kickstart-from-centos7.sh && bash kickstart.sh -a
+```
+
+详情见: [从Centos7网络安装Centos8](https://arloor.com/posts/linux/netinstall-centos8/)
