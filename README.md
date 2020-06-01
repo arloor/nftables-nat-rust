@@ -138,3 +138,7 @@ wget -O kickstart.sh http://arloor.com/centos8-kickstart-from-centos7.sh && bash
 ```
 
 详情见: [从Centos7网络安装Centos8](https://arloor.com/posts/linux/netinstall-centos8/)
+
+## 赏个鸡腿吧
+
+<img src="http://cdn.arloor.com/wechat_shoukuan.jpg" alt="" width="400px" style="max-width: 100%;">
