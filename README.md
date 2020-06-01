@@ -123,7 +123,7 @@ systemctl disable nat
 1. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
 2. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
 
-## 关于trojan转发的问题
+## 关于trojan转发
 
 总是有人说，不能转发trojan，这么说的人大部分是证书配置不对。最简单的解决方案是：客户端选择不验证证书。复杂一点是自己把证书和中转机的域名搭配好。
 
