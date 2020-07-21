@@ -138,7 +138,12 @@ systemctl disable nat
 
 项目内有一个`nat.py`，他实现了按需转发tcp、udp、tcp_and_udp的功能。使用方式如下：
 
+首先，做好[准备工作](https://github.com/arloor/nftables-nat-rust#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C)
+
+然后：
+
 ```
+wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O nat.py
 (python3 nat.py /etc/nat.conf &)
 ```
 
