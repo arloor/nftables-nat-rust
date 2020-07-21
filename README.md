@@ -134,7 +134,13 @@ systemctl disable nat
 
 ### 能不能单独转发udp
 
-没有精力搞，不准备支持，所以不要再问啦
+~~没有精力搞，不准备支持，所以不要再问啦~~
+
+项目内有一个`nat.py`，他实现了按需转发tcp、udp、tcp_and_udp的功能。使用方式如下：
+
+```
+(python3 nat.py /etc/nat.conf &)
+```
 
 ## 关于centos8
 
