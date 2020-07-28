@@ -118,4 +118,4 @@ if __name__ == "__main__":
                 else:
                     print("更新nftables成功，等待发现变更\n")
             old_nft_rule = nft_rule
-            time.sleep(120)
+        time.sleep(120)
