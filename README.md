@@ -141,7 +141,7 @@ systemctl disable nat
 然后：
 
 ```
-wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O -O /usr/local/bin/nat.py
+wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O /usr/local/bin/nat.py
 cat > /lib/systemd/system/nat.service <<EOF
 [Unit]
 Description=dnat-service
@@ -150,7 +150,7 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=/
-ExecStart=/usr/bin/python3 /etc/nat.conf
+ExecStart=/usr/bin/python3 /usr/local/bin/nat.py /etc/nat.conf
 LimitNOFILE=100000
 Restart=always
 RestartSec=60
