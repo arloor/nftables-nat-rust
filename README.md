@@ -132,9 +132,7 @@ systemctl disable nat
 
 小白记住一句话就好：客户端不验证证书。
 
-### 能不能单独转发udp
-
-~~没有精力搞，不准备支持，所以不要再问啦~~
+### 单独转发udp
 
 项目内有一个`nat.py`，他实现了按需转发tcp、udp、tcp_and_udp的功能。使用方式如下：
 
@@ -143,8 +141,32 @@ systemctl disable nat
 然后：
 
 ```
-wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O nat.py
-(python3 nat.py /etc/nat.conf &)
+wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O -O /usr/local/bin/nat.py
+cat > /lib/systemd/system/nat.service <<EOF
+[Unit]
+Description=dnat-service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/
+ExecStart=/usr/bin/python3 /etc/nat.conf
+LimitNOFILE=100000
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable nat
+
+cat > /etc/nat.conf <<EOF
+SINGLE,49999,59999,baidu.com,udp
+RANGE,50000,50010,baidu.com
+EOF
+
+systemctl start nat
 ```
 
 ## 关于centos8
