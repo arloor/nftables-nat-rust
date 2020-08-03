@@ -36,10 +36,10 @@ for ((i=1; i<=$(cat /etc/nat.conf | grep -c ""); i++)); do
 
 	remote_ip=$(ping -w 1 -c 1 $(cat /etc/nat.conf | sed -n "${i}p" | cut -f4 -d,) | head -n 1 | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)
 	
-	if cat /etc/nat.conf | sed -n "${i}p" | grep -q SINGLE; then
+	if cat /etc/nat.conf | sed -n "${i}p" | grep -qE "^SINGLE"; then
 		local_port=$(cat /etc/nat.conf | sed -n "${i}p" | cut -f2 -d,)
 		remote_port=$(cat /etc/nat.conf | sed -n "${i}p" | cut -f3 -d,)
-	elif cat /etc/nat.conf | sed -n "${i}p" | grep -q RANGE; then
+	elif cat /etc/nat.conf | sed -n "${i}p" | grep -qE "^RANGE"; then
 		local_port="$(cat /etc/nat.conf | sed -n "${i}p" | cut -f2 -d,)-$(cat /etc/nat.conf | sed -n "${i}p" | cut -f3 -d,)"
 		remote_port=$local_port
 	else 
