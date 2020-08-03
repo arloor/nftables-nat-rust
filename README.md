@@ -174,6 +174,9 @@ systemctl start nat
 ```bash
 wget --no-check-certificate -O /opt/nft-nat.sh https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.sh
 chmod 755 /opt/nft-nat.sh
+### 运行脚本设置转发
+bash /opt/nft-nat.sh
+### 添加定时任务
 (crontab -l ; echo "0 */2 * * * /opt/nft-nat.sh") | crontab -
 ```
 
