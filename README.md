@@ -169,6 +169,14 @@ EOF
 systemctl start nat
 ```
 
+### 使用SHELL脚本转发
+使用定时任务运行转发脚本:
+```bash
+wget --no-check-certificate -O /opt/nft-nat.sh https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.sh
+chmod 755 /opt/nft-nat.sh
+(crontab -l ; echo "0 */2 * * * /opt/nft-nat.sh") | crontab -
+```
+
 ## 关于centos8
 
 有些小云服务商没有提供centos8镜像，这里提供一个内存大于2G内存的vps上安装centos8的一键脚本。
