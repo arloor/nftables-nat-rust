@@ -170,7 +170,7 @@ systemctl start nat
 ```
 
 ### 使用SHELL脚本转发
-使用定时任务运行转发脚本:
+项目内有一个nat.sh,使用方式如下：
 ```bash
 wget --no-check-certificate -O /opt/nft-nat.sh https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.sh
 chmod 755 /opt/nft-nat.sh
