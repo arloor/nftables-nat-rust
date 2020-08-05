@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 import socket
 import sys
 import time
@@ -32,6 +34,7 @@ nf_format = {
     }
 }
 
+
 def query(domain):
     addr = None
     with socket.socket(type=socket.SOCK_DGRAM) as s:
@@ -43,6 +46,7 @@ def query(domain):
             print("cannot find %s, %s" % (domain, err))
     return addr
 
+
 def local():
     local_addr = None
     with socket.socket(type=socket.SOCK_DGRAM) as s:
@@ -53,6 +57,7 @@ def local():
         except socket.gaierror as err:
             pass
     return local_addr
+
 
 def read_conf():
     args = sys.argv
@@ -100,6 +105,9 @@ def generate_nftables(conf_cells):
 
 
 if __name__ == "__main__":
+    with open("/proc/sys/net/ipv4/ip_forward", mode="w") as ip_forward:
+        ip_forward.write("1")
+        ip_forward.flush()
     old_nft_rule = ""
     while True:
         conf_cells = read_conf()
@@ -112,7 +120,8 @@ if __name__ == "__main__":
                 tmp.write(nft_rule)
                 tmp.flush()
                 try:
-                    p = subprocess.run('/usr/sbin/nft -f %s' % nft_tmp_file, check=True,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=1)
+                    p = subprocess.run('/usr/sbin/nft -f %s' % nft_tmp_file, check=True, shell=True,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=1)
                 except subprocess.CalledProcessError as err:
                     print("更新nftables规则失败，err：%s\n" % err)
                 else:
