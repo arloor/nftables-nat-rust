@@ -162,7 +162,7 @@ systemctl daemon-reload
 systemctl enable nat
 
 cat > /etc/nat.conf <<EOF
-SINGLE,49999,59999,baidu.com,udp
+SINGLE,49999,59999,baidu.com,tcp
 RANGE,50000,50010,baidu.com
 EOF
 
