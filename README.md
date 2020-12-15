@@ -181,4 +181,4 @@ wget -O kickstart.sh http://arloor.com/centos8-kickstart-from-centos7.sh && bash
 
 ## 赏个鸡腿吧
 
-<img src="http://cdn.arloor.com/wechat_shoukuan.jpg" alt="" width="400px" style="max-width: 100%;">
+<img src="/wechat_shoukuan.jpg" alt="" width="400px" style="max-width: 100%;">
