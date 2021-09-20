@@ -1,9 +1,8 @@
-mod IP;
+mod ip;
 mod config;
 
 use std::collections::HashMap;
 use std::process::{exit, Command};
-use crate::IP::remote_ip;
 use std::fs::File;
 use std::io::Write;
 use std::{io, env};
