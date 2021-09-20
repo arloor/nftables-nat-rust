@@ -24,11 +24,11 @@ impl nat_cell {
             nat_cell::SINGLE { remote_domain, .. } => remote_domain,
             nat_cell::RANGE { remote_domain, .. } => remote_domain
         };
-        let remoteIP = match ip::remote_ip(remote_domain) {
+        let remote_ip = match ip::remote_ip(remote_domain) {
             Some(s) => s,
             None => return "".to_string(),
         };
-        let localIP = match ip::local_ip() {
+        let local_ip = match ip::local_ip() {
             Some(s) => s,
             None => return "".to_string(),
         };
@@ -40,7 +40,7 @@ impl nat_cell {
                     add rule ip nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {remoteIP}:{portStart}-{portEnd}\n\
                     add rule ip nat POSTROUTING ip daddr {remoteIP} tcp dport {portStart}-{portEnd} counter snat to {localIP}\n\
                     add rule ip nat POSTROUTING ip daddr {remoteIP} udp dport {portStart}-{portEnd} counter snat to {localIP}\n\n\
-                    ", cell = self, portStart = port_start, portEnd = port_end, remoteIP = remoteIP, localIP = localIP)
+                    ", cell = self, portStart = port_start, portEnd = port_end, remoteIP = remote_ip, localIP = local_ip)
                 }
             nat_cell::SINGLE { local_port, remote_port, remote_domain } =>
                 {
@@ -49,7 +49,7 @@ impl nat_cell {
                     add rule ip nat PREROUTING udp dport {localPort} counter dnat to {remoteIP}:{remotePort}\n\
                     add rule ip nat POSTROUTING ip daddr {remoteIP} tcp dport {remotePort} counter snat to {localIP}\n\
                     add rule ip nat POSTROUTING ip daddr {remoteIP} udp dport {remotePort} counter snat to {localIP}\n\n\
-                    ", cell = self, localPort = local_port, remotePort = remote_port, remoteIP = remoteIP, localIP = localIP)
+                    ", cell = self, localPort = local_port, remotePort = remote_port, remoteIP = remote_ip, localIP = local_ip)
                 }
         }
     }
