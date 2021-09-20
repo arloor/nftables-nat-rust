@@ -11,9 +11,9 @@ use std::time::{Duration, SystemTime};
 
 fn main() {
     std::fs::create_dir_all("/etc/nftables");
-    match std::fs::write("/proc/sys/net/ipv4/ip_forward","1") {
-        Ok(s)=>{println!("kernel ip_forward config enabled!\n")}
-        Err(e)=>{println!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n",e)}
+    match std::fs::write("/proc/sys/net/ipv4/ip_forward", "1") {
+        Ok(s) => { println!("kernel ip_forward config enabled!\n") }
+        Err(e) => { println!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e) }
     };
 
     let args: Vec<String> = env::args().collect();
@@ -32,12 +32,12 @@ fn main() {
 
         //脚本的前缀
         let script_prefix = String::from("#!/usr/sbin/nft -f\n\
-    \n\
-    add table ip nat\n\
-    delete table ip nat\n\
-    add table ip nat\n\
-    add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
-    add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\n");
+        \n\
+        add table ip nat\n\
+        delete table ip nat\n\
+        add table ip nat\n\
+        add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
+        add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\n");
 
         let vec = config::read_config(conf);
         let mut script = String::new();
@@ -63,10 +63,10 @@ fn main() {
                     .arg("-f")
                     .arg("/etc/nftables/nat-diy.nft")
                     .output()
-                    .unwrap_or_else(|e| panic!("wg panic because:{}", e));
+                    .expect("/usr/sbin/nft invoke error");
                 println!("执行/usr/sbin/nft -f /etc/nftables/nat-diy.nft\n执行结果: {}", output.status);
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
+                io::stdout().write_all(&output.stdout).unwrap_or_else(|e| println!("error {}", e));
+                io::stderr().write_all(&output.stderr).unwrap_or_else(|e| println!("error {}", e));
                 println!("WAIT:等待配置或目标IP发生改变....\n");
             }
         }

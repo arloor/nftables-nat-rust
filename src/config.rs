@@ -57,13 +57,13 @@ impl nat_cell {
     pub fn get_target_ip(&self) -> (String, String) {
         match &self {
             nat_cell::RANGE { port_start, port_end, remote_domain } =>
-                (remote_domain.parse().unwrap(), match ip::remote_ip(remote_domain) {
+                (remote_domain.clone(), match ip::remote_ip(remote_domain) {
                     Some(s) => s,
                     None => "".to_string()
                 })
             ,
             nat_cell::SINGLE { local_port, remote_port, remote_domain } =>
-                (remote_domain.parse().unwrap(), match ip::remote_ip(remote_domain) {
+                (remote_domain.clone(), match ip::remote_ip(remote_domain) {
                     Some(s) => s,
                     None => "".to_string()
                 })
