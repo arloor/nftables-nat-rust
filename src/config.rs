@@ -75,6 +75,7 @@ impl NatCell {
             Some(s) => s,
             None => return "".to_string(),
         };
+        // 从环境变量读取本机ip或自动探测
         let local_ip = env::var("nat_local_ip").unwrap_or(
             match ip::local_ip() {
                 Some(s) => s,
