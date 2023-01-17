@@ -45,6 +45,7 @@ yum install -y  nftables
 # 必须是root用户
 # sudo su
 
+systemctl stop nat
 # 下载可执行文件
 wget -O /usr/local/bin/nat http://cdn.arloor.com/tool/dnat
 chmod +x /usr/local/bin/nat
@@ -57,6 +58,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+WorkingDirectory=/opt/nat
+EnvironmentFile=/opt/nat/env
 ExecStart=/usr/local/bin/nat /etc/nat.conf
 LimitNOFILE=100000
 Restart=always
@@ -70,6 +73,10 @@ EOF
 systemctl daemon-reload
 systemctl enable nat
 
+mkdir /opt/nat
+touch /opt/nat/env
+# echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
+
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat.conf <<EOF
 SINGLE,49999,59999,baidu.com
@@ -79,7 +86,7 @@ EOF
 systemctl start nat
 ```
 
-**自定义转发规则**
+**配置文件说明**
 
 `/etc/nat.conf`如下：
 
@@ -104,16 +111,17 @@ RANGE,50000,50010,baidu.com
 
 1. 实现动态nat：自动探测配置文件和目标域名IP的变化，除变更配置外无需任何手工介入
 2. 支持IP和域名
-3. 以配置文件保存转发规则，可备份或迁移到其他机器
-4. 自动探测本机ip
-5. 开机自启动
-6. 支持端口段
+3. 支持转发到本机其他端口（nat重定向）【2023.1.17更新】
+4. 以配置文件保存转发规则，可备份或迁移到其他机器
+5. 自动探测本机ip
+6. 支持自定义本机ip【2023.1.17更新】
+7. 开机自启动
+8. 支持端口段
 
 ## 一些需要注意的东西
 
-1. 不支持多网卡
-2. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
-3. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
+1. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
+2. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
 
 ## 如何停止以及卸载
 
