@@ -1,5 +1,4 @@
-// SINGLE,8100,8100,arloor.com
-// RANGE,1000,2000,arloor.com
+use std::env;
 use std::fs::{self, File};
 use crate::ip;
 use std::process::exit;
@@ -76,10 +75,11 @@ impl NatCell {
             Some(s) => s,
             None => return "".to_string(),
         };
-        let local_ip = match ip::local_ip() {
-            Some(s) => s,
-            None => return "".to_string(),
-        };
+        let local_ip = env::var("nat_local_ip").unwrap_or(
+            match ip::local_ip() {
+                Some(s) => s,
+                None => return "".to_string(),
+            });
 
         match &self {
             NatCell::RANGE { port_start, port_end, dst_domain, protocol } =>

@@ -11,6 +11,7 @@ use std::time::{Duration, SystemTime};
 
 fn main() {
     std::fs::create_dir_all("/etc/nftables");
+    // 修改内核参数，开启端口转发
     match std::fs::write("/proc/sys/net/ipv4/ip_forward", "1") {
         Ok(s) => { println!("kernel ip_forward config enabled!\n") }
         Err(e) => { println!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e) }
