@@ -88,6 +88,11 @@ RANGE,50000,50010,baidu.com
 - RANGE：范围端口转发：本机50000-50010转发到baidu.com:50000-50010
 - 请确保配置文件符合格式要求，否则程序可能会出现不可预期的错误，包括但不限于你和你的服务器炸掉（认真
 
+高级用法：
+
+1. **转发到本地**：行尾域名处填写localhost即可，例如`SINGLE,2222,22,localhost`，表示本机的2222端口重定向到本机的22端口。
+2. **仅转发tcp/udp流量**：行尾增加tcp/udp即可，例如`SINGLE,10000,443,baidu.com,tcp`表示仅转发tcp流量，`SINGLE,10000,443,baidu.com,udp`仅转发udp流量
+
 如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
 
@@ -131,53 +136,6 @@ systemctl disable nat
 总是有人说，不能转发trojan，这么说的人大部分是证书配置不对。最简单的解决方案是：客户端选择不验证证书。复杂一点是自己把证书和中转机的域名搭配好。
 
 小白记住一句话就好：客户端不验证证书。
-
-### 单独转发udp
-
-项目内有一个`nat.py`，他实现了按需转发tcp、udp、tcp_and_udp的功能。使用方式如下：
-
-首先，做好[准备工作](https://github.com/arloor/nftables-nat-rust#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C)
-
-然后：
-
-```
-wget https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/nat.py -O /usr/local/bin/nat.py
-cat > /lib/systemd/system/nat.service <<EOF
-[Unit]
-Description=dnat-service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-WorkingDirectory=/
-ExecStart=/usr/bin/python3 /usr/local/bin/nat.py /etc/nat.conf
-LimitNOFILE=100000
-Restart=always
-RestartSec=60
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable nat
-
-cat > /etc/nat.conf <<EOF
-SINGLE,49999,59999,baidu.com,tcp
-RANGE,50000,50010,baidu.com
-EOF
-
-systemctl start nat
-```
-
-## 关于centos8
-
-有些小云服务商没有提供centos8镜像，这里提供一个内存大于2G内存的vps上安装centos8的一键脚本。
-
-```
-wget -O kickstart.sh http://arloor.com/centos8-kickstart-from-centos7.sh && bash kickstart.sh -a
-```
-
-详情见: [从Centos7网络安装Centos8](https://arloor.com/posts/linux/netinstall-centos8/)
 
 ## 赏个鸡腿吧
 
