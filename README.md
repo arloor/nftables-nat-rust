@@ -41,7 +41,7 @@ yum install -y  nftables
 
 ## 使用说明
 
-```
+```shell
 # 必须是root用户
 # sudo su
 
