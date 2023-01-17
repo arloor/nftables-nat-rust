@@ -137,6 +137,12 @@ systemctl disable nat
 
 小白记住一句话就好：客户端不验证证书。
 
+### 如何查看最终的nftables规则
+
+```shell
+nft list ruleset
+```
+
 ## 赏个鸡腿吧
 
 <img src="/wechat_shoukuan.jpg" alt="" width="400px" style="max-width: 100%;">
