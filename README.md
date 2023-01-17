@@ -19,16 +19,21 @@
 
 以下一键完成：
 
-```$xslt
+```shell
+# 关闭firewalld
 service firewalld stop
 systemctl disable firewalld
+# 关闭selinux
 setenforce 0
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config  
+# 修改内存参数，开启端口转发
 echo 1 > /proc/sys/net/ipv4/ip_forward
+sed -i '/^net.ipv4.ip_forward=0/'d /etc/sysctl.conf
 sed -n '/^net.ipv4.ip_forward=1/'p /etc/sysctl.conf | grep -q "net.ipv4.ip_forward=1"
 if [ $? -ne 0 ]; then
     echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
 fi
+# 确保nftables已安装
 yum install -y  nftables
 ```
 
@@ -95,7 +100,6 @@ RANGE,50000,50010,baidu.com
 
 如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
-
 ## 优势
 
 1. 实现动态nat：自动探测配置文件和目标域名IP的变化，除变更配置外无需任何手工介入
@@ -127,7 +131,6 @@ systemctl disable nat
 
 1. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
 2. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
-
 
 ## 常问问题
 
