@@ -4,7 +4,7 @@
 
 用途：便捷地设置nat流量转发
 
-> 适用于centos8、redhat8、fedora31和支持nftables的debian系linux发行版如debian10
+> 适用于centos8及以后的redhat系发行版和支持nftables的debian系linux发行版如debian10
 
 ## 优势
 
