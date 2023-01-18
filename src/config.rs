@@ -3,7 +3,7 @@ use std::fs::{self, File};
 use crate::ip;
 use std::process::exit;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum Protocol {
     ALL,
     TCP,
@@ -161,14 +161,15 @@ pub fn read_config(conf: String) -> Vec<NatCell> {
                     dst_domain: String::from(cells[3].trim()),
                     protocol: protocal,
                 });
-            }
-            if cells[0].trim() == "SINGLE" {
+            } else if cells[0].trim() == "SINGLE" {
                 nat_cells.push(NatCell::SINGLE {
                     src_port: cells[1].trim().parse::<i32>().unwrap(),
                     dst_port: cells[2].trim().parse::<i32>().unwrap(),
                     dst_domain: String::from(cells[3].trim()),
                     protocol: protocal,
                 });
+            } else {
+                println!("#! {} is not valid", str)
             }
         } else if str.trim().len() != 0 {
             println!("#! {} is not valid", str)
