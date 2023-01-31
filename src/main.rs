@@ -1,6 +1,7 @@
 mod ip;
 mod config;
 
+use log::info;
 use std::collections::HashMap;
 use std::process::{exit, Command};
 use std::fs::File;
@@ -8,13 +9,39 @@ use std::io::Write;
 use std::{io, env};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
+use log::LevelFilter;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::file::FileAppender;
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::config::{Appender, Config, Logger, Root};
+
+fn init_log() {
+    let stdout = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("[Console] {d} - {l} -{t} - {m}{n}")))
+        .build();
+
+    let file = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("[File] {d} - {l} - {t} - {m}{n}")))
+        .build("log/nat.log")
+        .unwrap();
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .appender(Appender::builder().build("file", Box::new(file)))
+        .build(Root::builder().appender("stdout").appender("file").build(LevelFilter::Info))
+        .unwrap();
+
+    let _ = log4rs::init_config(config).unwrap();
+}
 
 fn main() {
+    init_log();
+    
     std::fs::create_dir_all("/etc/nftables");
     // 修改内核参数，开启端口转发
     match std::fs::write("/proc/sys/net/ipv4/ip_forward", "1") {
-        Ok(s) => { println!("kernel ip_forward config enabled!\n") }
-        Err(e) => { println!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e) }
+        Ok(s) => { info!("kernel ip_forward config enabled!\n") }
+        Err(e) => { info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e) }
     };
 
     let args: Vec<String> = env::args().collect();
@@ -24,7 +51,7 @@ fn main() {
         let mut conf = String::new();
         if args.len() != 2 {
             let conf = "nat.conf".to_string();
-            println!("{}{}", "使用方式：nat ", conf);
+            info!("{}{}", "使用方式：nat ", conf);
             config::example(&conf);
             return;
         } else {
@@ -52,7 +79,7 @@ fn main() {
 
         //如果是linux，且生成的脚本产生变化，则写到文件，并且执行
         if script != latest_script {
-            println!("nftables脚本如下：\n{}", script);
+            info!("nftables脚本如下：\n{}", script);
             latest_script = script.clone();
             if cfg!(target_os = "linux") {
                 let mut f = File::create("/etc/nftables/nat-diy.nft");
@@ -65,10 +92,10 @@ fn main() {
                     .arg("/etc/nftables/nat-diy.nft")
                     .output()
                     .expect("/usr/sbin/nft invoke error");
-                println!("执行/usr/sbin/nft -f /etc/nftables/nat-diy.nft\n执行结果: {}", output.status);
-                io::stdout().write_all(&output.stdout).unwrap_or_else(|e| println!("error {}", e));
-                io::stderr().write_all(&output.stderr).unwrap_or_else(|e| println!("error {}", e));
-                println!("WAIT:等待配置或目标IP发生改变....\n");
+                info!("执行/usr/sbin/nft -f /etc/nftables/nat-diy.nft\n执行结果: {}", output.status);
+                io::stdout().write_all(&output.stdout).unwrap_or_else(|e| info!("error {}", e));
+                io::stderr().write_all(&output.stderr).unwrap_or_else(|e| info!("error {}", e));
+                info!("WAIT:等待配置或目标IP发生改变....\n");
             }
         }
 

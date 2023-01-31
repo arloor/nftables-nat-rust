@@ -3,3 +3,4 @@
 **/*.rs.bk
 *.iml
 temp.nft
+/log

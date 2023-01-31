@@ -62,7 +62,8 @@ chmod +x /usr/local/bin/nat
 # 创建systemd服务
 cat > /lib/systemd/system/nat.service <<EOF
 [Unit]
-Description=dnat-service
+Descri
+ption=dnat-service
 After=network-online.target
 Wants=network-online.target
 
@@ -158,6 +159,20 @@ echo "nat_local_ip=10.10.10.10" > /opt/nat/env
 
 ```shell
 nft list ruleset
+```
+
+### 查看日志
+
+执行
+
+```shell
+cat /opt/nat/log/nat.log
+```
+
+或执行
+
+```shell
+journalctl -exu nat
 ```
 
 ## 联系
