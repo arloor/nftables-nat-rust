@@ -62,8 +62,7 @@ chmod +x /usr/local/bin/nat
 # 创建systemd服务
 cat > /lib/systemd/system/nat.service <<EOF
 [Unit]
-Descri
-ption=dnat-service
+Description=dnat-service
 After=network-online.target
 Wants=network-online.target
 
