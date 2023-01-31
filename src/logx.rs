@@ -4,13 +4,13 @@ use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Logger, Root};
 
-pub(crate) fn init_log(logPath:&str) {
+pub fn init_log(logPath:&str) {
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[Console] {d} - {l} -{t} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} - {l} -{t} - {m}{n}")))
         .build();
 
     let file = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[File] {d} - {l} - {t} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {t} - {m}{n}")))
         .build(logPath)
         .unwrap();
 

@@ -11,13 +11,16 @@ use std::{io, env};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 
+const LOG_PATH: &str = "log/nat.log";
+const NFTABLES_ETC: &str = "/etc/nftables";
+const IP_FORWARD: &str="/proc/sys/net/ipv4/ip_forward";
 
 fn main() {
-    logx::init_log("log/nat.log");
+    logx::init_log(LOG_PATH);
 
-    std::fs::create_dir_all("/etc/nftables");
+    std::fs::create_dir_all(NFTABLES_ETC);
     // 修改内核参数，开启端口转发
-    match std::fs::write("/proc/sys/net/ipv4/ip_forward", "1") {
+    match std::fs::write(IP_FORWARD, "1") {
         Ok(s) => { info!("kernel ip_forward config enabled!\n") }
         Err(e) => { info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e) }
     };
