@@ -2,6 +2,7 @@ use std::env;
 use std::fs::{self, File};
 use crate::ip;
 use std::process::exit;
+use log::info;
 
 #[derive(Debug)]
 pub enum Protocol {
@@ -130,8 +131,8 @@ impl NatCell {
 
 
 pub fn example(conf: &String) {
-    println!("请在 {} 编写转发规则，内容类似：", &conf);
-    println!("{}", "SINGLE,10000,443,baidu.com\n\
+    info!("请在 {} 编写转发规则，内容类似：", &conf);
+    info!("{}", "SINGLE,10000,443,baidu.com\n\
                     RANGE,1000,2000,baidu.com")
 }
 
@@ -169,10 +170,10 @@ pub fn read_config(conf: String) -> Vec<NatCell> {
                     protocol: protocal,
                 });
             } else {
-                println!("#! {} is not valid", str)
+                info!("#! {} is not valid", str)
             }
         } else if str.trim().len() != 0 {
-            println!("#! {} is not valid", str)
+            info!("#! {} is not valid", str)
         }
     }
     nat_cells
