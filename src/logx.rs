@@ -1,24 +1,38 @@
-use log::LevelFilter;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::config::{Appender, Config, Logger, Root};
+use flexi_logger::{Duplicate, Criterion, Naming, Cleanup, Logger, FileSpec, DeferredNow};
+use log::Record;
 
-pub fn init_log(logPath:&str) {
-    let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} - {l} -{t} - {m}{n}")))
-        .build();
-
-    let file = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {t} - {m}{n}")))
-        .build(logPath)
+pub fn init_log(log_dir: &str, log_file: &str) {
+    Logger::try_with_env_or_str("info").unwrap()
+        .log_to_file(FileSpec::default()
+            .directory(log_dir)
+            .basename(log_file)
+            .suffix(""))
+        .duplicate_to_stdout(Duplicate::All)
+        .rotate(
+            Criterion::Size(10_000_000), // 例如, 每 10MB 切割
+            Naming::Timestamps,
+            Cleanup::KeepLogFiles(3), // 保留最新的3个日志文件
+        )
+        .append()
+        .format(my_format)
+        .create_symlink(format!("{}/{}", log_dir, log_file))
+        .start()
         .unwrap();
+}
 
-    let config = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .appender(Appender::builder().build("file", Box::new(file)))
-        .build(Root::builder().appender("stdout").appender("file").build(LevelFilter::Info))
-        .unwrap();
-
-    let _ = log4rs::init_config(config).unwrap();
+fn my_format(
+    w: &mut dyn std::io::Write,
+    now: &mut DeferredNow,
+    record: &Record,
+) -> Result<(), std::io::Error> {
+    write!(
+        w,
+        "{} [{}] {}",
+        // now.format("%Y-%m-%d %H:%M:%S%.6f"),
+        now.format("%Y-%m-%d %H:%M:%S"),
+        record.level(),
+        // record.file().unwrap_or("<unnamed>"),
+        // record.line().unwrap_or(0),
+        &record.args()
+    )
 }

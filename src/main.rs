@@ -16,7 +16,7 @@ const NFTABLES_ETC: &str = "/etc/nftables";
 const IP_FORWARD: &str="/proc/sys/net/ipv4/ip_forward";
 
 fn main() {
-    logx::init_log(LOG_PATH);
+    logx::init_log("log","nat.log");
 
     std::fs::create_dir_all(NFTABLES_ETC);
     // 修改内核参数，开启端口转发

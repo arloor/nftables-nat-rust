@@ -73,14 +73,14 @@ impl NatCell {
             NatCell::RANGE { dst_domain, .. } => dst_domain
         };
         let dst_ip = match ip::remote_ip(dst_domain) {
-            Some(s) => s,
-            None => return "".to_string(),
+            Ok(s) => s,
+            Err(_) => return "".to_string(),
         };
         // 从环境变量读取本机ip或自动探测
         let local_ip = env::var("nat_local_ip").unwrap_or(
             match ip::local_ip() {
-                Some(s) => s,
-                None => return "".to_string(),
+                Ok(s) => s,
+                Err(_) => return "".to_string(),
             });
 
         match &self {
@@ -116,14 +116,14 @@ impl NatCell {
         match &self {
             NatCell::RANGE { port_start, port_end, dst_domain: remote_domain, protocol } =>
                 (remote_domain.clone(), match ip::remote_ip(remote_domain) {
-                    Some(s) => s,
-                    None => "".to_string()
+                    Ok(s) => s,
+                    Err(_) => "".to_string()
                 })
             ,
             NatCell::SINGLE { src_port: local_port, dst_port: remote_port, dst_domain: remote_domain, protocol } =>
                 (remote_domain.clone(), match ip::remote_ip(remote_domain) {
-                    Some(s) => s,
-                    None => "".to_string()
+                    Ok(s) => s,
+                    Err(_) => "".to_string()
                 })
         }
     }
