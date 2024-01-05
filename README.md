@@ -53,11 +53,9 @@ yum install -y  nftables
 ```shell
 # 必须是root用户
 # sudo su
-
-systemctl stop nat
 # 下载可执行文件
-wget -O /usr/local/bin/nat http://cdn.arloor.com/tool/dnat
-chmod +x /usr/local/bin/nat
+curl -sSLf https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
+install /tmp/nat /usr/local/bin/nat
 
 # 创建systemd服务
 cat > /lib/systemd/system/nat.service <<EOF
@@ -92,7 +90,7 @@ SINGLE,49999,59999,baidu.com
 RANGE,50000,50010,baidu.com
 EOF
 
-systemctl start nat
+systemctl restart nat
 ```
 
 **配置文件说明**
