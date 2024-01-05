@@ -55,6 +55,8 @@ yum install -y  nftables
 # sudo su
 # 下载可执行文件
 curl -sSLf http://cdn.arloor.com/tool/dnat -o /tmp/nat
+# 下载自动更新版本
+# curl -sSLf https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
 install /tmp/nat /usr/local/bin/nat
 
 # 创建systemd服务
