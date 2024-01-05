@@ -171,7 +171,7 @@ cat /opt/nat/log/nat.log
 或执行
 
 ```shell
-journalctl -exu nat
+journalctl -exfu nat
 ```
 
 ## 联系

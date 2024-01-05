@@ -1,29 +1,29 @@
 use std::env;
-use std::fs::{self, File};
+use std::fs;
 use crate::ip;
 use std::process::exit;
 use log::info;
 
 #[derive(Debug)]
 pub enum Protocol {
-    ALL,
-    TCP,
-    UDP,
+    All,
+    Tcp,
+    Udp,
 }
 
 impl Protocol {
     fn tcp_prefix(&self) -> String {
         match &self {
-            Protocol::ALL => "".to_string(),
-            Protocol::TCP => "".to_string(),
-            Protocol::UDP => "#".to_string(),
+            Protocol::All => "".to_string(),
+            Protocol::Tcp => "".to_string(),
+            Protocol::Udp => "#".to_string(),
         }
     }
     fn udp_prefix(&self) -> String {
         match &self {
-            Protocol::ALL => "".to_string(),
-            Protocol::TCP => "#".to_string(),
-            Protocol::UDP => "".to_string(),
+            Protocol::All => "".to_string(),
+            Protocol::Tcp => "#".to_string(),
+            Protocol::Udp => "".to_string(),
         }
     }
 }
@@ -31,9 +31,9 @@ impl Protocol {
 impl From<Protocol> for String {
     fn from(protocol: Protocol) -> Self {
         match protocol {
-            Protocol::UDP => "udp".into(),
-            Protocol::TCP => "tcp".into(),
-            Protocol::ALL => "all".into(),
+            Protocol::Udp => "udp".into(),
+            Protocol::Tcp => "tcp".into(),
+            Protocol::All => "all".into(),
         }
     }
 }
@@ -41,24 +41,24 @@ impl From<Protocol> for String {
 impl From<String> for Protocol {
     fn from(protocol: String) -> Self {
         match protocol {
-            protocol if protocol == "udp" => Protocol::UDP,
-            protocol if protocol == "UDP" => Protocol::UDP,
-            protocol if protocol == "tcp" => Protocol::TCP,
-            protocol if protocol == "TCP" => Protocol::TCP,
-            _ => Protocol::ALL,
+            protocol if protocol == "udp" => Protocol::Udp,
+            protocol if protocol == "UDP" => Protocol::Udp,
+            protocol if protocol == "tcp" => Protocol::Tcp,
+            protocol if protocol == "TCP" => Protocol::Tcp,
+            _ => Protocol::All,
         }
     }
 }
 
 #[derive(Debug)]
 pub enum NatCell {
-    SINGLE {
+    Single {
         src_port: i32,
         dst_port: i32,
         dst_domain: String,
         protocol: Protocol,
     },
-    RANGE {
+    Range {
         port_start: i32,
         port_end: i32,
         dst_domain: String,
@@ -69,8 +69,8 @@ pub enum NatCell {
 impl NatCell {
     pub fn build(&self) -> String {
         let dst_domain = match &self {
-            NatCell::SINGLE { dst_domain, .. } => dst_domain,
-            NatCell::RANGE { dst_domain, .. } => dst_domain
+            NatCell::Single { dst_domain, .. } => dst_domain,
+            NatCell::Range { dst_domain, .. } => dst_domain
         };
         let dst_ip = match ip::remote_ip(dst_domain) {
             Ok(s) => s,
@@ -84,7 +84,7 @@ impl NatCell {
             });
 
         match &self {
-            NatCell::RANGE { port_start, port_end, dst_domain, protocol } =>
+            NatCell::Range { port_start, port_end, dst_domain: _, protocol } =>
                 {
                     format!("#{cell:?}\n\
                     {tcpPrefix}add rule ip nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd}\n\
@@ -93,7 +93,7 @@ impl NatCell {
                     {udpPrefix}add rule ip nat POSTROUTING ip daddr {dstIp} udp dport {portStart}-{portEnd} counter snat to {localIP}\n\n\
                     ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix())
                 }
-            NatCell::SINGLE { src_port, dst_port, dst_domain, protocol } =>
+            NatCell::Single { src_port, dst_port, dst_domain, protocol } =>
                 {
                     if dst_domain == "localhost" || dst_domain == "127.0.0.1" { // 重定向到本机
                         format!("#{cell:?}\n\
@@ -114,13 +114,13 @@ impl NatCell {
 
     pub fn get_target_ip(&self) -> (String, String) {
         match &self {
-            NatCell::RANGE { port_start, port_end, dst_domain: remote_domain, protocol } =>
+            NatCell::Range { port_start: _, port_end: _, dst_domain: remote_domain, protocol: _ } =>
                 (remote_domain.clone(), match ip::remote_ip(remote_domain) {
                     Ok(s) => s,
                     Err(_) => "".to_string()
                 })
             ,
-            NatCell::SINGLE { src_port: local_port, dst_port: remote_port, dst_domain: remote_domain, protocol } =>
+            NatCell::Single { src_port: _local_port, dst_port: _remote_port, dst_domain: remote_domain, protocol: _ } =>
                 (remote_domain.clone(), match ip::remote_ip(remote_domain) {
                     Ok(s) => s,
                     Err(_) => "".to_string()
@@ -140,30 +140,30 @@ pub fn read_config(conf: String) -> Vec<NatCell> {
     let mut nat_cells = vec![];
     let mut contents = match fs::read_to_string(&conf) {
         Ok(s) => s,
-        Err(e) => {
+        Err(_e) => {
             example(&conf);
             exit(1);
         }
     };
     contents = contents.replace("\r\n", "\n");
 
-    let strs = contents.split("\n");
+    let strs = contents.split('\n');
     for str in strs {
-        let cells = str.trim().split(",").collect::<Vec<&str>>();
+        let cells = str.trim().split(',').collect::<Vec<&str>>();
         if cells.len() == 4 || cells.len() == 5 {
-            let mut protocal: Protocol = Protocol::ALL;
+            let mut protocal: Protocol = Protocol::All;
             if cells.len() == 5 {
                 protocal = cells[4].trim().to_string().into();
             }
             if cells[0].trim() == "RANGE" {
-                nat_cells.push(NatCell::RANGE {
+                nat_cells.push(NatCell::Range {
                     port_start: cells[1].trim().parse::<i32>().unwrap(),
                     port_end: cells[2].trim().parse::<i32>().unwrap(),
                     dst_domain: String::from(cells[3].trim()),
                     protocol: protocal,
                 });
             } else if cells[0].trim() == "SINGLE" {
-                nat_cells.push(NatCell::SINGLE {
+                nat_cells.push(NatCell::Single {
                     src_port: cells[1].trim().parse::<i32>().unwrap(),
                     dst_port: cells[2].trim().parse::<i32>().unwrap(),
                     dst_domain: String::from(cells[3].trim()),
@@ -172,7 +172,7 @@ pub fn read_config(conf: String) -> Vec<NatCell> {
             } else {
                 info!("#! {} is not valid", str)
             }
-        } else if str.trim().len() != 0 {
+        } else if !str.trim().is_empty() {
             info!("#! {} is not valid", str)
         }
     }

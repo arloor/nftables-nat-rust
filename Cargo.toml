@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 log = "0.4.17"
-flexi_logger = "0.25.5"
+flexi_logger = "0"

@@ -1,0 +1,7 @@
+{
+    "unwantedRecommendations": [
+        "ms-vscode-remote.remote-containers",
+        "ms-azuretools.vscode-docker"
+    ],
+    "recommendations": []
+}
