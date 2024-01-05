@@ -17,6 +17,10 @@ jobs:
       - name: Set outputs
         id: vars
         run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
+      - name: build
+        run: |
+          cargo build --release
+          cp target/release/dnat target/release/dnat_gnu;
       - name: build_musl
         id: build_musl
         uses: arloor/rust_musl_action@v2
@@ -39,4 +43,4 @@ jobs:
           git config --local user.name "arloor"
           # git tag  -f v1.0.0 -m 'latest'
           # git push --force origin v1.0.0
-          gh release create v1.0.0 target/release/dnat -n "latest" --latest -t latest  --target master
+          gh release create v1.0.0 target/release/dnat target/release/dnat_gnu -n "latest" --latest -t latest  --target master
