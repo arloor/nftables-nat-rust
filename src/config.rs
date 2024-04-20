@@ -149,6 +149,9 @@ pub fn read_config(conf: String) -> Vec<NatCell> {
 
     let strs = contents.split('\n');
     for str in strs {
+        if str.starts_with('#'){
+            continue;
+        }
         let cells = str.trim().split(',').collect::<Vec<&str>>();
         if cells.len() == 4 || cells.len() == 5 {
             let mut protocal: Protocol = Protocol::All;
