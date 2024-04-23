@@ -58,7 +58,6 @@ fn main() {
         script += &script_prefix;
 
         for x in vec.iter() {
-            let (_domain, _ip) = x.get_target_ip();
             let string = x.build();
             script += &string;
         }
