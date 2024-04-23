@@ -165,7 +165,7 @@ nft list ruleset
 执行
 
 ```shell
-cat /opt/nat/log/nat.log
+cat /opt/nat/nat.log
 ```
 
 或执行

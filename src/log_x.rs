@@ -15,7 +15,11 @@ pub fn init_log(log_dir: &str, log_file: &str) {
         )
         .append()
         .format(my_format)
-        .create_symlink(format!("{}/{}", log_dir, log_file))
+        .create_symlink(if log_dir.starts_with('/'){
+            format!("{}/{}", log_dir, log_file)
+        }else{
+            log_file.to_string()
+        })
         .start()
         .unwrap();
 }
