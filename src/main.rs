@@ -14,8 +14,8 @@ use std::{env, io};
 const NFTABLES_ETC: &str = "/etc/nftables";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
 
-fn main() {
-    log_x::init_log("log", "nat.log");
+fn main() -> Result<(), Box<dyn std::error::Error>>{
+    log_x::init_log("a/log", "nat.log")?;
 
     let _ = std::fs::create_dir_all(NFTABLES_ETC);
     // 修改内核参数，开启端口转发
@@ -37,7 +37,7 @@ fn main() {
             let conf = "nat.conf".to_string();
             info!("{}{}", "使用方式：nat ", conf);
             config::example(&conf);
-            return;
+            return Ok(());
         } else {
             conf += &args[1];
         }
