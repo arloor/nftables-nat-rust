@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         //如果是linux，且生成的脚本产生变化，则写到文件，并且执行
         if script != latest_script {
             info!("nftables脚本如下：\n{}", script);
-            latest_script = script.clone();
+            latest_script.clone_from(&script);
             if cfg!(target_os = "linux") {
                 let f = File::create("/etc/nftables/nat-diy.nft");
                 if let Ok(mut file) = f {
