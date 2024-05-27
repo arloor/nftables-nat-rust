@@ -7,5 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.17"
-flexi_logger = "0"
+log_x = { git = "https://github.com/arloor/rust_http_proxy.git" }
+log = "0.4"

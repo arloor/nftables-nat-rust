@@ -1,7 +1,6 @@
 #![deny(warnings)]
 mod config;
 mod ip;
-mod log_x;
 
 use log::info;
 use std::fs::File;
