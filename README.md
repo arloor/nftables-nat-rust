@@ -119,7 +119,7 @@ RANGE,50000,50010,baidu.com
 ## 一些需要注意的东西
 
 1. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
-2. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请重装系统以确保系统纯净！
+2. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请先卸载原来的工具或重装系统
 
 ## 如何停止以及卸载
 
