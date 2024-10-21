@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const https = require('https');
+const bcryptTool = require('./bcryptTool');
 
 const app = express();
 const PORT = 3000;
@@ -32,6 +33,48 @@ fs.readFile('passwd.md', 'utf8', (err, data) => {
     lines.forEach(line => {
         const [user, hashedPassword] = line.split(':');
         users[user] = hashedPassword;
+    });
+});
+
+// 从 /etc/nat.conf 读取规则
+let rules = [];
+fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
+    if (err) {
+        console.error('读取配置文件失败:', err);
+        return;
+    }
+    const lines = data.trim().split('\n');
+    lines.forEach(line => {
+        line = line.split('#')[0].trim(); // 移除注释
+        if (!line) return; // 忽略空行
+        
+        const [type, startPort, endPort, destination] = line.split(',');
+
+        // 验证格式
+        if (!type || !startPort || !destination) {
+            console.error(`无效行: ${line}`);
+            return;
+        }
+
+        if (type !== 'SINGLE' && type !== 'RANGE') {
+            console.error(`无效类型：${type}`);
+            return;
+        }
+
+        if (type === 'SINGLE' && endPort !== '-') {
+            console.error(`单端口转发的结束端口必须为'-'，在行: ${line}`);
+            return;
+        }
+
+        if (type === 'RANGE') {
+            // 检查端口范围特殊处理
+            if (!endPort || isNaN(startPort) || isNaN(endPort) || Number(startPort) > Number(endPort)) {
+                console.error(`范围端口不有效: ${line}`);
+                return;
+            }
+        }
+
+        rules.push({ type, startPort, endPort, destination });
     });
 });
 
@@ -70,10 +113,26 @@ app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
+// 处理获取规则的请求
+app.get('/api/rules', (req, res) => {
+    res.json(rules);
+});
+
+// 处理保存规则的请求
+app.post('/save-rules', (req, res) => {
+    const { rules } = req.body;
+    fs.writeFile('/etc/nat.conf', rules, (err) => {
+        if (err) {
+            return res.status(500).json({ message: '保存规则失败' });
+        }
+        res.json({ message: '规则保存成功' });
+    });
+});
+
 // 错误处理
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).send('服务器内发生错误！');
+    res.status(500).send('服务器内部发生错误！');
 });
 
 // 启动服务器
