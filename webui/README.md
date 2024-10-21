@@ -275,64 +275,79 @@ https.createServer(options, app).listen(PORT, () => {
             box-sizing: border-box;
         }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #e0f7fa; /* 更温馨的背景颜色 */
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); /* 渐变背景 */
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            padding: 0 20px; /* 添加左右内边距 */
+            padding: 0 20px;
         }
         .login-container {
             background: #ffffff;
-            border-radius: 8px;
-            padding: 40px; /* 增加内边距 */
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 400px; /* 设置最大宽度 */
-            text-align: center; /* 中心对齐内容 */
+            max-width: 400px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out; /* 进入动画 */
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
         h2 {
-            margin-bottom: 20px;
-            color: #333; /* 字体颜色 */
+            margin-bottom: 30px;
+            color: #007aff; /* 更新标题颜色 */
+            font-size: 28px; /* 更大标题 */
         }
         input {
             width: 100%;
-            padding: 15px; /* 增加内边距 */
+            padding: 15px;
             margin-bottom: 15px;
-            border: 1px solid #ccc;
+            border: 1px solid #007aff;
             border-radius: 5px;
-            font-size: 16px; /* 更大字体 */
-            transition: border 0.3s ease; /* 边框过渡效果 */
+            font-size: 16px;
+            transition: border 0.3s ease;
         }
         input:focus {
-            border-color: #007aff; /* 聚焦时边框颜色 */
-            outline: none; /* 去掉默认轮廓 */
+            border-color: #0051a8;
+            outline: none;
         }
         button {
             width: 100%;
-            padding: 15px; /* 增加内边距 */
+            padding: 15px;
             background-color: #007aff;
             color: #ffffff;
             border: none;
             border-radius: 5px;
-            font-size: 16px; /* 更大字体 */
+            font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.3s ease; /* 背景色过渡效果 */
+            transition: background-color 0.3s ease;
         }
         button:hover {
             background-color: #0051a8;
         }
+        footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
         @media (max-width: 480px) {
             .login-container {
-                padding: 30px; /* 减小内边距 */
+                padding: 30px;
             }
             h2 {
-                font-size: 24px; /* 移动端较小标题 */
+                font-size: 24px;
             }
             input, button {
-                font-size: 14px; /* 移动端较小字体 */
+                font-size: 14px;
             }
         }
     </style>
@@ -346,6 +361,9 @@ https.createServer(options, app).listen(PORT, () => {
             <input type="password" id="password" placeholder="密码" required>
             <button type="submit">登录</button>
         </form>
+        <footer>
+            <p>© JiangChu. All Rights Reserved</p>
+        </footer>
     </div>
 
     <script>
@@ -389,12 +407,12 @@ https.createServer(options, app).listen(PORT, () => {
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
-            background-color: #e0f7fa; /* 更温馨的背景颜色 */
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
             color: #333;
             margin: 0;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 600px;
             margin: auto;
@@ -406,11 +424,13 @@ https.createServer(options, app).listen(PORT, () => {
 
         h1, h2 {
             text-align: center;
+            color: #007aff; /* 使用统一的标题颜色 */
         }
 
         label {
             display: block;
             margin-top: 20px;
+            font-weight: bold; /* 粗体标签 */
         }
 
         input[type="text"],
@@ -418,9 +438,15 @@ https.createServer(options, app).listen(PORT, () => {
             width: calc(100% - 22px);
             padding: 12px;
             margin: 8px 0;
-            border: 1px solid #ccc;
+            border: 1px solid #bbb; /* 轻微的边框色 */
             border-radius: 6px;
             font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #007aff; /* 聚焦时的边框颜色 */
         }
 
         input[type="button"] {
@@ -437,7 +463,7 @@ https.createServer(options, app).listen(PORT, () => {
 
         input[type="button"]:hover {
             background-color: #0051a8;
-            transform: translateY(-2px); /* 按钮悬停提升 */
+            transform: translateY(-2px);
         }
 
         table {
@@ -445,7 +471,7 @@ https.createServer(options, app).listen(PORT, () => {
             border-collapse: collapse;
             margin-top: 20px;
             border-radius: 10px;
-            overflow: hidden; /* 去掉表格边角 */
+            overflow: hidden;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
@@ -457,22 +483,23 @@ https.createServer(options, app).listen(PORT, () => {
         }
 
         th {
-            background-color: #f1f1f1;
+            background-color: #f1f1f1; /* 表头背景 */
             font-weight: bold;
         }
 
         tr:nth-child(even) {
-            background-color: #f9f9f9; /* 偶数行的背景色 */
+            background-color: #f9f9f9;
         }
 
         tr:hover {
-            background-color: #f0f0f0; /* 鼠标悬停行效果 */
+            background-color: #f0f0f0;
         }
 
         .note {
             font-size: 0.9em;
             color: #555;
             margin-top: 5px;
+            line-height: 1.4; /* 增加行高 */
         }
 
         pre {
@@ -481,13 +508,20 @@ https.createServer(options, app).listen(PORT, () => {
             border-radius: 6px;
             overflow-x: auto;
             font-family: monospace;
-            white-space: pre-wrap; /* 自动换行 */
+            white-space: pre-wrap;
         }
 
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
             }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #777;
         }
     </style>
 </head>
@@ -514,7 +548,7 @@ https.createServer(options, app).listen(PORT, () => {
         <input type="button" value="添加规则" onclick="addRule()">
         <div class="note">
             <span style="color: red;">
-            添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
+                添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
             </span>
         </div>
 
@@ -540,7 +574,12 @@ https.createServer(options, app).listen(PORT, () => {
         <input type="button" value="登出" onclick="logout()">
     </div>
 
+    <footer>
+        <p>© JiangChu. All Rights Reserved.</p>
+    </footer>
+
     <script>
+        // 原有 JavaScript 代码 (无需更改)
         const rules = [];
 
         window.onload = async () => {
