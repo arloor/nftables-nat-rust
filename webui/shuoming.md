@@ -1,110 +1,31 @@
-好的，以下是完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
-
-### 项目结构
-
-```
-nftables-nat-rust-webui/
-├── bcryptTool.js
-├── passwd.md
-├── server.js
-└── public/
-    ├── index.html
-    └── login.html
-```
+好的，这里是完整的代码，包括所有必要的文件。
 
 ### 1. `bcryptTool.js`
 
+这是一个工具文件，用于处理密码的加密和验证。
+
 ```javascript
 const bcrypt = require('bcrypt');
-const fs = require('fs');
-const readline = require('readline');
 
-// 创建一个接口读取命令行输入
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+const bcryptTool = {
+    hashPassword: async (password) => {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        return hashedPassword;
+    },
 
-const passwdFilePath = 'passwd.md';
-
-// 加密密码
-const encryptPassword = async (plainPassword) => {
-    const saltRounds = 10;
-    return await bcrypt.hash(plainPassword, saltRounds);
+    comparePassword: async (plainPassword, hashedPassword) => {
+        const match = await bcrypt.compare(plainPassword, hashedPassword);
+        return match;
+    },
 };
 
-// 写入文件
-const writeToFile = (entry) => {
-    fs.appendFile(passwdFilePath, entry + '\n', (err) => {
-        if (err) {
-            console.error('写入文件失败:', err);
-        } else {
-            console.log('密码已成功加密并写入到 passwd.md 文件。');
-        }
-        rl.close();
-    });
-};
-
-// 解密密码
-const checkPassword = async (providedPassword, storedHash) => {
-    const match = await bcrypt.compare(providedPassword, storedHash);
-    if (match) {
-        console.log('密码匹配！');
-    } else {
-        console.log('密码不匹配！');
-    }
-    rl.close();
-};
-
-// 启动工具
-const startTool = () => {
-    console.log("选择一个选项：");
-    console.log("1. 加密新密码并写入 passwd.md");
-    console.log("2. 验证密码");
-
-    rl.question('请输入选项 (1/2): ', async (choice) => {
-        if (choice === '1') {
-            rl.question('请输入要加密的密码: ', async (plainPassword) => {
-                const hashedPassword = await encryptPassword(plainPassword);
-                rl.question('请输入用户名: ', (username) => {
-                    const entry = `${username}:${hashedPassword}`;
-                    writeToFile(entry);
-                });
-            });
-        } else if (choice === '2') {
-            rl.question('请输入用户名: ', (username) => {
-                rl.question('请输入要验证的密码: ', async (providedPassword) => {
-                    fs.readFile(passwdFilePath, 'utf8', (err, data) => {
-                        if (err) {
-                            console.error('读取文件失败:', err);
-                            rl.close();
-                            return;
-                        }
-                        const lines = data.trim().split('\n');
-                        const userEntry = lines.find(line => line.startsWith(username + ':'));
-
-                        if (userEntry) {
-                            const storedHash = userEntry.split(':')[1];
-                            checkPassword(providedPassword, storedHash);
-                        } else {
-                            console.log('用户不存在！');
-                            rl.close();
-                        }
-                    });
-                });
-            });
-        } else {
-            console.log('无效的选项！');
-            rl.close();
-        }
-    });
-};
-
-// 启动工具
-startTool();
+module.exports = bcryptTool;
 ```
 
 ### 2. `server.js`
+
+主要服务器文件，处理请求和逻辑。
 
 ```javascript
 const express = require('express');
@@ -114,6 +35,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const https = require('https');
+const bcryptTool = require('./bcryptTool');
 
 const app = express();
 const PORT = 3000;
@@ -141,6 +63,48 @@ fs.readFile('passwd.md', 'utf8', (err, data) => {
     lines.forEach(line => {
         const [user, hashedPassword] = line.split(':');
         users[user] = hashedPassword;
+    });
+});
+
+// 从 /etc/nat.conf 读取规则
+let rules = [];
+fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
+    if (err) {
+        console.error('读取配置文件失败:', err);
+        return;
+    }
+    const lines = data.trim().split('\n');
+    lines.forEach(line => {
+        line = line.split('#')[0].trim(); // 移除注释
+        if (!line) return; // 忽略空行
+        
+        const [type, startPort, endPort, destination] = line.split(',');
+
+        // 验证格式
+        if (!type || !startPort || !destination) {
+            console.error(`无效行: ${line}`);
+            return;
+        }
+
+        if (type !== 'SINGLE' && type !== 'RANGE') {
+            console.error(`无效类型：${type}`);
+            return;
+        }
+
+        if (type === 'SINGLE' && endPort !== '-') {
+            console.error(`单端口转发的结束端口必须为'-'，在行: ${line}`);
+            return;
+        }
+
+        if (type === 'RANGE') {
+            // 检查端口范围特殊处理
+            if (!endPort || isNaN(startPort) || isNaN(endPort) || Number(startPort) > Number(endPort)) {
+                console.error(`范围端口不有效: ${line}`);
+                return;
+            }
+        }
+
+        rules.push({ type, startPort, endPort, destination });
     });
 });
 
@@ -179,10 +143,26 @@ app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
+// 处理获取规则的请求
+app.get('/api/rules', (req, res) => {
+    res.json(rules);
+});
+
+// 处理保存规则的请求
+app.post('/save-rules', (req, res) => {
+    const { rules } = req.body;
+    fs.writeFile('/etc/nat.conf', rules, (err) => {
+        if (err) {
+            return res.status(500).json({ message: '保存规则失败' });
+        }
+        res.json({ message: '规则保存成功' });
+    });
+});
+
 // 错误处理
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).send('服务器内发生错误！');
+    res.status(500).send('服务器内部发生错误！');
 });
 
 // 启动服务器
@@ -222,7 +202,7 @@ https.createServer(options, app).listen(PORT, () => {
             font-weight: 600;
             color: #1c1c1e;
         }
-        input[type="text"], input[type="button"], select {
+        input[type="text"], input[type="button"] {
             width: calc(100% - 22px);
             padding: 15px;
             margin: 8px 0;
@@ -270,39 +250,6 @@ https.createServer(options, app).listen(PORT, () => {
             padding: 5px 10px;
             cursor: pointer;
         }
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgb(0,0,0);
-            background-color: rgba(0,0,0,0.4); 
-            padding-top: 60px;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            border-radius: 10px;
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -310,17 +257,9 @@ https.createServer(options, app).listen(PORT, () => {
         <h1>端口转发控制台</h1>
 
         <h2>添加新规则</h2>
-        <select id="ruleType">
-            <option value="">选择规则类型</option>
-            <option value="SINGLE">单一</option>
-            <option value="RANGE">范围</option>
-        </select>
-        <input type="text" id="startPort" placeholder="起始端口">
+        <input type="text" id="startPort" placeholder="起始端口" required>
         <input type="text" id="endPort" placeholder="结束端口 (可选)">
-        <input type="text" id="targetPort" placeholder="目标端口"> 
-        <input type="text" id="destination" placeholder="目标域名或localhost">
-        <button type="button" id="protocolBtn">选择协议</button>
-        <input type="button" value="预览规则" onclick="previewRule()">
+        <input type="text" id="destination" placeholder="目标域名或localhost" required>
         <input type="button" value="添加规则" onclick="addRule()">
 
         <h2>当前规则</h2>
@@ -330,9 +269,7 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>规则类型</th>
                     <th>起始端口</th>
                     <th>结束端口</th>
-                    <th>目标端口</th>
                     <th>目标</th>
-                    <th>协议</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -344,52 +281,34 @@ https.createServer(options, app).listen(PORT, () => {
         <input type="button" class="btn-save" value="保存规则" onclick="saveRules()">
     </div>
 
-    <!-- 协议选择模态框 -->
-    <div id="protocolModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>选择协议</h2>
-            <div>
-                <button onclick="selectProtocol('TCP')">TCP</button>
-                <button onclick="selectProtocol('UDP')">UDP</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         const rules = [];
         let currentEditingIndex = -1; // 当前编辑规则的索引
-        const protocolBtn = document.getElementById('protocolBtn');
 
-        function previewRule() {
-            const type = document.getElementById('ruleType').value;
-            const startPort = document.getElementById('startPort').value;
-            const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-';
-            const destination = document.getElementById('destination').value;
-            const protocol = protocolBtn.innerText || '-';
-
-            if (type && startPort && destination) {
-                alert(`预览规则:\n${type}, ${startPort}, ${endPort}, ${targetPort}, ${destination}, ${protocol}`);
-            } else {
-                alert('请填写所有必需的字段！');
-            }
-        }
+        // 页面加载时获取规则
+        window.onload = async () => {
+            const response = await fetch('/api/rules');
+            const fetchedRules = await response.json();
+            fetchedRules.forEach(rule => rules.push(rule));
+            renderRules();
+        };
 
         function addRule() {
-            const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-';
             const destination = document.getElementById('destination').value;
-            const protocol = protocolBtn.innerText || '-';
 
-            if (type && startPort && destination) {
+            let type = 'SINGLE'; // 默认规则类型为单一
+            if (endPort !== '-') {
+                type = 'RANGE'; // 如果填写了结束端口，则为范围
+            }
+
+            if (startPort && destination) {
                 if (currentEditingIndex >= 0) {
-                    rules[currentEditingIndex] = { type, startPort, endPort, targetPort, destination, protocol };
+                    rules[currentEditingIndex] = { type, startPort, endPort, destination };
                     currentEditingIndex = -1; // 重置编辑状态
                 } else {
-                    rules.push({ type, startPort, endPort, targetPort, destination, protocol });
+                    rules.push({ type, startPort, endPort, destination });
                 }
                 renderRules();
                 clearInputs();
@@ -406,11 +325,9 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(0).innerText = rule.type;
                 newRow.insertCell(1).innerText = rule.startPort;
                 newRow.insertCell(2).innerText = rule.endPort;
-                newRow.insertCell(3).innerText = rule.targetPort;
-                newRow.insertCell(4).innerText = rule.destination;
-                newRow.insertCell(5).innerText = rule.protocol;
+                newRow.insertCell(3).innerText = rule.destination;
 
-                const editCell = newRow.insertCell(6);
+                const editCell = newRow.insertCell(4);
                 const editButton = document.createElement('button');
                 editButton.innerText = '编辑';
                 editButton.onclick = () => editRule(index);
@@ -430,12 +347,9 @@ https.createServer(options, app).listen(PORT, () => {
 
         function editRule(index) {
             const rule = rules[index];
-            document.getElementById('ruleType').value = rule.type;
             document.getElementById('startPort').value = rule.startPort;
             document.getElementById('endPort').value = rule.endPort;
-            document.getElementById('targetPort').value = rule.targetPort;
             document.getElementById('destination').value = rule.destination;
-            protocolBtn.innerText = rule.protocol;
 
             currentEditingIndex = index; // 设置当前编辑的索引
         }
@@ -443,7 +357,7 @@ https.createServer(options, app).listen(PORT, () => {
         function saveRules() {
             if (rules.length > 0) {
                 const rulesStr = rules.map(rule =>
-                    `${rule.type},${rule.startPort},${rule.endPort},${rule.targetPort},${rule.destination},${rule.protocol}`).join('\n');
+                    `${rule.type},${rule.startPort},${rule.endPort},${rule.destination}`).join('\n');
 
                 fetch('/save-rules', {
                     method: 'POST',
@@ -461,36 +375,19 @@ https.createServer(options, app).listen(PORT, () => {
         }
 
         function clearInputs() {
-            document.getElementById('ruleType').value = '';
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
-            document.getElementById('targetPort').value = '';
             document.getElementById('destination').value = '';
-            protocolBtn.innerText = '选择协议';
             currentEditingIndex = -1; // 重置编辑状态
         }
-
-        function openModal() {
-            document.getElementById("protocolModal").style.display = "block";
-        }
-
-        function closeModal() {
-            document.getElementById("protocolModal").style.display = "none";
-        }
-
-        function selectProtocol(protocol) {
-            protocolBtn.innerText = protocol;
-            closeModal();
-        }
-
-        // 绑定协议按钮点击事件
-        protocolBtn.addEventListener('click', openModal);
     </script>
 </body>
 </html>
 ```
 
 ### 4. `public/login.html`
+
+这是用于用户登录的页面。
 
 ```html
 <!DOCTYPE html>
@@ -501,77 +398,87 @@ https.createServer(options, app).listen(PORT, () => {
     <title>登录</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f5f5f5;
+            margin: 0;
         }
         .login-container {
-            background: white;
+            background: #fff;
+            border-radius: 8px;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             width: 300px;
         }
-        input[type="text"], input[type="password"] {
+        h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input {
             width: 100%;
             padding: 10px;
-            margin: 10px 0;
+            margin-bottom: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
         }
         button {
-            background-color: #007aff;
-            color: white;
-            border: none;
             width: 100%;
             padding: 10px;
+            background-color: #007aff;
+            color: #fff;
+            border: none;
             border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0051a8;
         }
     </style>
 </head>
 <body>
 
     <div class="login-container">
-        <h2>登录</h2>
-        <form action="/login" method="POST">
-            <input type="text" name="username" required placeholder="用户名">
-            <input type="password" name="password" required placeholder="密码">
+        <h2>用户登录</h2>
+        <form id="loginForm" onsubmit="return login(event)">
+            <input type="text" id="username" placeholder="用户名" required>
+            <input type="password" id="password" placeholder="密码" required>
             <button type="submit">登录</button>
         </form>
     </div>
 
+    <script>
+        async function login(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                window.location.href = '/'; // 成功登录后重定向到主页
+            } else {
+                alert('用户名或密码错误！');
+            }
+        }
+    </script>
 </body>
 </html>
 ```
 
-### 启动项目
-
-1. 确保您已安装 Node.js。
-2. 在项目根目录下，使用 npm 安装所需的依赖：
-   ```bash
-   npm init -y
-   npm install express body-parser cookie-parser bcrypt https
-   ```
-
-3. 将上述代码和文件结构创建在你的本地项目中。
-4. 使用有效的 SSL 证书和私钥路径更新 `server.js` 中的对应路径。
-5. 启动服务器：
-   ```bash
-   node server.js
-   ```
-
-6. 打开浏览器，输入 `https://localhost:${PORT}`，您将被重定向到登录页面。
-
-7. 使用您的默认凭据（在 `passwd.md` 文件中设置的用户名和密码）进行登录。
-
 ### 注意事项
 
-- 确保实际操作中更新 SSL 证书路径。
-- 保护 `passwd.md` 文件的访问权限以确保其安全性。
-- 每次密码更改均通过 `bcryptTool.js` 进行。
-- 定期更新依赖组件和 Node.js 以确保安全性和性能。
+1. **证书路径**：请在 `server.js` 中替换 `path/to/your/private-key.pem` 和 `path/to/your/certificate.pem` 为您的 SSL 证书和私钥的实际路径。
+2. **读取权限**：确保 Node.js 进程对 `/etc/nat.conf` 和 `passwd.md` 的读取权限。
+3. **密码文件**：确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。
+4. **保存规则功能**：可以调整 `/save-rules` 的实现逻辑来符合实际需求。
 
-如果你还有其他需要，请随时告诉我！
+完整的代码功能包括管理用户登录、端口规则的管理等，如果有其他问题或需求，请随时告诉我！
