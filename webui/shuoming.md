@@ -266,13 +266,15 @@ https.createServer(options, app).listen(PORT, () => {
     <style>
         body { font-family: Arial, sans-serif; background-color: #f5f5f5; }
         .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
-        h1 { text-align: center; }
-        input[type="text"], input[type="button"] { width: calc(100% - 22px); padding: 15px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; }
+        h1 { text-align: center; color: #333; }
+        label { display: block; margin-top: 20px; }
+        input[type="text"], input[type="button"], select { width: calc(100% - 22px); padding: 15px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; }
         input[type="button"] { background-color: #007aff; color: white; cursor: pointer; }
         input[type="button"]:hover { background-color: #0051a8; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 10px; border: 1px solid #ccc; }
-        .note { font-size: 0.9em; color: #555; margin-top: -10px; margin-bottom: 10px; }
+        th { background-color: #f1f1f1; }
+        .note { font-size: 0.9em; color: #555; }
     </style>
 </head>
 <body>
@@ -299,40 +301,40 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>起始端口</th>
                     <th>结束端口</th>
                     <th>目标</th>
+                    <th>操作</th>
                 </tr>
             </thead>
             <tbody>
                 <!-- 规则将被动态插入这里 -->
             </tbody>
         </table>
+        <input type="button" value="保存规则" onclick="saveRules()">
     </div>
 
     <script>
         const rules = [];
-        let currentEditingIndex = -1; // 当前编辑规则的索引
 
-        // 页面加载时获取规则
         window.onload = async () => {
+            await fetchAndRenderRules();
+        };
+
+        async function fetchAndRenderRules() {
             const response = await fetch('/api/rules');
             const fetchedRules = await response.json();
             fetchedRules.forEach(rule => rules.push(rule));
             renderRules();
-        };
+        }
 
         function toggleEndPortInput() {
             const ruleType = document.getElementById('ruleType').value;
             const note = document.getElementById('note');
 
-            if (ruleType === 'SINGLE') {
-                note.style.display = 'block'; // 显示说明
-            } else {
-                note.style.display = 'none'; // 隐藏说明
-            }
+            note.style.display = ruleType === 'SINGLE' ? 'block' : 'none';
         }
 
         function addRule() {
             const startPort = document.getElementById('startPort').value;
-            const endPort = document.getElementById('endPort').value || startPort; // 如果仍然选`SINGLE`, 默认结束端口为起始端口
+            const endPort = document.getElementById('endPort').value || startPort;
             const destination = document.getElementById('destination').value;
 
             const ruleType = document.getElementById('ruleType').value;
@@ -357,15 +359,7 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(3).innerText = rule.destination;
 
                 const editCell = newRow.insertCell(4);
-                const editButton = document.createElement('button');
-                editButton.innerText = '编辑';
-                editButton.onclick = () => editRule(index);
-                const deleteButton = document.createElement('button');
-                deleteButton.innerText = '删除';
-                deleteButton.className = 'btn-delete';
-                deleteButton.onclick = () => deleteRule(index);
-                editCell.appendChild(editButton);
-                editCell.appendChild(deleteButton);
+                editCell.innerHTML = `<button onclick="deleteRule(${index})">删除</button>`;
             });
         }
 
@@ -374,28 +368,83 @@ https.createServer(options, app).listen(PORT, () => {
             renderRules();
         }
 
-        function editRule(index) {
-            const rule = rules[index];
-            document.getElementById('startPort').value = rule.startPort;
-            document.getElementById('endPort').value = rule.endPort;
-            document.getElementById('destination').value = rule.destination;
-            document.getElementById('ruleType').value = rule.type;
-
-            toggleEndPortInput(); // 根据选择的类型更新状态
-            currentEditingIndex = index; // 设置当前编辑的索引
-        }
-
         function clearInputs() {
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
             document.getElementById('destination').value = '';
-            currentEditingIndex = -1; // 重置编辑状态
+        }
+
+        async function saveRules() {
+            const response = await fetch('/api/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(rules)
+            });
+
+            if (response.ok) {
+                alert('规则保存成功！');
+            } else {
+                alert('规则保存失败，请重试。');
+            }
         }
     </script>
 </body>
 </html>
+```
 
+### 3.  `public/login.html`
 
+不需要改变，但可以考虑样式上的改进：
+
+```html
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; }
+        .container { max-width: 400px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; }
+        input[type="text"], input[type="password"], input[type="button"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; }
+        input[type="button"] { background-color: #007aff; color: white; cursor: pointer; }
+        input[type="button"]:hover { background-color: #0051a8; }
+        #message { color:red; text-align:center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>登录</h1>
+        <input type="text" id="username" placeholder="用户名" required>
+        <input type="password" id="password" placeholder="密码" required>
+        <input type="button" value="登录" onclick="loginUser()">
+        <div id="message"></div>
+    </div>
+
+    <script>
+        async function loginUser() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const message = document.getElementById('message');
+
+            if (response.ok) {
+                message.innerText = '登录成功';
+                // 可以在这里重定向或执行其他操作
+            } else {
+                message.innerText = '用户名或密码错误';
+            }
+        }
+    </script>
+</body>
+</html>
 ```
 
 ### 4. `public/login.html`
