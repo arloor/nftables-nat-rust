@@ -291,9 +291,9 @@ https.createServer(options, app).listen(PORT, () => {
                 <option value="RANGE">RANGE</option>
             </select>
         </label>
-        <div class="note" id="note">选择 SINGLE 时，起始端口为本机端口，结束端口为目标端口，目标端口默认自动填入和本机端口一样的端口（可修改）</div>
+        <div class="note" id="note">选择 SINGLE 时，起始端口等于本机端口，结束端口等于目标端口，目标端口为空则默认自动填入和本机端口一样的端口（可修改）</div>
         <input type="text" id="startPort" placeholder="起始端口" required>
-        <input type="text" id="endPort" placeholder="结束端口 (可选)" required>
+        <input type="text" id="endPort" placeholder="结束端口" required>
         <input type="text" id="destination" placeholder="目标域名或localhost" required>
         <input type="button" value="添加规则" onclick="addRule()">
         <h2>当前规则</h2>
@@ -301,8 +301,8 @@ https.createServer(options, app).listen(PORT, () => {
             <thead>
                 <tr>
                     <th>规则类型</th>
-                    <th>起始端口（SINGLE时为本机端口）</th>
-                    <th>结束端口（SINGLE时为目标端口）</th>
+                    <th>起始端口（SINGLE时等于本机端口）</th>
+                    <th>结束端口（SINGLE时等于目标端口）</th>
                     <th>目标</th>
                     <th>操作</th>
                 </tr>
