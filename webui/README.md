@@ -9,7 +9,7 @@ nftables-nat-rust-webui/
 ├── server.js
 └── public/
     ├── index.html
-    └── login.html
+    └── admin.html
 ```
 
 ### 1. `bcryptTool.js`
