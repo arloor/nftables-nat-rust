@@ -758,7 +758,8 @@ https.createServer(options, app).listen(PORT, () => {
 
 1. **证书路径**：请在 `server.js` 中替换 `/root/nftables-nat-rust-webui/ssl/private-key.pem` 和 `/root/nftables-nat-rust-webui/ssl/certificate.pem` 为您的 SSL 证书和私钥的实际路径。
 2. **读取权限**：确保 Node.js 进程对 `/etc/nat.conf` 和 `passwd.md` 的读取权限。
-3. **密码文件**：用户名和密码可以用bcryptTool.js生成，确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。更改或者新增之后需要重启程序。
+3. **密码文件**：用户名和密码可以用`bcryptTool.js`生成，确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。<span style="color: red;">更改或者新增之后需要重启程序。</span>
+
 4. **安装依赖**：确保已用以下命令安装需要的 npm 包：
     ```bash
     npm init -y && npm install express bcrypt cookie-parser body-parser fs https
