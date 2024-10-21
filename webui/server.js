@@ -59,6 +59,7 @@ const readRulesFile = () => {
 };
 readRulesFile();
 
+// 身份验证中间件
 function isAuthenticated(req, res, next) {
     if (req.cookies.auth) {
         return next();
@@ -67,6 +68,7 @@ function isAuthenticated(req, res, next) {
     }
 }
 
+// 需要登录才能访问的路由
 app.get('/', isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
@@ -76,13 +78,14 @@ app.post('/login', async (req, res) => {
     const hashedPassword = users[username];
 
     if (hashedPassword && await bcrypt.compare(password, hashedPassword)) {
-        res.cookie('auth', '1');
+        res.cookie('auth', '1'); // 设置cookie
         res.redirect('/');
     } else {
         res.status(401).send('用户名或密码错误');
     }
 });
 
+// 登录页面路由
 app.get('/login', (req, res) => {
     if (req.cookies.auth) {
         return res.redirect('/');
@@ -90,20 +93,19 @@ app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
-// 获取规则
-app.get('/api/rules', (req, res) => {
+// 其他需要身份验证的路由
+app.get('/api/rules', isAuthenticated, (req, res) => {
     res.json(rules);
 });
 
-// 编辑规则
-app.post('/edit-rule', (req, res) => {
+app.post('/edit-rule', isAuthenticated, (req, res) => {
     const { index, startPort, endPort, destination } = req.body;
     if (index < 0 || index >= rules.length) {
         return res.status(400).json({ message: '无效的规则索引' });
     }
     
     rules[index] = {
-        ...rules[index],
+        type: rules[index].type,
         startPort,
         endPort,
         destination
@@ -112,9 +114,9 @@ app.post('/edit-rule', (req, res) => {
 });
 
 // 处理保存规则的请求
-app.post('/save-rules', (req, res) => {
+app.post('/save-rules', isAuthenticated, (req, res) => {
     const rulesData = req.body.rules.map(rule => {
-        const endPort = rule.endPort ? rule.endPort : rule.startPort;
+        const endPort = rule.endPort || rule.startPort; // 处理空值
         return `${rule.type},${rule.startPort},${endPort},${rule.destination}`;
     }).join('\n');
 
@@ -127,26 +129,9 @@ app.post('/save-rules', (req, res) => {
     });
 });
 
-// 删除规则
-app.post('/delete-rule', (req, res) => {
-    const index = req.body.index;
-    if (index < 0 || index >= rules.length) {
-        return res.status(400).json({ message: '无效的规则索引' });
-    }
-    
-    rules.splice(index, 1);
-    res.json({ message: '规则删除成功' });
-});
-
-// 处理预览规则的请求
-app.get('/api/rules/preview', (req, res) => {
-    const previewRules = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}`);
-    res.json(previewRules);
-});
-
 // 登出
 app.post('/logout', (req, res) => {
-    res.clearCookie('auth');
+    res.clearCookie('auth'); // 清除cookie
     res.redirect('/login');
 });
 
