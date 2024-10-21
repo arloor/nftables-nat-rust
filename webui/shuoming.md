@@ -170,25 +170,23 @@ fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
             return;
         }
 
-        if (type !== 'SINGLE' && type !== 'RANGE') {
-            console.error(`无效类型：${type}`);
-            return;
-        }
-
-        if (type === 'SINGLE' && (!endPort || endPort !== '-')) {
-            console.error(`单端口转发的结束端口必须为'-'，在行: ${line}`);
-            return;
-        }
-
-        if (type === 'RANGE') {
-            // 检查端口范围的有效性
+        if (type === 'SINGLE') {
+            // SINGLE类型只需2个端口
+            if (!endPort || isNaN(startPort)) {
+                console.error(`无效的单端口转发行: ${line}`);
+                return;
+            }
+            rules.push({ type, startPort, endPort: null, destination }); // 不需要结束端口
+        } else if (type === 'RANGE') {
+            // RANGE类型需要3个有效端口
             if (!endPort || isNaN(startPort) || isNaN(endPort) || Number(startPort) > Number(endPort)) {
                 console.error(`范围端口不有效: ${line}`);
                 return;
             }
+            rules.push({ type, startPort, endPort, destination });
+        } else {
+            console.error(`无效类型：${type}`);
         }
-
-        rules.push({ type, startPort, endPort, destination });
     });
 });
 
@@ -203,7 +201,7 @@ function isAuthenticated(req, res, next) {
 
 // 响应根路径的GET请求
 app.get('/', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/login.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 // 处理登录请求
@@ -253,7 +251,6 @@ app.use((err, req, res, next) => {
 https.createServer(options, app).listen(PORT, () => {
     console.log(`服务器在 https://localhost:${PORT} 上运行`);
 });
-
 ```
 
 ### 3. `public/index.html`
