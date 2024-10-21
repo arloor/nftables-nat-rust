@@ -1,5 +1,3 @@
------------------------------------------------------------------
-
 ## 基于nftables的端口转发管理工具
 
 用途：便捷地设置nat流量转发
@@ -96,7 +94,7 @@ systemctl restart nat
 
 **配置文件说明**
 
-`/etc/nat.conf`如下：
+`/etc/nat.conf` 如下：
 
 ```$xslt
 SINGLE,49999,59999,baidu.com
@@ -132,6 +130,10 @@ nft delete table ip nat
 ## 禁止开机启动
 systemctl disable nat
 ```
+
+## webui
+
+感谢 @C018 贡献的[webui](webui/README.md)
 
 ## 致谢
 
@@ -174,10 +176,3 @@ cat /opt/nat/nat.log
 journalctl -exfu nat
 ```
 
-## 联系
-
-[Telegram](https://t.me/popstary)
-
-## 赏个鸡腿吧
-
-<img src="/wechat_shoukuan.jpg" alt="" width="400px" style="max-width: 100%;">
