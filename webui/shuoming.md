@@ -159,7 +159,11 @@ fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
         line = line.split('#')[0].trim(); // 移除注释
         if (!line) return; // 忽略空行
         
-        const [type, startPort, endPort, destination] = line.split(',');
+        const parts = line.split(',');
+        const type = parts[0];
+        const startPort = parts[1];
+        const endPort = parts[2];
+        const destination = parts[3];
 
         // 验证格式
         if (!type || !startPort || !destination) {
@@ -172,13 +176,13 @@ fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
             return;
         }
 
-        if (type === 'SINGLE' && endPort !== '-') {
+        if (type === 'SINGLE' && (!endPort || endPort !== '-')) {
             console.error(`单端口转发的结束端口必须为'-'，在行: ${line}`);
             return;
         }
 
         if (type === 'RANGE') {
-            // 检查端口范围特殊处理
+            // 检查端口范围的有效性
             if (!endPort || isNaN(startPort) || isNaN(endPort) || Number(startPort) > Number(endPort)) {
                 console.error(`范围端口不有效: ${line}`);
                 return;
@@ -250,6 +254,7 @@ app.use((err, req, res, next) => {
 https.createServer(options, app).listen(PORT, () => {
     console.log(`服务器在 https://localhost:${PORT} 上运行`);
 });
+
 ```
 
 ### 3. `public/index.html`
