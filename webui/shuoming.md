@@ -477,6 +477,8 @@ https.createServer(options, app).listen(PORT, () => {
 1. **证书路径**：请在 `server.js` 中替换 `path/to/your/private-key.pem` 和 `path/to/your/certificate.pem` 为您的 SSL 证书和私钥的实际路径。
 2. **读取权限**：确保 Node.js 进程对 `/etc/nat.conf` 和 `passwd.md` 的读取权限。
 3. **密码文件**：确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。
-4. **保存规则功能**：可以调整 `/save-rules` 的实现逻辑来符合实际需求。
+4. **初始化**：npm init -y
+5. **安装依赖**：npm install express bcrypt cookie-parser body-parser fs https
+6. **运行**：node server.js
 
 功能包括管理用户登录、端口规则的管理等.
