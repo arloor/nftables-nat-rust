@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -11,8 +12,8 @@ const PORT = 3000;
 
 // HTTPS 设置 (请提供有效的证书和私钥)
 const options = {
-    key: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/private-key.pem'),
-    cert: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/certificate.pem')
+    key: fs.readFileSync('/path/to/your/private-key.pem'),
+    cert: fs.readFileSync('/path/to/your/certificate.pem')
 };
 
 // 中间件
@@ -92,6 +93,22 @@ app.get('/login', (req, res) => {
 // 获取规则
 app.get('/api/rules', (req, res) => {
     res.json(rules);
+});
+
+// 编辑规则
+app.post('/edit-rule', (req, res) => {
+    const { index, startPort, endPort, destination } = req.body;
+    if (index < 0 || index >= rules.length) {
+        return res.status(400).json({ message: '无效的规则索引' });
+    }
+    
+    rules[index] = {
+        ...rules[index],
+        startPort,
+        endPort,
+        destination
+    };
+    res.json({ message: '规则编辑成功' });
 });
 
 // 处理保存规则的请求
