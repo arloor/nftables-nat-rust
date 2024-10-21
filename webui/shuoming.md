@@ -122,8 +122,8 @@ const PORT = 3000;
 
 // HTTPS 设置 (请提供有效的证书和私钥)
 const options = {
-    key: fs.readFileSync('path/to/your/private-key.pem'),
-    cert: fs.readFileSync('path/to/your/certificate.pem')
+    key: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/private-key.pem'),
+    cert: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/certificate.pem')
 };
 
 // 中间件
