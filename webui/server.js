@@ -1,6 +1,3 @@
-当然可以！以下是完整的 `server.js` 代码，其中包含了所有的功能和配置：
-
-```javascript
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -143,42 +140,3 @@ app.use((err, req, res, next) => {
 https.createServer(options, app).listen(PORT, () => {
     console.log(`服务器在 https://localhost:${PORT} 上运行`);
 });
-```
-
-### 目录结构示例
-为了确保代码正常工作，您可以创建以下目录结构：
-
-```
-your-project/
-│
-├── public/
-│   ├── index.html
-│   ├── login.html
-│
-├── path/
-│   ├── to/
-│       ├── your/
-│           ├── private-key.pem
-│           ├── certificate.pem
-│
-├── passwd.md
-└── server.js
-```
-
-### 内容说明
-- **`public/index.html`**：主页面内容。
-- **`public/login.html`**：登录页面内容。
-- **`passwd.md`**：包含用户名和经过 bcrypt 哈希处理的密码，以 `username:hashedPassword` 格式保存。
-- **`nat.conf`**：包含 NAT 规则的配置文件。
-
-### 运行步骤
-1. 确保安装了所需的 Node.js 依赖：
-   ```bash
-   npm install express bcrypt
-   ```
-2. 运行服务器：
-   ```bash
-   node server.js
-   ```
-
-如果有其他问题或需要进一步的帮助，请随时告诉我！
