@@ -121,6 +121,18 @@ app.post('/delete-rule', (req, res) => {
     res.json({ message: '规则删除成功' });
 });
 
+// 处理预览规则的请求
+app.get('/api/rules/preview', (req, res) => {
+    const previewRules = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}`);
+    res.json(previewRules);
+});
+
+// 登出
+app.post('/logout', (req, res) => {
+    res.clearCookie('auth');
+    res.redirect('/login');
+});
+
 // 错误处理
 app.use((err, req, res, next) => {
     console.error(err.stack);
