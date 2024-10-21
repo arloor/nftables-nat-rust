@@ -1,4 +1,4 @@
-下面是更新后的完整代码，包括 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html`，确保用户在访问主页面之前需要登录。
+好的，以下是完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
 
 ### 项目结构
 
@@ -222,7 +222,7 @@ https.createServer(options, app).listen(PORT, () => {
             font-weight: 600;
             color: #1c1c1e;
         }
-        input[type="text"], input[type="button"] {
+        input[type="text"], input[type="button"], select {
             width: calc(100% - 22px);
             padding: 15px;
             margin: 8px 0;
@@ -230,10 +230,6 @@ https.createServer(options, app).listen(PORT, () => {
             border-radius: 10px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             transition: border-color 0.3s;
-        }
-        input[type="text"]:focus {
-            border-color: #007aff;
-            outline: none;
         }
         input[type="button"] {
             background-color: #007aff;
@@ -274,6 +270,39 @@ https.createServer(options, app).listen(PORT, () => {
             padding: 5px 10px;
             cursor: pointer;
         }
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4); 
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            border-radius: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -281,12 +310,16 @@ https.createServer(options, app).listen(PORT, () => {
         <h1>端口转发控制台</h1>
 
         <h2>添加新规则</h2>
-        <input type="text" id="ruleType" placeholder="规则类型 (SINGLE/RANGE)">
+        <select id="ruleType">
+            <option value="">选择规则类型</option>
+            <option value="SINGLE">单一</option>
+            <option value="RANGE">范围</option>
+        </select>
         <input type="text" id="startPort" placeholder="起始端口">
         <input type="text" id="endPort" placeholder="结束端口 (可选)">
         <input type="text" id="targetPort" placeholder="目标端口"> 
         <input type="text" id="destination" placeholder="目标域名或localhost">
-        <input type="text" id="protocol" placeholder="协议 (tcp/udp，可选)">
+        <button type="button" id="protocolBtn">选择协议</button>
         <input type="button" value="预览规则" onclick="previewRule()">
         <input type="button" value="添加规则" onclick="addRule()">
 
@@ -297,7 +330,7 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>规则类型</th>
                     <th>起始端口</th>
                     <th>结束端口</th>
-                    <th>目标端口</th> <!-- 新增目标端口列 -->
+                    <th>目标端口</th>
                     <th>目标</th>
                     <th>协议</th>
                     <th>操作</th>
@@ -311,16 +344,30 @@ https.createServer(options, app).listen(PORT, () => {
         <input type="button" class="btn-save" value="保存规则" onclick="saveRules()">
     </div>
 
+    <!-- 协议选择模态框 -->
+    <div id="protocolModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>选择协议</h2>
+            <div>
+                <button onclick="selectProtocol('TCP')">TCP</button>
+                <button onclick="selectProtocol('UDP')">UDP</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const rules = [];
+        let currentEditingIndex = -1; // 当前编辑规则的索引
+        const protocolBtn = document.getElementById('protocolBtn');
 
         function previewRule() {
             const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-'; // 获取目标端口值
+            const targetPort = document.getElementById('targetPort').value || '-';
             const destination = document.getElementById('destination').value;
-            const protocol = document.getElementById('protocol').value || '-';
+            const protocol = protocolBtn.innerText || '-';
 
             if (type && startPort && destination) {
                 alert(`预览规则:\n${type}, ${startPort}, ${endPort}, ${targetPort}, ${destination}, ${protocol}`);
@@ -333,12 +380,17 @@ https.createServer(options, app).listen(PORT, () => {
             const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-'; // 新增目标端口
+            const targetPort = document.getElementById('targetPort').value || '-';
             const destination = document.getElementById('destination').value;
-            const protocol = document.getElementById('protocol').value || '-';
+            const protocol = protocolBtn.innerText || '-';
 
             if (type && startPort && destination) {
-                rules.push({ type, startPort, endPort, targetPort, destination, protocol });
+                if (currentEditingIndex >= 0) {
+                    rules[currentEditingIndex] = { type, startPort, endPort, targetPort, destination, protocol };
+                    currentEditingIndex = -1; // 重置编辑状态
+                } else {
+                    rules.push({ type, startPort, endPort, targetPort, destination, protocol });
+                }
                 renderRules();
                 clearInputs();
             } else {
@@ -354,22 +406,38 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(0).innerText = rule.type;
                 newRow.insertCell(1).innerText = rule.startPort;
                 newRow.insertCell(2).innerText = rule.endPort;
-                newRow.insertCell(3).innerText = rule.targetPort; // 显示目标端口
+                newRow.insertCell(3).innerText = rule.targetPort;
                 newRow.insertCell(4).innerText = rule.destination;
                 newRow.insertCell(5).innerText = rule.protocol;
 
-                const deleteCell = newRow.insertCell(6);
+                const editCell = newRow.insertCell(6);
+                const editButton = document.createElement('button');
+                editButton.innerText = '编辑';
+                editButton.onclick = () => editRule(index);
                 const deleteButton = document.createElement('button');
                 deleteButton.innerText = '删除';
                 deleteButton.className = 'btn-delete';
                 deleteButton.onclick = () => deleteRule(index);
-                deleteCell.appendChild(deleteButton);
+                editCell.appendChild(editButton);
+                editCell.appendChild(deleteButton);
             });
         }
 
         function deleteRule(index) {
             rules.splice(index, 1);
             renderRules();
+        }
+
+        function editRule(index) {
+            const rule = rules[index];
+            document.getElementById('ruleType').value = rule.type;
+            document.getElementById('startPort').value = rule.startPort;
+            document.getElementById('endPort').value = rule.endPort;
+            document.getElementById('targetPort').value = rule.targetPort;
+            document.getElementById('destination').value = rule.destination;
+            protocolBtn.innerText = rule.protocol;
+
+            currentEditingIndex = index; // 设置当前编辑的索引
         }
 
         function saveRules() {
@@ -396,10 +464,27 @@ https.createServer(options, app).listen(PORT, () => {
             document.getElementById('ruleType').value = '';
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
-            document.getElementById('targetPort').value = ''; // 清空目标端口输入
+            document.getElementById('targetPort').value = '';
             document.getElementById('destination').value = '';
-            document.getElementById('protocol').value = '';
+            protocolBtn.innerText = '选择协议';
+            currentEditingIndex = -1; // 重置编辑状态
         }
+
+        function openModal() {
+            document.getElementById("protocolModal").style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById("protocolModal").style.display = "none";
+        }
+
+        function selectProtocol(protocol) {
+            protocolBtn.innerText = protocol;
+            closeModal();
+        }
+
+        // 绑定协议按钮点击事件
+        protocolBtn.addEventListener('click', openModal);
     </script>
 </body>
 </html>
@@ -485,8 +570,8 @@ https.createServer(options, app).listen(PORT, () => {
 ### 注意事项
 
 - 确保实际操作中更新 SSL 证书路径。
-- 保护 `passwd.md` 文件的访问权限以确保其安全性。 
-- 每次密码更改均通过 `bcryptTool.js` 进行。 
+- 保护 `passwd.md` 文件的访问权限以确保其安全性。
+- 每次密码更改均通过 `bcryptTool.js` 进行。
 - 定期更新依赖组件和 Node.js 以确保安全性和性能。
 
-如果你还有其他需要，随时告诉我！
+如果你还有其他需要，请随时告诉我！
