@@ -573,7 +573,7 @@ https.createServer(options, app).listen(PORT, () => {
 3. **密码文件**：确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。
 4. **安装依赖**：确保已用以下命令安装需要的 npm 包：
     ```bash
-    npm install express bcrypt cookie-parser body-parser fs https
+    npm init -y && npm install express bcrypt cookie-parser body-parser fs https
     ```
 5. **启动服务器**：使用以下命令启动服务器：
     ```bash
