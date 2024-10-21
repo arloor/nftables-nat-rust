@@ -1,4 +1,4 @@
-完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
+这个项目完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
 
 ### 项目结构
 
