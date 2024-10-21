@@ -582,9 +582,7 @@ https.createServer(options, app).listen(PORT, () => {
     node server.js
     ```
 
-以上是完整的代码，确保了对管理后台的安全访问控制。
-
-要设置 Node.js 应用在开机时自动启动，您可以使用 `systemd` 来创建一个服务。下面是如何在 Linux 系统（如 Ubuntu）中进行设置的步骤。
+### 要设置 Node.js 应用在开机时自动启动，您可以使用 `systemd` 来创建一个服务。下面是如何在 Linux 系统（如 Ubuntu）中进行设置的步骤。
 
 ### 1. 创建 Node.js 应用的服务文件
 
