@@ -116,7 +116,6 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const https = require('https');
-const bcryptTool = require('./bcryptTool');
 
 const app = express();
 const PORT = 3000;
@@ -204,7 +203,7 @@ function isAuthenticated(req, res, next) {
 
 // 响应根路径的GET请求
 app.get('/', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
+    res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
 // 处理登录请求
