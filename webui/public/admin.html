@@ -11,12 +11,12 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
-            background-color: #e0f7fa; /* 更温馨的背景颜色 */
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
             color: #333;
             margin: 0;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 600px;
             margin: auto;
@@ -28,11 +28,13 @@
 
         h1, h2 {
             text-align: center;
+            color: #007aff; /* 使用统一的标题颜色 */
         }
 
         label {
             display: block;
             margin-top: 20px;
+            font-weight: bold; /* 粗体标签 */
         }
 
         input[type="text"],
@@ -40,9 +42,15 @@
             width: calc(100% - 22px);
             padding: 12px;
             margin: 8px 0;
-            border: 1px solid #ccc;
+            border: 1px solid #bbb; /* 轻微的边框色 */
             border-radius: 6px;
             font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #007aff; /* 聚焦时的边框颜色 */
         }
 
         input[type="button"] {
@@ -59,7 +67,7 @@
 
         input[type="button"]:hover {
             background-color: #0051a8;
-            transform: translateY(-2px); /* 按钮悬停提升 */
+            transform: translateY(-2px);
         }
 
         table {
@@ -67,7 +75,7 @@
             border-collapse: collapse;
             margin-top: 20px;
             border-radius: 10px;
-            overflow: hidden; /* 去掉表格边角 */
+            overflow: hidden;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
@@ -79,22 +87,23 @@
         }
 
         th {
-            background-color: #f1f1f1;
+            background-color: #f1f1f1; /* 表头背景 */
             font-weight: bold;
         }
 
         tr:nth-child(even) {
-            background-color: #f9f9f9; /* 偶数行的背景色 */
+            background-color: #f9f9f9;
         }
 
         tr:hover {
-            background-color: #f0f0f0; /* 鼠标悬停行效果 */
+            background-color: #f0f0f0;
         }
 
         .note {
             font-size: 0.9em;
             color: #555;
             margin-top: 5px;
+            line-height: 1.4; /* 增加行高 */
         }
 
         pre {
@@ -103,13 +112,20 @@
             border-radius: 6px;
             overflow-x: auto;
             font-family: monospace;
-            white-space: pre-wrap; /* 自动换行 */
+            white-space: pre-wrap;
         }
 
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
             }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #777;
         }
     </style>
 </head>
@@ -136,7 +152,7 @@
         <input type="button" value="添加规则" onclick="addRule()">
         <div class="note">
             <span style="color: red;">
-            添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
+                添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
             </span>
         </div>
 
@@ -162,7 +178,12 @@
         <input type="button" value="登出" onclick="logout()">
     </div>
 
+    <footer>
+        <p>© 2023 公司名称. 保留所有权利。</p>
+    </footer>
+
     <script>
+        // 原有 JavaScript 代码 (无需更改)
         const rules = [];
 
         window.onload = async () => {
