@@ -1,4 +1,14 @@
-好的，这里是完整的代码，包括所有必要的文件。
+完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
+### 项目结构
+```
+nftables-nat-rust-webui/
+├── bcryptTool.js
+├── passwd.md
+├── server.js
+└── public/
+    ├── index.html
+    └── login.html
+```
 
 ### 1. `bcryptTool.js`
 
@@ -481,4 +491,4 @@ https.createServer(options, app).listen(PORT, () => {
 3. **密码文件**：确保 `passwd.md` 文件的格式为 `用户名:哈希密码`，例如 `admin:$2b$10$gY9KnYXxJ.PqybUkf0z2y.VD2LZX1X5LfKoJu9zW0PzW.q34654eO`。
 4. **保存规则功能**：可以调整 `/save-rules` 的实现逻辑来符合实际需求。
 
-完整的代码功能包括管理用户登录、端口规则的管理等，如果有其他问题或需求，请随时告诉我！
+功能包括管理用户登录、端口规则的管理等.
