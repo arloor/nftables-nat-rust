@@ -109,6 +109,7 @@ startTool();
 主要服务器文件，处理请求和逻辑。
 
 ```javascript
+// server.js
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -122,8 +123,8 @@ const PORT = 3000;
 
 // HTTPS 设置 (请提供有效的证书和私钥)
 const options = {
-    key: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/private-key.pem'),
-    cert: fs.readFileSync('/root/nftables-nat-rust-webui/ssl/certificate.pem')
+    key: fs.readFileSync('/path/to/your/private-key.pem'),
+    cert: fs.readFileSync('/path/to/your/certificate.pem')
 };
 
 // 中间件
@@ -205,6 +206,22 @@ app.get('/api/rules', (req, res) => {
     res.json(rules);
 });
 
+// 编辑规则
+app.post('/edit-rule', (req, res) => {
+    const { index, startPort, endPort, destination } = req.body;
+    if (index < 0 || index >= rules.length) {
+        return res.status(400).json({ message: '无效的规则索引' });
+    }
+    
+    rules[index] = {
+        ...rules[index],
+        startPort,
+        endPort,
+        destination
+    };
+    res.json({ message: '规则编辑成功' });
+});
+
 // 处理保存规则的请求
 app.post('/save-rules', (req, res) => {
     const rulesData = req.body.rules.map(rule => {
@@ -261,25 +278,80 @@ https.createServer(options, app).listen(PORT, () => {
 ```html
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>端口转发控制台</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif; background-color: #f5f5f5; }
-        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
-        h1 { text-align: center; color: #333; }
-        label { display: block; margin-top: 20px; }
-        input[type="text"], input[type="button"], select { width: calc(100% - 22px); padding: 15px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; }
-        input[type="button"] { background-color: #007aff; color: white; cursor: pointer; }
-        input[type="button"]:hover { background-color: #0051a8; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 10px; border: 1px solid #ccc; }
-        th { background-color: #f1f1f1; }
-        .note { font-size: 0.9em; color: #555; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+        }
+
+        input[type="text"],
+        input[type="button"],
+        select {
+            width: calc(100% - 22px);
+            padding: 15px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        input[type="button"] {
+            background-color: #007aff;
+            color: white;
+            cursor: pointer;
+        }
+
+        input[type="button"]:hover {
+            background-color: #0051a8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        th {
+            background-color: #f1f1f1;
+        }
+
+        .note {
+            font-size: 0.9em;
+            color: #555;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>端口转发控制台</h1>
@@ -343,7 +415,6 @@ https.createServer(options, app).listen(PORT, () => {
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || startPort;
             const destination = document.getElementById('destination').value;
-
             const ruleType = document.getElementById('ruleType').value;
 
             if (startPort && destination) {
@@ -367,8 +438,17 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(3).innerText = rule.destination;
 
                 const editCell = newRow.insertCell(4);
-                editCell.innerHTML = `<button onclick="deleteRule(${index})">删除</button>`;
+                editCell.innerHTML = `<button onclick="editRule(${index})">编辑</button><button onclick="deleteRule(${index})">删除</button>`;
             });
+        }
+
+        function editRule(index) {
+            const rule = rules[index];
+            document.getElementById('startPort').value = rule.startPort;
+            document.getElementById('endPort').value = rule.endPort;
+            document.getElementById('destination').value = rule.destination;
+            document.getElementById('ruleType').value = rule.type;
+            deleteRule(index); // 先删除原有规则
         }
 
         function deleteRule(index) {
@@ -412,6 +492,7 @@ https.createServer(options, app).listen(PORT, () => {
         }
     </script>
 </body>
+
 </html>
 ```
 
