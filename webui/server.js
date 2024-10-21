@@ -64,15 +64,25 @@ function isAuthenticated(req, res, next) {
     if (req.cookies.auth) {
         return next();
     } else {
-        res.redirect('/login'); // 未登录则重定向到登录页
+        // 这里将未认证用户重定向至登录页面
+        res.redirect('/login');
     }
 }
 
-// 需要登录才能访问的路由
+// 路由: 登录页面
+app.get('/login', (req, res) => {
+    if (req.cookies.auth) {
+        return res.redirect('/'); // 若已登录则重定向到主页
+    }
+    res.sendFile(path.join(__dirname, 'public/login.html'));
+});
+
+// 路由: 主页，需身份验证
 app.get('/', isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
+// 路由: 登录请求处理
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = users[username];
@@ -83,14 +93,6 @@ app.post('/login', async (req, res) => {
     } else {
         res.status(401).send('用户名或密码错误');
     }
-});
-
-// 登录页面路由
-app.get('/login', (req, res) => {
-    if (req.cookies.auth) {
-        return res.redirect('/');
-    }
-    res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
 // 其他需要身份验证的路由
@@ -132,7 +134,7 @@ app.post('/save-rules', isAuthenticated, (req, res) => {
 // 登出
 app.post('/logout', (req, res) => {
     res.clearCookie('auth'); // 清除cookie
-    res.redirect('/login');
+    res.redirect('/login'); // 重定向到登录页面
 });
 
 // 错误处理
