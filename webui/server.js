@@ -52,7 +52,8 @@ const readRulesFile = () => {
                 type: parts[0],
                 startPort: parts[1],
                 endPort: parts[2] || null,
-                destination: parts[3]
+                destination: parts[3],
+                protocol: parts[4] || null // 新增协议字段
             };
         });
     });
@@ -64,7 +65,6 @@ function isAuthenticated(req, res, next) {
     if (req.cookies.auth) {
         return next();
     } else {
-        // 这里将未认证用户重定向至登录页面
         res.redirect('/index');
     }
 }
@@ -72,7 +72,7 @@ function isAuthenticated(req, res, next) {
 // 路由: 登录页面
 app.get('/index', (req, res) => {
     if (req.cookies.auth) {
-        return res.redirect('/admin'); // 若已登录则重定向到后台管理
+        return res.redirect('/admin');
     }
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
@@ -101,7 +101,7 @@ app.get('/api/rules', isAuthenticated, (req, res) => {
 });
 
 app.post('/edit-rule', isAuthenticated, (req, res) => {
-    const { index, startPort, endPort, destination } = req.body;
+    const { index, startPort, endPort, destination, protocol } = req.body;
     if (index < 0 || index >= rules.length) {
         return res.status(400).json({ message: '无效的规则索引' });
     }
@@ -110,7 +110,8 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
         type: rules[index].type,
         startPort,
         endPort,
-        destination
+        destination,
+        protocol // 更新协议
     };
     res.json({ message: '规则编辑成功' });
 });
@@ -119,7 +120,9 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
 app.post('/save-rules', isAuthenticated, (req, res) => {
     const rulesData = req.body.rules.map(rule => {
         const endPort = rule.endPort || rule.startPort; // 处理空值
-        return `${rule.type},${rule.startPort},${endPort},${rule.destination}`;
+        const protocol = rule.protocol || ''; // 获取协议
+
+        return `${rule.type},${rule.startPort},${endPort},${rule.destination}${protocol ? ',' + protocol : ''}`;
     }).join('\n');
 
     fs.writeFile('/etc/nat.conf', rulesData, (err) => {
