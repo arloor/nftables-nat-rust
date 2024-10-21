@@ -288,7 +288,7 @@ https.createServer(options, app).listen(PORT, () => {
                 <option value="RANGE">RANGE</option>
             </select>
         </label>
-        <div class="note" id="note">选择 SINGLE 时，目标端口等于起始端口。</div>
+        <div class="note" id="note">选择 SINGLE 时，目标端口自动填入起始端口一样的端口，可以手动修改端口。</div>
         <input type="text" id="startPort" placeholder="起始端口" required>
         <input type="text" id="endPort" placeholder="结束端口 (可选)" required>
         <input type="text" id="destination" placeholder="目标域名或localhost" required>
@@ -298,8 +298,8 @@ https.createServer(options, app).listen(PORT, () => {
             <thead>
                 <tr>
                     <th>规则类型</th>
-                    <th>起始端口</th>
-                    <th>结束端口</th>
+                    <th>起始端口（SINGLE时为本机端口）</th>
+                    <th>结束端口（SINGLE时为目标端口）</th>
                     <th>目标</th>
                     <th>操作</th>
                 </tr>
