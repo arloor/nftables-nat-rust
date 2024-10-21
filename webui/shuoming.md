@@ -384,7 +384,7 @@ https.createServer(options, app).listen(PORT, () => {
             </tbody>
         </table>
         <input type="button" value="保存规则" onclick="saveRules()">
-        <h2>/etc/nat.conf配置预览</h2>
+        <h2>配置预览（/etc/nat.conf）</h2>
         <pre id="rulesPreview"></pre>
         <input type="button" value="登出" onclick="logout()">
     </div>
