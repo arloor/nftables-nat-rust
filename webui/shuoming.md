@@ -232,6 +232,18 @@ app.post('/delete-rule', (req, res) => {
     res.json({ message: '规则删除成功' });
 });
 
+// 处理预览规则的请求
+app.get('/api/rules/preview', (req, res) => {
+    const previewRules = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}`);
+    res.json(previewRules);
+});
+
+// 登出
+app.post('/logout', (req, res) => {
+    res.clearCookie('auth');
+    res.redirect('/login');
+});
+
 // 错误处理
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -300,6 +312,9 @@ https.createServer(options, app).listen(PORT, () => {
             </tbody>
         </table>
         <input type="button" value="保存规则" onclick="saveRules()">
+        <h2>规则预览</h2>
+        <pre id="rulesPreview"></pre>
+        <input type="button" value="登出" onclick="logout()">
     </div>
 
     <script>
@@ -314,6 +329,7 @@ https.createServer(options, app).listen(PORT, () => {
             const fetchedRules = await response.json();
             fetchedRules.forEach(rule => rules.push(rule));
             renderRules();
+            updatePreview();
         }
 
         function toggleEndPortInput() {
@@ -334,6 +350,7 @@ https.createServer(options, app).listen(PORT, () => {
                 rules.push({ type: ruleType, startPort, endPort, destination });
                 renderRules();
                 clearInputs();
+                updatePreview();
             } else {
                 alert('请填写所有必需的字段！');
             }
@@ -357,12 +374,19 @@ https.createServer(options, app).listen(PORT, () => {
         function deleteRule(index) {
             rules.splice(index, 1);
             renderRules();
+            updatePreview();
         }
 
         function clearInputs() {
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
             document.getElementById('destination').value = '';
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('rulesPreview');
+            const previewText = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}`).join('\n');
+            preview.innerText = previewText;
         }
 
         async function saveRules() {
@@ -377,6 +401,14 @@ https.createServer(options, app).listen(PORT, () => {
             } else {
                 alert('规则保存失败，请重试。');
             }
+        }
+
+        async function logout() {
+            await fetch('/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            window.location.href = '/login';
         }
     </script>
 </body>
