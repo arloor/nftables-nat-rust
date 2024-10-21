@@ -1,4 +1,4 @@
-以下是完整的代码，包含加密和解密密码的工具，以及原先的服务器代码和前端页面代码。确保你在本地环境中执行，记得按照注释和说明配置。
+下面是更新后的完整代码，包括 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html`，确保用户在访问主页面之前需要登录。
 
 ### 项目结构
 
@@ -12,13 +12,7 @@ nftables-nat-rust-webui/
     └── login.html
 ```
 
-### 1. 创建 `passwd.md`
-
-在项目根目录下创建一个名为 `passwd.md` 的文件，并保持为空，或者可以直接通过 Bcrypt 工具添加内容。
-
-### 2. 创建 `bcryptTool.js`
-
-在项目根目录下创建文件 `bcryptTool.js`，内容如下：
+### 1. `bcryptTool.js`
 
 ```javascript
 const bcrypt = require('bcrypt');
@@ -110,9 +104,7 @@ const startTool = () => {
 startTool();
 ```
 
-### 3. 创建 `server.js`
-
-这是项目的主要服务器文件，内容如下：
+### 2. `server.js`
 
 ```javascript
 const express = require('express');
@@ -128,9 +120,7 @@ const PORT = 3000;
 
 // HTTPS 设置 (请提供有效的证书和私钥)
 const options = {
-    // 替换为您的私钥路径
     key: fs.readFileSync('path/to/your/private-key.pem'), 
-    // 替换为您的证书路径
     cert: fs.readFileSync('path/to/your/certificate.pem')
 };
 
@@ -154,6 +144,15 @@ fs.readFile('passwd.md', 'utf8', (err, data) => {
     });
 });
 
+// 验证用户是否已登录
+function isAuthenticated(req, res, next) {
+    if (req.cookies.auth) {
+        return next();
+    } else {
+        res.redirect('/login'); // 未登录则重定向到登录页
+    }
+}
+
 // 响应根路径的GET请求
 app.get('/', isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
@@ -172,34 +171,11 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// 验证用户是否已登录
-function isAuthenticated(req, res, next) {
-    if (req.cookies.auth) {
-        return next();
-    } else {
-        res.redirect('/login'); // 未登录则重定向到登录页
-    }
-}
-
-// 处理保存规则的请求
-app.post('/save-rules', isAuthenticated, (req, res) => {
-    const { rules } = req.body;
-
-    if (rules) {
-        fs.writeFile('/etc/nat.conf', rules, (err) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ message: '保存规则失败' });
-            }
-            res.json({ message: '规则已保存成功' });
-        });
-    } else {
-        res.status(400).json({ message: '无效的规则数据' });
-    }
-});
-
 // 处理登录页面的GET请求
 app.get('/login', (req, res) => {
+    if (req.cookies.auth) {
+        return res.redirect('/'); // 已登录用户直接重定向到主页
+    }
     res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
@@ -215,9 +191,7 @@ https.createServer(options, app).listen(PORT, () => {
 });
 ```
 
-### 4. 创建前端页面 `public/index.html`
-
-将以下HTML代码保存为 `public/index.html`：
+### 3. `public/index.html`
 
 ```html
 <!DOCTYPE html>
@@ -300,15 +274,6 @@ https.createServer(options, app).listen(PORT, () => {
             padding: 5px 10px;
             cursor: pointer;
         }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-            }
-            input[type="text"], input[type="button"] {
-                padding: 12px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -319,6 +284,7 @@ https.createServer(options, app).listen(PORT, () => {
         <input type="text" id="ruleType" placeholder="规则类型 (SINGLE/RANGE)">
         <input type="text" id="startPort" placeholder="起始端口">
         <input type="text" id="endPort" placeholder="结束端口 (可选)">
+        <input type="text" id="targetPort" placeholder="目标端口"> 
         <input type="text" id="destination" placeholder="目标域名或localhost">
         <input type="text" id="protocol" placeholder="协议 (tcp/udp，可选)">
         <input type="button" value="预览规则" onclick="previewRule()">
@@ -331,6 +297,7 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>规则类型</th>
                     <th>起始端口</th>
                     <th>结束端口</th>
+                    <th>目标端口</th> <!-- 新增目标端口列 -->
                     <th>目标</th>
                     <th>协议</th>
                     <th>操作</th>
@@ -351,11 +318,12 @@ https.createServer(options, app).listen(PORT, () => {
             const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
+            const targetPort = document.getElementById('targetPort').value || '-'; // 获取目标端口值
             const destination = document.getElementById('destination').value;
             const protocol = document.getElementById('protocol').value || '-';
 
             if (type && startPort && destination) {
-                alert(`预览规则:\n${type}, ${startPort}, ${endPort}, ${destination}, ${protocol}`);
+                alert(`预览规则:\n${type}, ${startPort}, ${endPort}, ${targetPort}, ${destination}, ${protocol}`);
             } else {
                 alert('请填写所有必需的字段！');
             }
@@ -365,11 +333,12 @@ https.createServer(options, app).listen(PORT, () => {
             const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
+            const targetPort = document.getElementById('targetPort').value || '-'; // 新增目标端口
             const destination = document.getElementById('destination').value;
             const protocol = document.getElementById('protocol').value || '-';
 
             if (type && startPort && destination) {
-                rules.push({ type, startPort, endPort, destination, protocol });
+                rules.push({ type, startPort, endPort, targetPort, destination, protocol });
                 renderRules();
                 clearInputs();
             } else {
@@ -385,10 +354,11 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(0).innerText = rule.type;
                 newRow.insertCell(1).innerText = rule.startPort;
                 newRow.insertCell(2).innerText = rule.endPort;
-                newRow.insertCell(3).innerText = rule.destination;
-                newRow.insertCell(4).innerText = rule.protocol;
+                newRow.insertCell(3).innerText = rule.targetPort; // 显示目标端口
+                newRow.insertCell(4).innerText = rule.destination;
+                newRow.insertCell(5).innerText = rule.protocol;
 
-                const deleteCell = newRow.insertCell(5);
+                const deleteCell = newRow.insertCell(6);
                 const deleteButton = document.createElement('button');
                 deleteButton.innerText = '删除';
                 deleteButton.className = 'btn-delete';
@@ -405,7 +375,7 @@ https.createServer(options, app).listen(PORT, () => {
         function saveRules() {
             if (rules.length > 0) {
                 const rulesStr = rules.map(rule =>
-                    `${rule.type},${rule.startPort},${rule.endPort},${rule.destination},${rule.protocol}`).join('\n');
+                    `${rule.type},${rule.startPort},${rule.endPort},${rule.targetPort},${rule.destination},${rule.protocol}`).join('\n');
 
                 fetch('/save-rules', {
                     method: 'POST',
@@ -426,6 +396,7 @@ https.createServer(options, app).listen(PORT, () => {
             document.getElementById('ruleType').value = '';
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
+            document.getElementById('targetPort').value = ''; // 清空目标端口输入
             document.getElementById('destination').value = '';
             document.getElementById('protocol').value = '';
         }
@@ -434,9 +405,7 @@ https.createServer(options, app).listen(PORT, () => {
 </html>
 ```
 
-### 5. 创建前端页面 `public/login.html`
-
-将以下HTML代码保存为 `public/login.html`：
+### 4. `public/login.html`
 
 ```html
 <!DOCTYPE html>
@@ -509,7 +478,7 @@ https.createServer(options, app).listen(PORT, () => {
    node server.js
    ```
 
-6. 打开浏览器，输入 `https://localhost:3000`，您将被重定向到登录页面。
+6. 打开浏览器，输入 `https://localhost:${PORT}`，您将被重定向到登录页面。
 
 7. 使用您的默认凭据（在 `passwd.md` 文件中设置的用户名和密码）进行登录。
 
@@ -519,3 +488,5 @@ https.createServer(options, app).listen(PORT, () => {
 - 保护 `passwd.md` 文件的访问权限以确保其安全性。 
 - 每次密码更改均通过 `bcryptTool.js` 进行。 
 - 定期更新依赖组件和 Node.js 以确保安全性和性能。
+
+如果你还有其他需要，随时告诉我！
