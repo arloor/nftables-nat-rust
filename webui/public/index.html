@@ -9,64 +9,79 @@
             box-sizing: border-box;
         }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #e0f7fa; /* 更温馨的背景颜色 */
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); /* 渐变背景 */
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            padding: 0 20px; /* 添加左右内边距 */
+            padding: 0 20px;
         }
         .login-container {
             background: #ffffff;
-            border-radius: 8px;
-            padding: 40px; /* 增加内边距 */
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 400px; /* 设置最大宽度 */
-            text-align: center; /* 中心对齐内容 */
+            max-width: 400px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out; /* 进入动画 */
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
         h2 {
-            margin-bottom: 20px;
-            color: #333; /* 字体颜色 */
+            margin-bottom: 30px;
+            color: #007aff; /* 更新标题颜色 */
+            font-size: 28px; /* 更大标题 */
         }
         input {
             width: 100%;
-            padding: 15px; /* 增加内边距 */
+            padding: 15px;
             margin-bottom: 15px;
-            border: 1px solid #ccc;
+            border: 1px solid #007aff;
             border-radius: 5px;
-            font-size: 16px; /* 更大字体 */
-            transition: border 0.3s ease; /* 边框过渡效果 */
+            font-size: 16px;
+            transition: border 0.3s ease;
         }
         input:focus {
-            border-color: #007aff; /* 聚焦时边框颜色 */
-            outline: none; /* 去掉默认轮廓 */
+            border-color: #0051a8;
+            outline: none;
         }
         button {
             width: 100%;
-            padding: 15px; /* 增加内边距 */
+            padding: 15px;
             background-color: #007aff;
             color: #ffffff;
             border: none;
             border-radius: 5px;
-            font-size: 16px; /* 更大字体 */
+            font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.3s ease; /* 背景色过渡效果 */
+            transition: background-color 0.3s ease;
         }
         button:hover {
             background-color: #0051a8;
         }
+        footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
         @media (max-width: 480px) {
             .login-container {
-                padding: 30px; /* 减小内边距 */
+                padding: 30px;
             }
             h2 {
-                font-size: 24px; /* 移动端较小标题 */
+                font-size: 24px;
             }
             input, button {
-                font-size: 14px; /* 移动端较小字体 */
+                font-size: 14px;
             }
         }
     </style>
@@ -80,6 +95,9 @@
             <input type="password" id="password" placeholder="密码" required>
             <button type="submit">登录</button>
         </form>
+        <footer>
+            <p>© 2023 公司名称. 保留所有权利。</p>
+        </footer>
     </div>
 
     <script>
