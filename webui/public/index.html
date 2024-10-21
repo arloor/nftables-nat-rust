@@ -26,7 +26,7 @@
             font-weight: 600;
             color: #1c1c1e;
         }
-        input[type="text"], input[type="button"], select {
+        input[type="text"], input[type="button"] {
             width: calc(100% - 22px);
             padding: 15px;
             margin: 8px 0;
@@ -74,39 +74,6 @@
             padding: 5px 10px;
             cursor: pointer;
         }
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgb(0,0,0);
-            background-color: rgba(0,0,0,0.4); 
-            padding-top: 60px;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            border-radius: 10px;
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -114,17 +81,9 @@
         <h1>端口转发控制台</h1>
 
         <h2>添加新规则</h2>
-        <select id="ruleType">
-            <option value="">选择规则类型</option>
-            <option value="SINGLE">单一</option>
-            <option value="RANGE">范围</option>
-        </select>
-        <input type="text" id="startPort" placeholder="起始端口">
+        <input type="text" id="startPort" placeholder="起始端口" required>
         <input type="text" id="endPort" placeholder="结束端口 (可选)">
-        <input type="text" id="targetPort" placeholder="目标端口"> 
-        <input type="text" id="destination" placeholder="目标域名或localhost">
-        <button type="button" id="protocolBtn">选择协议</button>
-        <input type="button" value="预览规则" onclick="previewRule()">
+        <input type="text" id="destination" placeholder="目标域名或localhost" required>
         <input type="button" value="添加规则" onclick="addRule()">
 
         <h2>当前规则</h2>
@@ -134,9 +93,7 @@
                     <th>规则类型</th>
                     <th>起始端口</th>
                     <th>结束端口</th>
-                    <th>目标端口</th>
                     <th>目标</th>
-                    <th>协议</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -148,52 +105,34 @@
         <input type="button" class="btn-save" value="保存规则" onclick="saveRules()">
     </div>
 
-    <!-- 协议选择模态框 -->
-    <div id="protocolModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>选择协议</h2>
-            <div>
-                <button onclick="selectProtocol('TCP')">TCP</button>
-                <button onclick="selectProtocol('UDP')">UDP</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         const rules = [];
         let currentEditingIndex = -1; // 当前编辑规则的索引
-        const protocolBtn = document.getElementById('protocolBtn');
 
-        function previewRule() {
-            const type = document.getElementById('ruleType').value;
-            const startPort = document.getElementById('startPort').value;
-            const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-';
-            const destination = document.getElementById('destination').value;
-            const protocol = protocolBtn.innerText || '-';
-
-            if (type && startPort && destination) {
-                alert(`预览规则:\n${type}, ${startPort}, ${endPort}, ${targetPort}, ${destination}, ${protocol}`);
-            } else {
-                alert('请填写所有必需的字段！');
-            }
-        }
+        // 页面加载时获取规则
+        window.onload = async () => {
+            const response = await fetch('/api/rules');
+            const fetchedRules = await response.json();
+            fetchedRules.forEach(rule => rules.push(rule));
+            renderRules();
+        };
 
         function addRule() {
-            const type = document.getElementById('ruleType').value;
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || '-';
-            const targetPort = document.getElementById('targetPort').value || '-';
             const destination = document.getElementById('destination').value;
-            const protocol = protocolBtn.innerText || '-';
 
-            if (type && startPort && destination) {
+            let type = 'SINGLE'; // 默认规则类型为单一
+            if (endPort !== '-') {
+                type = 'RANGE'; // 如果填写了结束端口，则为范围
+            }
+
+            if (startPort && destination) {
                 if (currentEditingIndex >= 0) {
-                    rules[currentEditingIndex] = { type, startPort, endPort, targetPort, destination, protocol };
+                    rules[currentEditingIndex] = { type, startPort, endPort, destination };
                     currentEditingIndex = -1; // 重置编辑状态
                 } else {
-                    rules.push({ type, startPort, endPort, targetPort, destination, protocol });
+                    rules.push({ type, startPort, endPort, destination });
                 }
                 renderRules();
                 clearInputs();
@@ -210,11 +149,9 @@
                 newRow.insertCell(0).innerText = rule.type;
                 newRow.insertCell(1).innerText = rule.startPort;
                 newRow.insertCell(2).innerText = rule.endPort;
-                newRow.insertCell(3).innerText = rule.targetPort;
-                newRow.insertCell(4).innerText = rule.destination;
-                newRow.insertCell(5).innerText = rule.protocol;
+                newRow.insertCell(3).innerText = rule.destination;
 
-                const editCell = newRow.insertCell(6);
+                const editCell = newRow.insertCell(4);
                 const editButton = document.createElement('button');
                 editButton.innerText = '编辑';
                 editButton.onclick = () => editRule(index);
@@ -234,12 +171,9 @@
 
         function editRule(index) {
             const rule = rules[index];
-            document.getElementById('ruleType').value = rule.type;
             document.getElementById('startPort').value = rule.startPort;
             document.getElementById('endPort').value = rule.endPort;
-            document.getElementById('targetPort').value = rule.targetPort;
             document.getElementById('destination').value = rule.destination;
-            protocolBtn.innerText = rule.protocol;
 
             currentEditingIndex = index; // 设置当前编辑的索引
         }
@@ -247,7 +181,7 @@
         function saveRules() {
             if (rules.length > 0) {
                 const rulesStr = rules.map(rule =>
-                    `${rule.type},${rule.startPort},${rule.endPort},${rule.targetPort},${rule.destination},${rule.protocol}`).join('\n');
+                    `${rule.type},${rule.startPort},${rule.endPort},${rule.destination}`).join('\n');
 
                 fetch('/save-rules', {
                     method: 'POST',
@@ -265,30 +199,11 @@
         }
 
         function clearInputs() {
-            document.getElementById('ruleType').value = '';
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
-            document.getElementById('targetPort').value = '';
             document.getElementById('destination').value = '';
-            protocolBtn.innerText = '选择协议';
             currentEditingIndex = -1; // 重置编辑状态
         }
-
-        function openModal() {
-            document.getElementById("protocolModal").style.display = "block";
-        }
-
-        function closeModal() {
-            document.getElementById("protocolModal").style.display = "none";
-        }
-
-        function selectProtocol(protocol) {
-            protocolBtn.innerText = protocol;
-            closeModal();
-        }
-
-        // 绑定协议按钮点击事件
-        protocolBtn.addEventListener('click', openModal);
     </script>
 </body>
 </html>
