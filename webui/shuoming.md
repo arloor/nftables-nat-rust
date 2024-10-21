@@ -122,7 +122,7 @@ const PORT = 3000;
 
 // HTTPS 设置 (请提供有效的证书和私钥)
 const options = {
-    key: fs.readFileSync('path/to/your/private-key.pem'), 
+    key: fs.readFileSync('path/to/your/private-key.pem'),
     cert: fs.readFileSync('path/to/your/certificate.pem')
 };
 
@@ -148,49 +148,27 @@ fs.readFile('passwd.md', 'utf8', (err, data) => {
 
 // 从 /etc/nat.conf 读取规则
 let rules = [];
-fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
-    if (err) {
-        console.error('读取配置文件失败:', err);
-        return;
-    }
-    const lines = data.trim().split('\n');
-    lines.forEach(line => {
-        line = line.split('#')[0].trim(); // 移除注释
-        if (!line) return; // 忽略空行
-        
-        const parts = line.split(',');
-        const type = parts[0];
-        const startPort = parts[1];
-        const endPort = parts[2];
-        const destination = parts[3];
-
-        // 验证格式
-        if (!type || !startPort || !destination) {
-            console.error(`无效行: ${line}`);
+const readRulesFile = () => {
+    fs.readFile('/etc/nat.conf', 'utf8', (err, data) => {
+        if (err) {
+            console.error('读取配置文件失败:', err);
             return;
         }
-
-        if (type === 'SINGLE') {
-            // SINGLE类型只需2个端口
-            if (!endPort || isNaN(startPort)) {
-                console.error(`无效的单端口转发行: ${line}`);
-                return;
-            }
-            rules.push({ type, startPort, endPort: null, destination }); // 不需要结束端口
-        } else if (type === 'RANGE') {
-            // RANGE类型需要3个有效端口
-            if (!endPort || isNaN(startPort) || isNaN(endPort) || Number(startPort) > Number(endPort)) {
-                console.error(`范围端口不有效: ${line}`);
-                return;
-            }
-            rules.push({ type, startPort, endPort, destination });
-        } else {
-            console.error(`无效类型：${type}`);
-        }
+        rules = data.trim().split('\n').map(line => {
+            line = line.split('#')[0].trim(); // 移除注释
+            return line ? line.split(',') : null;
+        }).filter(Boolean).map(parts => {
+            return {
+                type: parts[0],
+                startPort: parts[1],
+                endPort: parts[2] || null,
+                destination: parts[3]
+            };
+        });
     });
-});
+};
+readRulesFile();
 
-// 验证用户是否已登录
 function isAuthenticated(req, res, next) {
     if (req.cookies.auth) {
         return next();
@@ -199,46 +177,59 @@ function isAuthenticated(req, res, next) {
     }
 }
 
-// 响应根路径的GET请求
 app.get('/', isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-// 处理登录请求
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = users[username];
 
     if (hashedPassword && await bcrypt.compare(password, hashedPassword)) {
-        res.cookie('auth', '1'); // 设置 cookie，表示用户已认证
-        res.redirect('/'); // 登录成功后重定向到主页
+        res.cookie('auth', '1');
+        res.redirect('/');
     } else {
         res.status(401).send('用户名或密码错误');
     }
 });
 
-// 处理登录页面的GET请求
 app.get('/login', (req, res) => {
     if (req.cookies.auth) {
-        return res.redirect('/'); // 已登录用户直接重定向到主页
+        return res.redirect('/');
     }
     res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
-// 处理获取规则的请求
+// 获取规则
 app.get('/api/rules', (req, res) => {
     res.json(rules);
 });
 
 // 处理保存规则的请求
 app.post('/save-rules', (req, res) => {
-    const { rules } = req.body;
-    fs.writeFile('/etc/nat.conf', rules, (err) => {
+    const rulesData = req.body.rules.map(rule => {
+        const endPort = rule.endPort ? rule.endPort : rule.startPort;
+        return `${rule.type},${rule.startPort},${endPort},${rule.destination}`;
+    }).join('\n');
+
+    fs.writeFile('/etc/nat.conf', rulesData, (err) => {
         if (err) {
             return res.status(500).json({ message: '保存规则失败' });
         }
+        readRulesFile(); // 重新加载规则
         res.json({ message: '规则保存成功' });
     });
+});
+
+// 删除规则
+app.post('/delete-rule', (req, res) => {
+    const index = req.body.index;
+    if (index < 0 || index >= rules.length) {
+        return res.status(400).json({ message: '无效的规则索引' });
+    }
+    
+    rules.splice(index, 1);
+    res.json({ message: '规则删除成功' });
 });
 
 // 错误处理
@@ -264,8 +255,8 @@ https.createServer(options, app).listen(PORT, () => {
     <title>端口转发控制台</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f5f5f5; }
-        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
         h1 { text-align: center; color: #333; }
         label { display: block; margin-top: 20px; }
         input[type="text"], input[type="button"], select { width: calc(100% - 22px); padding: 15px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; }
@@ -375,10 +366,10 @@ https.createServer(options, app).listen(PORT, () => {
         }
 
         async function saveRules() {
-            const response = await fetch('/api/rules', {
+            const response = await fetch('/save-rules', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(rules)
+                body: JSON.stringify({ rules })
             });
 
             if (response.ok) {
