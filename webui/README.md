@@ -276,7 +276,7 @@ https.createServer(options, app).listen(PORT, () => {
         }
         body {
             font-family: "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); /* 渐变背景 */
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -292,7 +292,7 @@ https.createServer(options, app).listen(PORT, () => {
             width: 100%;
             max-width: 400px;
             text-align: center;
-            animation: fadeIn 0.5s ease-in-out; /* 进入动画 */
+            animation: fadeIn 0.5s ease-in-out;
         }
         @keyframes fadeIn {
             from {
@@ -304,8 +304,8 @@ https.createServer(options, app).listen(PORT, () => {
         }
         h2 {
             margin-bottom: 30px;
-            color: #007aff; /* 更新标题颜色 */
-            font-size: 28px; /* 更大标题 */
+            color: #007aff;
+            font-size: 28px;
         }
         input {
             width: 100%;
@@ -334,6 +334,11 @@ https.createServer(options, app).listen(PORT, () => {
         button:hover {
             background-color: #0051a8;
         }
+        .message {
+            margin-top: 15px;
+            color: #d9534f; /* 红色错误信息 */
+            display: none; /* 默认隐藏 */
+        }
         footer {
             margin-top: 20px;
             font-size: 14px;
@@ -361,6 +366,7 @@ https.createServer(options, app).listen(PORT, () => {
             <input type="password" id="password" placeholder="密码" required>
             <button type="submit">登录</button>
         </form>
+        <div class="message" id="message"></div>
         <footer>
             <p>© JiangChu. All Rights Reserved</p>
         </footer>
@@ -371,6 +377,7 @@ https.createServer(options, app).listen(PORT, () => {
             event.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
 
             const response = await fetch('/login', {
                 method: 'POST',
@@ -383,7 +390,8 @@ https.createServer(options, app).listen(PORT, () => {
             if (response.ok) {
                 window.location.href = '/admin'; // 成功登录后重定向到后台管理
             } else {
-                alert('用户名或密码错误！');
+                messageDiv.innerHTML = '用户名或密码错误！';
+                messageDiv.style.display = 'block'; // 显示错误信息
             }
         }
     </script>
@@ -424,13 +432,13 @@ https.createServer(options, app).listen(PORT, () => {
 
         h1, h2 {
             text-align: center;
-            color: #007aff; /* 使用统一的标题颜色 */
+            color: #007aff;
         }
 
         label {
             display: block;
             margin-top: 20px;
-            font-weight: bold; /* 粗体标签 */
+            font-weight: bold;
         }
 
         input[type="text"],
@@ -438,7 +446,7 @@ https.createServer(options, app).listen(PORT, () => {
             width: calc(100% - 22px);
             padding: 12px;
             margin: 8px 0;
-            border: 1px solid #bbb; /* 轻微的边框色 */
+            border: 1px solid #bbb;
             border-radius: 6px;
             font-size: 16px;
             transition: border-color 0.3s;
@@ -446,7 +454,7 @@ https.createServer(options, app).listen(PORT, () => {
 
         input[type="text"]:focus,
         select:focus {
-            border-color: #007aff; /* 聚焦时的边框颜色 */
+            border-color: #007aff;
         }
 
         input[type="button"] {
@@ -466,6 +474,22 @@ https.createServer(options, app).listen(PORT, () => {
             transform: translateY(-2px);
         }
 
+        .message {
+            display: none;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 5px;
+            color: #fff;
+        }
+
+        .success {
+            background-color: #5cb85c;
+        }
+
+        .error {
+            background-color: #d9534f;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -483,7 +507,7 @@ https.createServer(options, app).listen(PORT, () => {
         }
 
         th {
-            background-color: #f1f1f1; /* 表头背景 */
+            background-color: #f1f1f1;
             font-weight: bold;
         }
 
@@ -495,13 +519,6 @@ https.createServer(options, app).listen(PORT, () => {
             background-color: #f0f0f0;
         }
 
-        .note {
-            font-size: 0.9em;
-            color: #555;
-            margin-top: 5px;
-            line-height: 1.4; /* 增加行高 */
-        }
-
         pre {
             background-color: #f9f9f9;
             padding: 15px;
@@ -509,12 +526,6 @@ https.createServer(options, app).listen(PORT, () => {
             overflow-x: auto;
             font-family: monospace;
             white-space: pre-wrap;
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 15px;
-            }
         }
 
         footer {
@@ -530,6 +541,7 @@ https.createServer(options, app).listen(PORT, () => {
     <div class="container">
         <h1>端口转发控制台</h1>
         <h2>添加新规则</h2>
+        
         <label>规则类型:
             <select id="ruleType">
                 <option value="SINGLE">SINGLE</option>
@@ -537,21 +549,22 @@ https.createServer(options, app).listen(PORT, () => {
             </select>
         </label>
         <div class="note" id="note">目标端口为空则默认自动填入和本机端口一样的端口</div>
+        
         <input type="text" id="startPort" placeholder="起始端口" required>
         <div class="note">类型选择SINGLE时视同为本地端口</div>
+        
         <input type="text" id="endPort" placeholder="结束端口" required>
         <div class="note">类型选择SINGLE时视同为目标端口</div>
+        
         <input type="text" id="destination" placeholder="目标域名或IP" required>
-        <div class="note">转发到本地：行尾域名处填写localhost即可，例如SINGLE,2222,22,localhost，表示本机的2222端口重定向到本机的22端口</div>
-        <input type="text" id="protocol" placeholder="tcp/udp 选择转发协议（可选）">
+        <div class="note">转发到本地：行尾域名处填写localhost即可</div>
+        
+        <input type="text" id="protocol" placeholder="tcp/udp（可选）">
         <div class="note">留空默认为全部转发，仅需tcp则填写tcp</div>
-        <input type="button" value="添加规则" onclick="addRule()">
-        <div class="note">
-            <span style="color: red;">
-                添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
-            </span>
-        </div>
 
+        <input type="button" value="添加规则" onclick="addRule()">
+        <div class="message" id="message"></div>
+        
         <h2>当前规则</h2>
         <table id="rulesTable">
             <thead>
@@ -569,6 +582,7 @@ https.createServer(options, app).listen(PORT, () => {
             </tbody>
         </table>
         <input type="button" value="保存规则" onclick="saveRules()">
+
         <h2>配置预览（/etc/nat.conf）</h2>
         <pre id="rulesPreview"></pre>
         <input type="button" value="登出" onclick="logout()">
@@ -579,9 +593,8 @@ https.createServer(options, app).listen(PORT, () => {
     </footer>
 
     <script>
-        // 原有 JavaScript 代码 (无需更改)
-        const rules = [];
-
+        let rules = [];
+        
         window.onload = async () => {
             await fetchAndRenderRules();
         };
@@ -589,7 +602,7 @@ https.createServer(options, app).listen(PORT, () => {
         async function fetchAndRenderRules() {
             const response = await fetch('/api/rules');
             const fetchedRules = await response.json();
-            fetchedRules.forEach(rule => rules.push(rule));
+            rules = fetchedRules; // 注意这里直接赋值
             renderRules();
             updatePreview();
         }
@@ -606,14 +619,15 @@ https.createServer(options, app).listen(PORT, () => {
                 renderRules();
                 clearInputs();
                 updatePreview();
+                showMessage('规则添加成功！', 'success');
             } else {
-                alert('请填写所有必需的字段！');
+                showMessage('请填写所有必需的字段！', 'error');
             }
         }
 
         function renderRules() {
             const tableBody = document.querySelector('#rulesTable tbody');
-            tableBody.innerHTML = ''; // 清空表格
+            tableBody.innerHTML = '';
             rules.forEach((rule, index) => {
                 const newRow = tableBody.insertRow();
                 newRow.insertCell(0).innerText = rule.type;
@@ -623,7 +637,7 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(4).innerText = rule.protocol || '未指定';
 
                 const editCell = newRow.insertCell(5);
-                editCell.innerHTML = `<button onclick="editRule(${index})" style="margin-right: 5px;">编辑</button><button onclick="deleteRule(${index})">删除</button>`;
+                editCell.innerHTML = `<button onclick="editRule(${index})">编辑</button> <button onclick="deleteRule(${index})">删除</button>`;
             });
         }
 
@@ -641,6 +655,7 @@ https.createServer(options, app).listen(PORT, () => {
             rules.splice(index, 1);
             renderRules();
             updatePreview();
+            showMessage('规则已删除', 'success');
         }
 
         function clearInputs() {
@@ -664,9 +679,9 @@ https.createServer(options, app).listen(PORT, () => {
             });
 
             if (response.ok) {
-                alert('规则保存成功！');
+                showMessage('规则保存成功！', 'success');
             } else {
-                alert('规则保存失败，请重试。');
+                showMessage('规则保存失败，请重试。', 'error');
             }
         }
 
@@ -676,6 +691,16 @@ https.createServer(options, app).listen(PORT, () => {
                 headers: { 'Content-Type': 'application/json' },
             });
             window.location.href = '/';
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = message;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000); // 3秒后隐藏消息
         }
     </script>
 </body>
