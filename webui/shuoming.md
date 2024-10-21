@@ -264,86 +264,33 @@ https.createServer(options, app).listen(PORT, () => {
     <title>端口转发控制台</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            margin-top: 30px;
-        }
-        h1, h2 {
-            font-weight: 600;
-            color: #1c1c1e;
-        }
-        input[type="text"], input[type="button"] {
-            width: calc(100% - 22px);
-            padding: 15px;
-            margin: 8px 0;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: border-color 0.3s;
-        }
-        input[type="button"] {
-            background-color: #007aff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        input[type="button"]:hover {
-            background-color: #0051a8;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .btn-delete {
-            background-color: red;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        .btn-save {
-            background-color: green;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; }
+        input[type="text"], input[type="button"] { width: calc(100% - 22px); padding: 15px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; }
+        input[type="button"] { background-color: #007aff; color: white; cursor: pointer; }
+        input[type="button"]:hover { background-color: #0051a8; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #ccc; }
+        .note { font-size: 0.9em; color: #555; margin-top: -10px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>端口转发控制台</h1>
-
         <h2>添加新规则</h2>
+        <label>
+            规则类型:
+            <select id="ruleType" onchange="toggleEndPortInput()">
+                <option value="SINGLE">SINGLE</option>
+                <option value="RANGE">RANGE</option>
+            </select>
+        </label>
+        <div class="note" id="note">选择 SINGLE 时，目标端口等于起始端口。</div>
         <input type="text" id="startPort" placeholder="起始端口" required>
-        <input type="text" id="endPort" placeholder="结束端口 (可选)">
+        <input type="text" id="endPort" placeholder="结束端口 (可选)" required>
         <input type="text" id="destination" placeholder="目标域名或localhost" required>
         <input type="button" value="添加规则" onclick="addRule()">
-
         <h2>当前规则</h2>
         <table id="rulesTable">
             <thead>
@@ -352,15 +299,12 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>起始端口</th>
                     <th>结束端口</th>
                     <th>目标</th>
-                    <th>操作</th>
                 </tr>
             </thead>
             <tbody>
                 <!-- 规则将被动态插入这里 -->
             </tbody>
         </table>
-        
-        <input type="button" class="btn-save" value="保存规则" onclick="saveRules()">
     </div>
 
     <script>
@@ -375,23 +319,26 @@ https.createServer(options, app).listen(PORT, () => {
             renderRules();
         };
 
+        function toggleEndPortInput() {
+            const ruleType = document.getElementById('ruleType').value;
+            const note = document.getElementById('note');
+
+            if (ruleType === 'SINGLE') {
+                note.style.display = 'block'; // 显示说明
+            } else {
+                note.style.display = 'none'; // 隐藏说明
+            }
+        }
+
         function addRule() {
             const startPort = document.getElementById('startPort').value;
-            const endPort = document.getElementById('endPort').value || '-';
+            const endPort = document.getElementById('endPort').value || startPort; // 如果仍然选`SINGLE`, 默认结束端口为起始端口
             const destination = document.getElementById('destination').value;
 
-            let type = 'SINGLE'; // 默认规则类型为单一
-            if (endPort !== '-') {
-                type = 'RANGE'; // 如果填写了结束端口，则为范围
-            }
+            const ruleType = document.getElementById('ruleType').value;
 
             if (startPort && destination) {
-                if (currentEditingIndex >= 0) {
-                    rules[currentEditingIndex] = { type, startPort, endPort, destination };
-                    currentEditingIndex = -1; // 重置编辑状态
-                } else {
-                    rules.push({ type, startPort, endPort, destination });
-                }
+                rules.push({ type: ruleType, startPort, endPort, destination });
                 renderRules();
                 clearInputs();
             } else {
@@ -432,28 +379,10 @@ https.createServer(options, app).listen(PORT, () => {
             document.getElementById('startPort').value = rule.startPort;
             document.getElementById('endPort').value = rule.endPort;
             document.getElementById('destination').value = rule.destination;
+            document.getElementById('ruleType').value = rule.type;
 
+            toggleEndPortInput(); // 根据选择的类型更新状态
             currentEditingIndex = index; // 设置当前编辑的索引
-        }
-
-        function saveRules() {
-            if (rules.length > 0) {
-                const rulesStr = rules.map(rule =>
-                    `${rule.type},${rule.startPort},${rule.endPort},${rule.destination}`).join('\n');
-
-                fetch('/save-rules', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ rules: rulesStr })
-                })
-                .then(response => response.json())
-                .then(data => alert(data.message))
-                .catch(error => alert('保存规则时发生错误！'));
-            } else {
-                alert('没有规则可保存！');
-            }
         }
 
         function clearInputs() {
@@ -465,6 +394,8 @@ https.createServer(options, app).listen(PORT, () => {
     </script>
 </body>
 </html>
+
+
 ```
 
 ### 4. `public/login.html`
