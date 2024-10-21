@@ -174,21 +174,21 @@ function isAuthenticated(req, res, next) {
         return next();
     } else {
         // 这里将未认证用户重定向至登录页面
-        res.redirect('/login');
+        res.redirect('/index');
     }
 }
 
 // 路由: 登录页面
-app.get('/login', (req, res) => {
+app.get('/index', (req, res) => {
     if (req.cookies.auth) {
-        return res.redirect('/'); // 若已登录则重定向到主页
+        return res.redirect('/admin'); // 若已登录则重定向到后台管理
     }
-    res.sendFile(path.join(__dirname, 'public/login.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-// 路由: 主页，需身份验证
-app.get('/', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
+// 路由: 后台管理，需身份验证
+app.get('/admin', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
 
 // 路由: 登录请求处理
@@ -198,7 +198,7 @@ app.post('/login', async (req, res) => {
 
     if (hashedPassword && await bcrypt.compare(password, hashedPassword)) {
         res.cookie('auth', '1'); // 设置cookie
-        res.redirect('/');
+        res.redirect('/admin');
     } else {
         res.status(401).send('用户名或密码错误');
     }
@@ -214,7 +214,7 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
     if (index < 0 || index >= rules.length) {
         return res.status(400).json({ message: '无效的规则索引' });
     }
-    
+
     rules[index] = {
         type: rules[index].type,
         startPort,
@@ -243,7 +243,7 @@ app.post('/save-rules', isAuthenticated, (req, res) => {
 // 登出
 app.post('/logout', (req, res) => {
     res.clearCookie('auth'); // 清除cookie
-    res.redirect('/login'); // 重定向到登录页面
+    res.redirect('/index'); // 重定向到登录页面
 });
 
 // 错误处理
@@ -259,6 +259,93 @@ https.createServer(options, app).listen(PORT, () => {
 ```
 
 ### 3. `public/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007aff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0051a8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>用户登录</h2>
+        <form id="loginForm" onsubmit="return login(event)">
+            <input type="text" id="username" placeholder="用户名" required>
+            <input type="password" id="password" placeholder="密码" required>
+            <button type="submit">登录</button>
+        </form>
+    </div>
+
+    <script>
+        async function login(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                window.location.href = '/admin'; // 成功登录后重定向到后台管理
+            } else {
+                alert('用户名或密码错误！');
+            }
+        }
+    </script>
+</body>
+</html>
+```
+
+### 4. `public/admin.html`
 
 ```html
 <!DOCTYPE html>
@@ -473,98 +560,11 @@ https.createServer(options, app).listen(PORT, () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
-            window.location.href = '/login';
+            window.location.href = '/';
         }
     </script>
 </body>
 
-</html>
-```
-
-### 4. `public/login.html`
-
-```html
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .login-container {
-            background: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
-        }
-        h2 {
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007aff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0051a8;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="login-container">
-        <h2>用户登录</h2>
-        <form id="loginForm" onsubmit="return login(event)">
-            <input type="text" id="username" placeholder="用户名" required>
-            <input type="password" id="password" placeholder="密码" required>
-            <button type="submit">登录</button>
-        </form>
-    </div>
-
-    <script>
-        async function login(event) {
-            event.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (response.ok) {
-                window.location.href = '/'; // 成功登录后重定向到主页
-            } else {
-                alert('用户名或密码错误！');
-            }
-        }
-    </script>
-</body>
 </html>
 ```
 
