@@ -65,21 +65,21 @@ function isAuthenticated(req, res, next) {
         return next();
     } else {
         // 这里将未认证用户重定向至登录页面
-        res.redirect('/login');
+        res.redirect('/index');
     }
 }
 
 // 路由: 登录页面
-app.get('/login', (req, res) => {
+app.get('/index', (req, res) => {
     if (req.cookies.auth) {
-        return res.redirect('/'); // 若已登录则重定向到主页
+        return res.redirect('/admin'); // 若已登录则重定向到后台管理
     }
-    res.sendFile(path.join(__dirname, 'public/login.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-// 路由: 主页，需身份验证
-app.get('/', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
+// 路由: 后台管理，需身份验证
+app.get('/admin', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
 
 // 路由: 登录请求处理
@@ -89,7 +89,7 @@ app.post('/login', async (req, res) => {
 
     if (hashedPassword && await bcrypt.compare(password, hashedPassword)) {
         res.cookie('auth', '1'); // 设置cookie
-        res.redirect('/');
+        res.redirect('/admin');
     } else {
         res.status(401).send('用户名或密码错误');
     }
@@ -105,7 +105,7 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
     if (index < 0 || index >= rules.length) {
         return res.status(400).json({ message: '无效的规则索引' });
     }
-    
+
     rules[index] = {
         type: rules[index].type,
         startPort,
@@ -134,7 +134,7 @@ app.post('/save-rules', isAuthenticated, (req, res) => {
 // 登出
 app.post('/logout', (req, res) => {
     res.clearCookie('auth'); // 清除cookie
-    res.redirect('/login'); // 重定向到登录页面
+    res.redirect('/index'); // 重定向到登录页面
 });
 
 // 错误处理
