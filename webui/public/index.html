@@ -5,44 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            background-color: #e0f7fa; /* 更温馨的背景颜色 */
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
+            padding: 0 20px; /* 添加左右内边距 */
         }
         .login-container {
-            background: #fff;
+            background: #ffffff;
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
+            padding: 40px; /* 增加内边距 */
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px; /* 设置最大宽度 */
+            text-align: center; /* 中心对齐内容 */
         }
         h2 {
             margin-bottom: 20px;
-            text-align: center;
+            color: #333; /* 字体颜色 */
         }
         input {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 15px; /* 增加内边距 */
+            margin-bottom: 15px;
             border: 1px solid #ccc;
             border-radius: 5px;
+            font-size: 16px; /* 更大字体 */
+            transition: border 0.3s ease; /* 边框过渡效果 */
+        }
+        input:focus {
+            border-color: #007aff; /* 聚焦时边框颜色 */
+            outline: none; /* 去掉默认轮廓 */
         }
         button {
             width: 100%;
-            padding: 10px;
+            padding: 15px; /* 增加内边距 */
             background-color: #007aff;
-            color: #fff;
+            color: #ffffff;
             border: none;
             border-radius: 5px;
+            font-size: 16px; /* 更大字体 */
             cursor: pointer;
+            transition: background-color 0.3s ease; /* 背景色过渡效果 */
         }
         button:hover {
             background-color: #0051a8;
+        }
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 30px; /* 减小内边距 */
+            }
+            h2 {
+                font-size: 24px; /* 移动端较小标题 */
+            }
+            input, button {
+                font-size: 14px; /* 移动端较小字体 */
+            }
         }
     </style>
 </head>
