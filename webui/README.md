@@ -437,11 +437,22 @@ https.createServer(options, app).listen(PORT, () => {
                 <option value="RANGE">RANGE</option>
             </select>
         </label>
+        <div class="note" id="note">目标端口为空则默认自动填入和本机端口一样的端口</div>
         <input type="text" id="startPort" placeholder="起始端口" required>
+        <div class="note" id="note">类型选择SINGLE时视同为本地端口</div>
         <input type="text" id="endPort" placeholder="结束端口" required>
+        <div class="note" id="note">类型选择SINGLE时视同为目标端口</div>
         <input type="text" id="destination" placeholder="目标域名或IP" required>
+        <div class="note" id="note">转发到本地：行尾域名处填写localhost即可，例如SINGLE,2222,22,localhost，表示本机的2222端口重定向到本机的22端口</div>
         <input type="text" id="protocol" placeholder="tcp/udp 选择转发协议（可选）">
+        <div class="note" id="note">留空默认为全部转发，仅需tcp则填写tcp</div>
         <input type="button" value="添加规则" onclick="addRule()">
+        <div class="note" id="note">
+        <span style="color: red;">
+        添加/编辑完毕后，无需重新启动 VPS 或服务，程序将会自动在最多一分钟内更新 NAT 转发规则（PS：受 DNS 缓存影响，可能会超过一分钟）
+        </span>
+        </div>
+
         <h2>当前规则</h2>
         <table id="rulesTable">
             <thead>
