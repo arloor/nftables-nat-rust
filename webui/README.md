@@ -161,7 +161,8 @@ const readRulesFile = () => {
                 type: parts[0],
                 startPort: parts[1],
                 endPort: parts[2] || null,
-                destination: parts[3]
+                destination: parts[3],
+                protocol: parts[4] || null // 新增协议字段
             };
         });
     });
@@ -173,7 +174,6 @@ function isAuthenticated(req, res, next) {
     if (req.cookies.auth) {
         return next();
     } else {
-        // 这里将未认证用户重定向至登录页面
         res.redirect('/index');
     }
 }
@@ -181,7 +181,7 @@ function isAuthenticated(req, res, next) {
 // 路由: 登录页面
 app.get('/index', (req, res) => {
     if (req.cookies.auth) {
-        return res.redirect('/admin'); // 若已登录则重定向到后台管理
+        return res.redirect('/admin');
     }
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
@@ -210,7 +210,7 @@ app.get('/api/rules', isAuthenticated, (req, res) => {
 });
 
 app.post('/edit-rule', isAuthenticated, (req, res) => {
-    const { index, startPort, endPort, destination } = req.body;
+    const { index, startPort, endPort, destination, protocol } = req.body;
     if (index < 0 || index >= rules.length) {
         return res.status(400).json({ message: '无效的规则索引' });
     }
@@ -219,7 +219,8 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
         type: rules[index].type,
         startPort,
         endPort,
-        destination
+        destination,
+        protocol // 更新协议
     };
     res.json({ message: '规则编辑成功' });
 });
@@ -228,7 +229,9 @@ app.post('/edit-rule', isAuthenticated, (req, res) => {
 app.post('/save-rules', isAuthenticated, (req, res) => {
     const rulesData = req.body.rules.map(rule => {
         const endPort = rule.endPort || rule.startPort; // 处理空值
-        return `${rule.type},${rule.startPort},${endPort},${rule.destination}`;
+        const protocol = rule.protocol || ''; // 获取协议
+
+        return `${rule.type},${rule.startPort},${endPort},${rule.destination}${protocol ? ',' + protocol : ''}`;
     }).join('\n');
 
     fs.writeFile('/etc/nat.conf', rulesData, (err) => {
@@ -350,7 +353,6 @@ https.createServer(options, app).listen(PORT, () => {
 ```html
 <!DOCTYPE html>
 <html lang="zh">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -430,18 +432,15 @@ https.createServer(options, app).listen(PORT, () => {
         <h2>添加新规则</h2>
         <label>
             规则类型:
-            <select id="ruleType" onchange="toggleEndPortInput()">
+            <select id="ruleType">
                 <option value="SINGLE">SINGLE</option>
                 <option value="RANGE">RANGE</option>
             </select>
         </label>
-        <div class="note" id="note">目标端口为空则默认自动填入和本机端口一样的端口</div>
         <input type="text" id="startPort" placeholder="起始端口" required>
-        <div class="note" id="note">选择 SINGLE 时理解为本地端口</div>
         <input type="text" id="endPort" placeholder="结束端口" required>
-        <div class="note" id="note">选择 SINGLE 时理解为目标端口</div>
         <input type="text" id="destination" placeholder="目标域名或IP" required>
-        <div class="note" id="note">转发到本地：行尾域名处填写localhost或者本地内网IP，例如SINGLE,2222,22,localhost，表示本机的2222端口重定向到本机的22端口。</div>
+        <input type="text" id="protocol" placeholder="tcp/udp 选择转发协议（可选）">
         <input type="button" value="添加规则" onclick="addRule()">
         <h2>当前规则</h2>
         <table id="rulesTable">
@@ -451,6 +450,7 @@ https.createServer(options, app).listen(PORT, () => {
                     <th>起始端口（SINGLE时等于本机端口）</th>
                     <th>结束端口（SINGLE时等于目标端口）</th>
                     <th>目标</th>
+                    <th>协议</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -479,21 +479,15 @@ https.createServer(options, app).listen(PORT, () => {
             updatePreview();
         }
 
-        function toggleEndPortInput() {
-            const ruleType = document.getElementById('ruleType').value;
-            const note = document.getElementById('note');
-
-            note.style.display = ruleType === 'SINGLE' ? 'block' : 'none';
-        }
-
         function addRule() {
             const startPort = document.getElementById('startPort').value;
             const endPort = document.getElementById('endPort').value || startPort;
             const destination = document.getElementById('destination').value;
             const ruleType = document.getElementById('ruleType').value;
+            const protocol = document.getElementById('protocol').value; // 获取协议输入
 
             if (startPort && destination) {
-                rules.push({ type: ruleType, startPort, endPort, destination });
+                rules.push({ type: ruleType, startPort, endPort, destination, protocol });
                 renderRules();
                 clearInputs();
                 updatePreview();
@@ -511,8 +505,9 @@ https.createServer(options, app).listen(PORT, () => {
                 newRow.insertCell(1).innerText = rule.startPort;
                 newRow.insertCell(2).innerText = rule.endPort;
                 newRow.insertCell(3).innerText = rule.destination;
+                newRow.insertCell(4).innerText = rule.protocol || '未指定'; // 展示协议
 
-                const editCell = newRow.insertCell(4);
+                const editCell = newRow.insertCell(5);
                 editCell.innerHTML = `<button onclick="editRule(${index})">编辑</button><button onclick="deleteRule(${index})">删除</button>`;
             });
         }
@@ -522,6 +517,7 @@ https.createServer(options, app).listen(PORT, () => {
             document.getElementById('startPort').value = rule.startPort;
             document.getElementById('endPort').value = rule.endPort;
             document.getElementById('destination').value = rule.destination;
+            document.getElementById('protocol').value = rule.protocol || ''; // 预填协议
             document.getElementById('ruleType').value = rule.type;
             deleteRule(index); // 先删除原有规则
         }
@@ -536,11 +532,12 @@ https.createServer(options, app).listen(PORT, () => {
             document.getElementById('startPort').value = '';
             document.getElementById('endPort').value = '';
             document.getElementById('destination').value = '';
+            document.getElementById('protocol').value = ''; // 清空协议输入
         }
 
         function updatePreview() {
             const preview = document.getElementById('rulesPreview');
-            const previewText = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}`).join('\n');
+            const previewText = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}${rule.protocol ? ',' + rule.protocol : ''}`).join('\n');
             preview.innerText = previewText;
         }
 
@@ -567,7 +564,6 @@ https.createServer(options, app).listen(PORT, () => {
         }
     </script>
 </body>
-
 </html>
 ```
 
