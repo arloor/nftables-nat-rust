@@ -1,65 +1,3 @@
-好的！下面是优化后的代码，实现了更好的页面显示，并添加了保存规则的功能。我们需要稍微修改 JavaScript 代码，以及在服务器端接口上添加保存规则的 API。
-
-### 1. `server.js`
-
-在 `server.js` 中，添加一个新的API来保存规则并返回当前规则列表：
-
-```javascript
-const express = require('express');
-const bodyParser = require('body-parser');
-const bcryptTool = require('./bcryptTool');
-const path = require('path');
-
-const app = express();
-const PORT = 3000;
-
-let users = []; // 用于存储用户数据
-let rules = []; // 用于存储规则数据
-
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
-    const hashedPassword = await bcryptTool.hashPassword(password);
-    users.push({ username, password: hashedPassword });
-    res.status(201).send('用户注册成功');
-});
-
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = users.find(u => u.username === username);
-    
-    if (user && await bcryptTool.comparePassword(password, user.password)) {
-        res.send('登录成功');
-    } else {
-        res.status(401).send('用户名或密码错误');
-    }
-});
-
-// 获取规则
-app.get('/api/rules', (req, res) => {
-    res.json(rules);
-});
-
-// 保存规则
-app.post('/api/rules', (req, res) => {
-    const rule = req.body;
-    rules.push(rule);
-    res.status(201).json(rules);
-});
-
-app.listen(PORT, () => {
-    console.log(`服务器运行在 http://localhost:${PORT}`);
-});
-```
-
-### 2. `public/index.html`
-
-接下来，优化 `index.html` 页面，以改善用户体验并实现保存规则的功能：
-
-```html
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -249,18 +187,4 @@ app.listen(PORT, () => {
     </script>
 </body>
 </html>
-```
 
-### 主要改进：
-
-1. **保存规则**：在前端添加了保存规则的功能，能够将规则存储到服务器。
-2. **用户体验**：改进了页面样式和提示信息，使界面更加友好。
-3. **功能分离**：将规则的管理职责从前端进行了模块化，提高了代码可维护性。
-
-### 测试
-
-- 启动服务器：运行 `node server.js`。
-- 访问 `http://localhost:3000/login.html` 登录，注册用户，并回到控制台添加规则。
-- 保存规则并验证是否能够正常保存。
-
-如有任何问题，或需要进一步的修改，请告诉我！
