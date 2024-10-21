@@ -586,26 +586,26 @@ https.createServer(options, app).listen(PORT, () => {
 
 ### 1. 创建 Node.js 应用的服务文件
 
-1. **打开终端**并使用您喜欢的文本编辑器创建一个新的服务文件，例如 `/etc/systemd/system/myapp.service`（将 `myapp` 替换为您的应用名称）：
+1. **打开终端**并使用您喜欢的文本编辑器创建一个新的服务文件，例如 `/etc/systemd/system/nftables-nat-rust-webui.service`（将 `myapp` 替换为您的应用名称）：
 
 ```bash
-sudo nano /etc/systemd/system/myapp.service
+sudo nano /etc/systemd/system/nftables-nat-rust-webui.service
 ```
 
 2. **将以下内容复制并粘贴到该文件中**，并根据实际情况修改路径和应用名称：
 
 ```ini
 [Unit]
-Description=My Node.js Application
+Description=nftables-nat-rust-webui Node.js Application
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/node /path/to/your/server.js
-WorkingDirectory=/path/to/your/app
+ExecStart=/usr/bin/node /root/nftables-nat-rust-webui/server.js
+WorkingDirectory=/root/nftables-nat-rust-webui
 Restart=always
 # User and Group settings
-User=your-username
-Group=your-groupname
+User=root
+Group=root
 
 [Install]
 WantedBy=multi-user.target
@@ -613,7 +613,7 @@ WantedBy=multi-user.target
 
 ### 2. 参数说明
 
-- **ExecStart**：Node.js 可执行文件的路径，以及您应用的路径（`/path/to/your/server.js` 应替换成您的实际路径）。
+- **ExecStart**：Node.js 可执行文件的路径，以及您应用的路径（`/root/nftables-nat-rust-webui/server.js` 应替换成您的实际路径）。
 - **WorkingDirectory**：您的 Node.js 应用的根目录。
 - **User** 和 **Group**：运行该服务的用户和组，确保该用户有权限访问应用目录。
 - **Restart**：当服务因为错误而停止时，`systemd` 将自动重新启动服务。
@@ -631,7 +631,7 @@ sudo systemctl daemon-reload
 使用以下命令启动服务：
 
 ```bash
-sudo systemctl start myapp
+sudo systemctl start nftables-nat-rust-webui
 ```
 
 ### 5. 设置服务开机自启动
@@ -639,7 +639,7 @@ sudo systemctl start myapp
 要启用服务在启动时自动运行，请运行：
 
 ```bash
-sudo systemctl enable myapp
+sudo systemctl enable nftables-nat-rust-webui
 ```
 
 ### 6. 检查服务状态
@@ -647,7 +647,7 @@ sudo systemctl enable myapp
 可以使用以下命令检查服务状态：
 
 ```bash
-sudo systemctl status myapp
+sudo systemctl status nftables-nat-rust-webui
 ```
 
 这将显示服务的当前状态，以确保它正在运行。
@@ -657,7 +657,7 @@ sudo systemctl status myapp
 您可以通过以下命令查看服务的日志输出，以帮助调试：
 
 ```bash
-journalctl -u myapp
+journalctl -u nftables-nat-rust-webui
 ```
 
 ### 总结
