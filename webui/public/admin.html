@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>端口转发控制台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 30px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #007aff;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        select {
+            width: calc(100% - 22px);
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #007aff;
+        }
+
+        input[type="button"] {
+            width: 100%;
+            padding: 14px;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        input[type="button"]:hover {
+            background-color: #0051a8;
+            transform: translateY(-2px);
+        }
+
+        .message {
+            display: none;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 5px;
+            color: #fff;
+        }
+
+        .success {
+            background-color: #5cb85c;
+        }
+
+        .error {
+            background-color: #d9534f;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f1f1f1;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f0f0f0;
+        }
+
+        pre {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>端口转发控制台</h1>
+        <h2>添加新规则</h2>
+        
+        <label>规则类型:
+            <select id="ruleType">
+                <option value="SINGLE">SINGLE</option>
+                <option value="RANGE">RANGE</option>
+            </select>
+        </label>
+        <div class="note" id="note">目标端口为空则默认自动填入和本机端口一样的端口</div>
+        
+        <input type="text" id="startPort" placeholder="起始端口" required>
+        <div class="note">类型选择SINGLE时视同为本地端口</div>
+        
+        <input type="text" id="endPort" placeholder="结束端口" required>
+        <div class="note">类型选择SINGLE时视同为目标端口</div>
+        
+        <input type="text" id="destination" placeholder="目标域名或IP" required>
+        <div class="note">转发到本地：行尾域名处填写localhost即可</div>
+        
+        <input type="text" id="protocol" placeholder="tcp/udp（可选）">
+        <div class="note">留空默认为全部转发，仅需tcp则填写tcp</div>
+
+        <input type="button" value="添加规则" onclick="addRule()">
+        <div class="message" id="message"></div>
+        
+        <h2>当前规则</h2>
+        <table id="rulesTable">
+            <thead>
+                <tr>
+                    <th>规则类型</th>
+                    <th>起始端口</th>
+                    <th>结束端口</th>
+                    <th>目标</th>
+                    <th>协议</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 规则将被动态插入这里 -->
+            </tbody>
+        </table>
+        <input type="button" value="保存规则" onclick="saveRules()">
+
+        <h2>配置预览（/etc/nat.conf）</h2>
+        <pre id="rulesPreview"></pre>
+        <input type="button" value="登出" onclick="logout()">
+    </div>
+
+    <footer>
+        <p>© JiangChu. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        let rules = [];
+        
+        window.onload = async () => {
+            await fetchAndRenderRules();
+        };
+
+        async function fetchAndRenderRules() {
+            const response = await fetch('/api/rules');
+            const fetchedRules = await response.json();
+            rules = fetchedRules; // 注意这里直接赋值
+            renderRules();
+            updatePreview();
+        }
+
+        function addRule() {
+            const startPort = document.getElementById('startPort').value;
+            const endPort = document.getElementById('endPort').value || startPort;
+            const destination = document.getElementById('destination').value;
+            const ruleType = document.getElementById('ruleType').value;
+            const protocol = document.getElementById('protocol').value;
+
+            if (startPort && destination) {
+                rules.push({ type: ruleType, startPort, endPort, destination, protocol });
+                renderRules();
+                clearInputs();
+                updatePreview();
+                showMessage('规则添加成功！', 'success');
+            } else {
+                showMessage('请填写所有必需的字段！', 'error');
+            }
+        }
+
+        function renderRules() {
+            const tableBody = document.querySelector('#rulesTable tbody');
+            tableBody.innerHTML = '';
+            rules.forEach((rule, index) => {
+                const newRow = tableBody.insertRow();
+                newRow.insertCell(0).innerText = rule.type;
+                newRow.insertCell(1).innerText = rule.startPort;
+                newRow.insertCell(2).innerText = rule.endPort;
+                newRow.insertCell(3).innerText = rule.destination;
+                newRow.insertCell(4).innerText = rule.protocol || '未指定';
+
+                const editCell = newRow.insertCell(5);
+                editCell.innerHTML = `<button onclick="editRule(${index})">编辑</button> <button onclick="deleteRule(${index})">删除</button>`;
+            });
+        }
+
+        function editRule(index) {
+            const rule = rules[index];
+            document.getElementById('startPort').value = rule.startPort;
+            document.getElementById('endPort').value = rule.endPort;
+            document.getElementById('destination').value = rule.destination;
+            document.getElementById('protocol').value = rule.protocol || '';
+            document.getElementById('ruleType').value = rule.type;
+            deleteRule(index);
+        }
+
+        function deleteRule(index) {
+            rules.splice(index, 1);
+            renderRules();
+            updatePreview();
+            showMessage('规则已删除', 'success');
+        }
+
+        function clearInputs() {
+            document.getElementById('startPort').value = '';
+            document.getElementById('endPort').value = '';
+            document.getElementById('destination').value = '';
+            document.getElementById('protocol').value = '';
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('rulesPreview');
+            const previewText = rules.map(rule => `${rule.type},${rule.startPort},${rule.endPort || rule.startPort},${rule.destination}${rule.protocol ? ',' + rule.protocol : ''}`).join('\n');
+            preview.innerText = previewText;
+        }
+
+        async function saveRules() {
+            const response = await fetch('/save-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rules })
+            });
+
+            if (response.ok) {
+                showMessage('规则保存成功！', 'success');
+            } else {
+                showMessage('规则保存失败，请重试。', 'error');
+            }
+        }
+
+        async function logout() {
+            await fetch('/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            window.location.href = '/';
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = message;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000); // 3秒后隐藏消息
+        }
+    </script>
+</body>
+</html>
