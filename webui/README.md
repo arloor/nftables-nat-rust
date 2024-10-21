@@ -56,13 +56,56 @@ const checkPassword = async (providedPassword, storedHash) => {
     rl.close();
 };
 
+// 查询用户列表
+const listUsers = () => {
+    fs.readFile(passwdFilePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('读取文件失败:', err);
+            rl.close();
+            return;
+        }
+        const lines = data.trim().split('\n');
+        console.log("用户列表：");
+        lines.forEach(line => console.log(line.split(':')[0])); // 展示用户名
+        rl.close();
+    });
+};
+
+// 删除用户
+const deleteUser = () => {
+    rl.question('请输入要删除的用户名: ', (username) => {
+        fs.readFile(passwdFilePath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('读取文件失败:', err);
+                rl.close();
+                return;
+            }
+            const lines = data.trim().split('\n').filter(line => !line.startsWith(username + ':'));
+            if (lines.length === data.trim().split('\n').length) {
+                console.log('用户不存在！');
+            } else {
+                fs.writeFile(passwdFilePath, lines.join('\n'), (err) => {
+                    if (err) {
+                        console.error('删除用户失败:', err);
+                    } else {
+                        console.log('用户已成功删除。');
+                    }
+                });
+            }
+            rl.close();
+        });
+    });
+};
+
 // 启动工具
 const startTool = () => {
     console.log("选择一个选项：");
     console.log("1. 加密新密码并写入 passwd.md");
     console.log("2. 验证密码");
+    console.log("3. 查询用户列表");
+    console.log("4. 删除用户");
 
-    rl.question('请输入选项 (1/2): ', async (choice) => {
+    rl.question('请输入选项 (1/2/3/4): ', async (choice) => {
         if (choice === '1') {
             rl.question('请输入要加密的密码: ', async (plainPassword) => {
                 const hashedPassword = await encryptPassword(plainPassword);
@@ -93,6 +136,10 @@ const startTool = () => {
                     });
                 });
             });
+        } else if (choice === '3') {
+            listUsers();
+        } else if (choice === '4') {
+            deleteUser();
         } else {
             console.log('无效的选项！');
             rl.close();
