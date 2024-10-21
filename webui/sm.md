@@ -1,4 +1,4 @@
-好的，以下是完整的代码，包括所有文件的内容，以确保未登录用户无法访问管理后台。
+完整的代码，包含 `bcryptTool.js`、`server.js`、`public/index.html` 和 `public/login.html` 文件。
 
 ### 项目结构
 
