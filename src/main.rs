@@ -2,6 +2,7 @@
 mod config;
 mod ip;
 
+use crate::config::NatCell;
 use log::info;
 use std::fs::File;
 use std::io::Write;
@@ -86,6 +87,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 io::stderr()
                     .write_all(&output.stderr)
                     .unwrap_or_else(|e| info!("error {}", e));
+
+                // 获取所有配置的目标IP并执行ip rule命令
+                for x in vec.iter() {
+                    if let Some(dst_domain) = match x {
+                        NatCell::Single { dst_domain, .. } => Some(dst_domain),
+                        NatCell::Range { dst_domain, .. } => Some(dst_domain),
+                        NatCell::Comment { .. } => None,
+                    } {
+                        if let Ok(dst_ip) = ip::remote_ip(dst_domain) {
+                            // 先删除可能存在的旧规则
+                            let _ = Command::new("ip")
+                                .arg("rule")
+                                .arg("del")
+                                .arg("from")
+                                .arg(&dst_ip)
+                                .arg("lookup")
+                                .arg("CM")
+                                .output();
+
+                            // 添加新规则
+                            let output = Command::new("ip")
+                                .arg("rule")
+                                .arg("add")
+                                .arg("from")
+                                .arg(&dst_ip)
+                                .arg("lookup")
+                                .arg("CM")
+                                .output();
+
+                            match output {
+                                Ok(output) => {
+                                    info!(
+                                        "执行 ip rule add from {} lookup CM\n执行结果: {}",
+                                        dst_ip, output.status
+                                    );
+                                    if !output.status.success() {
+                                        info!("错误输出: {}", String::from_utf8_lossy(&output.stderr));
+                                    }
+                                }
+                                Err(e) => info!("执行ip rule命令失败: {}", e),
+                            }
+                        }
+                    }
+                }
+
                 info!("WAIT:等待配置或目标IP发生改变....\n");
             }
         }
