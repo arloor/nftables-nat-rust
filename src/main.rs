@@ -67,11 +67,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             info!("nftables脚本如下：\n{}", script);
             latest_script.clone_from(&script);
             if cfg!(target_os = "linux") {
+                // 1. 首先将生成的规则写入文件
                 let f = File::create("/etc/nftables/nat-diy.nft");
                 if let Ok(mut file) = f {
                     file.write_all(script.as_bytes()).expect("写失败");
                 }
 
+                // 2. 先刷新所有规则
+                let _ = Command::new("/usr/sbin/nft")
+                    .arg("flush")
+                    .arg("ruleset")
+                    .output();
+
+                // 3. 应用系统默认配置
+                let _ = Command::new("/usr/sbin/nft")
+                    .arg("-f")
+                    .arg("/etc/nftables.conf")
+                    .output();
+
+                // 4. 再应用我们的NAT规则
                 let output = Command::new("/usr/sbin/nft")
                     .arg("-f")
                     .arg("/etc/nftables/nat-diy.nft")
