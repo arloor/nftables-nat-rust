@@ -12,6 +12,7 @@
             "args": ["nat.conf"],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "rust: cargo build",
+            "console": "internalConsole",
             "env": {
                 "HOSTNAME":"test"
             }
