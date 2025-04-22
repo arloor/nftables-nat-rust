@@ -13,7 +13,7 @@ use std::{env, io};
 const NFTABLES_ETC: &str = "/etc/nftables";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
 
-fn main() -> Result<(), Box<dyn std::error::Error>>{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     log_x::init_log("log", "nat.log")?;
 
     let _ = std::fs::create_dir_all(NFTABLES_ETC);
@@ -45,11 +45,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let script_prefix = String::from(
             "#!/usr/sbin/nft -f\n\
         \n\
+        # 确保 nat 表存在（不删除整个表）\n\
         add table ip nat\n\
-        delete table ip nat\n\
-        add table ip nat\n\
+        # 确保 PREROUTING和POSTROUTING链存在 \n\
         add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
-        add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\n",
+        add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\
+        # 创建我们的自定义链\n\
+        add chain ip nat DIY_PREROUTING{}\n\
+        add chain ip nat DIY_POSTROUTING{}\n\
+        # 清空自定义链中上次的规则 \n\
+        flush chain ip nat DIY_PREROUTING\n\
+        flush chain ip nat DIY_POSTROUTING\n\
+        # 在预定义链中添加跳转规则（如果不存在）todo 这里有重复\n\
+        add rule ip nat PREROUTING jump DIY_PREROUTING \n\
+        add rule ip nat POSTROUTING jump DIY_POSTROUTING \n\n",
         );
 
         let vec = config::read_config(conf);
