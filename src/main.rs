@@ -117,12 +117,14 @@ fn check_nftables_entities() -> (bool, bool, bool, bool, bool, bool) {
                 }
             }
             NftablesEntry::Rule { rule } => {
-                if rule.family == "ip" && rule.table == "nat" && (rule.chain == "PREROUTING" || rule.chain == "POSTROUTING") {
+                if rule.family == "ip"
+                    && rule.table == "nat"
+                    && (rule.chain == "PREROUTING" || rule.chain == "POSTROUTING")
+                {
                     // 检查是否有跳转到DIY_*链的规则
                     let is_jump_rule = rule.expr.iter().any(|expr| {
                         if let Some(jump) = expr.as_object().and_then(|obj| obj.get("jump")) {
-                            if let Some(target) =
-                                jump.as_object().and_then(|obj| obj.get("target"))
+                            if let Some(target) = jump.as_object().and_then(|obj| obj.get("target"))
                             {
                                 let target_str = target.as_str().unwrap_or("");
                                 return (rule.chain == "PREROUTING"
@@ -241,17 +243,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         script_prefix.push('\n');
-
-        // 清空自定义链中的规则，以便重新添加
-        if diy_prerouting_chain_exists {
-            script_prefix.push_str("# 清空自定义链中的规则\n");
-            script_prefix.push_str("flush chain ip nat DIY_PREROUTING\n");
-        }
-
-        if diy_postrouting_chain_exists {
-            script_prefix.push_str("flush chain ip nat DIY_POSTROUTING\n");
-        }
-
+        script_prefix.push_str("# 清空自定义链中的规则\n");
+        script_prefix.push_str("flush chain ip nat DIY_PREROUTING\n");
+        script_prefix.push_str("flush chain ip nat DIY_POSTROUTING\n");
         script_prefix.push('\n');
 
         let vec = config::read_config(conf);
