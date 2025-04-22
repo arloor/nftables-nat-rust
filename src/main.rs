@@ -48,8 +48,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         add table ip self-nat\n\
         delete table ip self-nat\n\
         add table ip self-nat\n\
-        add chain nat PREROUTING { type nat hook prerouting priority -100 ; }\n\
-        add chain nat POSTROUTING { type nat hook postrouting priority 100 ; }\n\n",
+        add chain nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
+        add chain nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\n",
         );
 
         let vec = config::read_config(conf);
