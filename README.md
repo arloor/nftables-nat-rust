@@ -52,7 +52,6 @@ yum install -y  nftables
 # 必须是root用户
 # sudo su
 # 下载可执行文件
-#curl -sSLf http://cdn.arloor.com/tool/dnat -o /tmp/nat
 curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
 install /tmp/nat /usr/local/bin/nat
 
@@ -113,7 +112,17 @@ RANGE,50000,50010,baidu.com
 
 如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
-## 一些需要注意的东西
+## 更新新版
+
+本程序由github actions自动发布新v1.0.0版本，可以通过下面的命令更新：
+
+```bash
+curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
+install /tmp/nat /usr/local/bin/nat
+systemctl restart nat
+```
+
+## 其他
 
 1. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
 2. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请先卸载原来的工具或重装系统
