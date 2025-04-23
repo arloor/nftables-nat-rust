@@ -51,8 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         add chain self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
         add chain self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n
         # 允许forward的流量\n\
-        add chain ip self-nat forward { type filter hook forward priority -10 ; }\n\
-        add rule ip self-nat forward ct state related,established accept\n\
+        #add chain ip self-nat forward { type filter hook forward priority -10 ; }\n\
+        #add rule ip self-nat forward ct state related,established accept\n\
         ",
         );
 

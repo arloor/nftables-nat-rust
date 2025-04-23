@@ -159,6 +159,13 @@ systemctl disable nat
 systemctl restart docker
 ```
 
+也可以通过如下命令临时解决：
+
+```shell
+# bash下直接执行，zsh下执行需要转义 }
+nft chain ip filter FORWARD { policy accept \; }
+```
+
 ### 多网卡机器指定ip
 
 ```bash
