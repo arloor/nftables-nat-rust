@@ -145,7 +145,14 @@ systemctl disable nat
 
 首先，最新版本已经与docker兼容，docker的iptables规则不会被清空。
 
-然后，如果更新dnat到最新版后发现自定义的nat规则不生效，可能是因为最新版的docker（28.x.x）将filter表forward链的默认策略设置为了drop，参考[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)。该链接也介绍了解决方案：在 `/etc/docker/daemon.json`，增加如下内容：
+然后，如果更新dnat到最新版后发现自定义的nat规则不生效，可能是因为最新版的docker（28.x.x）将filter表forward链的默认策略设置为了drop，参考[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)。可以通过如下命令解决：
+
+```shell
+# bash下直接执行，zsh下执行需要转义 }
+nft chain ip filter FORWARD { policy accept \; }
+```
+
+docker的文章中也介绍了一种解决方案，但我实测并没有生效：在 `/etc/docker/daemon.json`，增加如下内容：
 
 ```json
 {
@@ -157,13 +164,6 @@ systemctl disable nat
 
 ```shell
 systemctl restart docker
-```
-
-也可以通过如下命令临时解决：
-
-```shell
-# bash下直接执行，zsh下执行需要转义 }
-nft chain ip filter FORWARD { policy accept \; }
 ```
 
 ### 多网卡机器指定ip
