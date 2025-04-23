@@ -15,7 +15,8 @@
 7. 支持自定义本机ip【2023.1.17更新】
 8. 开机自启动
 9. 支持端口段
-10. 轻量，只依赖rust标准库
+10. 兼容Docker
+11. 轻量，只依赖rust标准库和日志库
 
 ## 准备工作
 
@@ -24,12 +25,11 @@
 3. 开启内核端口转发
 4. 安装nftables（一般情况下，centos8默认包含nftables）
 
-以下一键完成：
+以下是**Centos8/9**上一键完成的脚本：
 
 ```shell
 # 关闭firewalld
-service firewalld stop
-systemctl disable firewalld
+systemctl disable --now firewalld
 # 关闭selinux
 setenforce 0
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config  
@@ -44,7 +44,7 @@ fi
 yum install -y  nftables
 ```
 
-**debian系说明** 请自行使用apt安装nftables，并禁用iptables
+**Debian系**请自行使用apt安装nftables，并禁用iptables
 
 ## 使用说明
 
@@ -122,12 +122,10 @@ RANGE,50000,50010,baidu.com
 
 ```shell
 ## 停止定时监听域名解析地任务
-service nat stop
+systemctl disable --now nat
 ## 清空nat规则
-nft add table ip nat
-nft delete table ip nat
-## 禁止开机启动
-systemctl disable nat
+nft add table ip self-nat
+nft delete table ip self-nat
 ```
 
 ## webui
@@ -136,35 +134,17 @@ systemctl disable nat
 
 ## 致谢
 
-1. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
-2. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
+1. [通过自定义nftables表名来避免与docker等服务冲突](https://github.com/arloor/nftables-nat-rust/pull/34)
+2. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
+3. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
 
-## 常问问题
+## 常见问题
 
-### 兼容docker
+### docker兼容性
 
-首先，最新版本已经与docker兼容，docker的iptables规则不会被清空。
+最新版本已经与docker兼容，欢迎试用和反馈。
 
-然后，如果更新dnat到最新版后发现自定义的nat规则不生效，可能是因为最新版的docker（28.x.x）将filter表forward链的默认策略设置为了drop，参考[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)。可以通过如下命令解决：
-
-```shell
-# bash下直接执行，zsh下执行需要转义 }
-nft chain ip filter FORWARD { policy accept \; }
-```
-
-docker的文章中也介绍了一种解决方案，但我实测并没有生效：在 `/etc/docker/daemon.json`，增加如下内容：
-
-```json
-{
-  "ip-forward-no-drop": true
-}
-```
-
-然后重启docker daemon ：
-
-```shell
-systemctl restart docker
-```
+> 更多说明：Docker v28 将filter表forward链的默认策略设置为了drop（参见[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)），这会导致我们的自定义nat规则无法通过forward链。为了解决此问题，此程序会自动将filter表forward链的默认策略重置为accept。
 
 ### 多网卡机器指定ip
 

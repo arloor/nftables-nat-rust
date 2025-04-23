@@ -3,6 +3,7 @@ use crate::ip;
 use log::info;
 use std::env;
 use std::fs;
+use std::io;
 use std::process::exit;
 
 #[derive(Debug)]
@@ -71,21 +72,15 @@ pub enum NatCell {
 }
 
 impl NatCell {
-    pub fn build(&self) -> String {
+    pub fn build(&self) -> Result<String, io::Error> {
         let dst_domain = match &self {
             NatCell::Single { dst_domain, .. } => dst_domain,
             NatCell::Range { dst_domain, .. } => dst_domain,
-            NatCell::Comment { content } => return content.clone(),
+            NatCell::Comment { content } => return Ok(content.clone()),
         };
-        let dst_ip = match ip::remote_ip(dst_domain) {
-            Ok(s) => s,
-            Err(_) => return "".to_string(),
-        };
+        let dst_ip = ip::remote_ip(dst_domain)?;
         // 从环境变量读取本机ip或自动探测
-        let local_ip = env::var("nat_local_ip").unwrap_or(match ip::local_ip() {
-            Ok(s) => s,
-            Err(_) => return "".to_string(),
-        });
+        let local_ip = env::var("nat_local_ip").unwrap_or(ip::local_ip()?);
 
         match &self {
             NatCell::Range {
@@ -94,12 +89,13 @@ impl NatCell {
                 dst_domain: _,
                 protocol,
             } => {
-                format!("# {cell:?}\n\
+                let res=format!("# {cell:?}\n\
                     {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd}\n\
                     {udpPrefix}add rule ip self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd}\n\
                     {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {portStart}-{portEnd} counter snat to {localIP}\n\
                     {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {portStart}-{portEnd} counter snat to {localIP}\n\n\
-                    ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix())
+                    ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                Ok(res)
             }
             NatCell::Single {
                 src_port,
@@ -109,26 +105,114 @@ impl NatCell {
             } => {
                 if dst_domain == "localhost" || dst_domain == "127.0.0.1" {
                     // 重定向到本机
-                    format!("# {cell:?}\n\
+                    let res=format!("# {cell:?}\n\
                         {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}\n\
                         {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}\n\n\
-                        ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix())
+                        ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                    Ok(res)
                 } else {
                     // 转发到其他机器
-                    format!("# {cell:?}\n\
+                    let res=format!("# {cell:?}\n\
                         {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}\n\
                         {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}\n\
                         {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter snat to {localIP}\n\
                         {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter snat to {localIP}\n\n\
-                        ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix())
+                        ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                    Ok(res)
                 }
             }
-            NatCell::Comment { .. } => "".to_string(),
+            NatCell::Comment { .. } => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Comment cell cannot be built",
+            )),
+        }
+    }
+
+    /// 解析一行配置，返回NatCell或错误
+    pub fn parse(line: &str) -> Result<Option<NatCell>, io::Error> {
+        let line = line.trim();
+
+        // 处理注释
+        if line.starts_with('#') {
+            return Ok(Some(NatCell::Comment {
+                content: line.to_string() + "\n",
+            }));
+        }
+
+        // 忽略空行
+        if line.is_empty() {
+            return Ok(None);
+        }
+
+        let cells: Vec<&str> = line.split(',').collect();
+
+        // 验证字段数量
+        if cells.len() != 4 && cells.len() != 5 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("无效的配置行: {}, 字段数量不正确", line),
+            ));
+        }
+
+        // 解析协议
+        let protocol = if cells.len() == 5 {
+            cells[4].trim().to_string().into()
+        } else {
+            Protocol::All
+        };
+
+        // 解析类型并创建NatCell
+        match cells[0].trim() {
+            "RANGE" => {
+                let port_start = cells[1].trim().parse::<i32>().map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("无法解析起始端口: {}", e),
+                    )
+                })?;
+
+                let port_end = cells[2].trim().parse::<i32>().map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("无法解析结束端口: {}", e),
+                    )
+                })?;
+
+                Ok(Some(NatCell::Range {
+                    port_start,
+                    port_end,
+                    dst_domain: cells[3].trim().to_string(),
+                    protocol,
+                }))
+            }
+            "SINGLE" => {
+                let src_port = cells[1].trim().parse::<i32>().map_err(|e| {
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {}", e))
+                })?;
+
+                let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("无法解析目标端口: {}", e),
+                    )
+                })?;
+
+                Ok(Some(NatCell::Single {
+                    src_port,
+                    dst_port,
+                    dst_domain: cells[3].trim().to_string(),
+                    protocol,
+                }))
+            }
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("无效的转发规则类型: {}", cells[0].trim()),
+            )),
         }
     }
 }
 
-pub fn example(conf: &String) {
+pub fn example(conf: &str) {
     info!("请在 {} 编写转发规则，内容类似：", &conf);
     info!(
         "{}",
@@ -137,50 +221,23 @@ pub fn example(conf: &String) {
     )
 }
 
-pub fn read_config(conf: String) -> Vec<NatCell> {
+pub fn read_config(conf: &str) -> Vec<NatCell> {
     let mut nat_cells = vec![];
-    let mut contents = match fs::read_to_string(&conf) {
+    let mut contents = match fs::read_to_string(conf) {
         Ok(s) => s,
         Err(_e) => {
-            example(&conf);
+            example(conf);
             exit(1);
         }
     };
     contents = contents.replace("\r\n", "\n");
 
     let strs = contents.split('\n');
-    for str in strs {
-        if str.trim().starts_with('#') {
-            nat_cells.push(NatCell::Comment {
-                content: str.trim().to_string()+"\n",
-            });
-            continue;
-        }
-        let cells = str.trim().split(',').collect::<Vec<&str>>();
-        if cells.len() == 4 || cells.len() == 5 {
-            let mut protocal: Protocol = Protocol::All;
-            if cells.len() == 5 {
-                protocal = cells[4].trim().to_string().into();
-            }
-            if cells[0].trim() == "RANGE" {
-                nat_cells.push(NatCell::Range {
-                    port_start: cells[1].trim().parse::<i32>().unwrap(),
-                    port_end: cells[2].trim().parse::<i32>().unwrap(),
-                    dst_domain: String::from(cells[3].trim()),
-                    protocol: protocal,
-                });
-            } else if cells[0].trim() == "SINGLE" {
-                nat_cells.push(NatCell::Single {
-                    src_port: cells[1].trim().parse::<i32>().unwrap(),
-                    dst_port: cells[2].trim().parse::<i32>().unwrap(),
-                    dst_domain: String::from(cells[3].trim()),
-                    protocol: protocal,
-                });
-            } else {
-                info!("#! {} is not valid", str)
-            }
-        } else if !str.trim().is_empty() {
-            info!("#! {} is not valid", str)
+    for line in strs {
+        match NatCell::parse(line) {
+            Ok(Some(nat_cell)) => nat_cells.push(nat_cell),
+            Ok(None) => {} // 空行，跳过
+            Err(e) => info!("#! 错误: {}", e),
         }
     }
     nat_cells
