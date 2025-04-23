@@ -13,7 +13,7 @@ use std::{env, io};
 const NFTABLES_ETC: &str = "/etc/nftables";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
 
-fn main() -> Result<(), Box<dyn std::error::Error>>{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     log_x::init_log("log", "nat.log")?;
 
     let _ = std::fs::create_dir_all(NFTABLES_ETC);
@@ -49,7 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         delete table ip self-nat\n\
         add table ip self-nat\n\
         add chain self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
-        add chain self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\n",
+        add chain self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n
+        # 允许forward的流量\n\
+        add chain ip self-nat forward { type filter hook forward priority -10 ; }\n\
+        add rule ip self-nat forward ct state related,established accept\n\
+        ",
         );
 
         let vec = config::read_config(conf);
