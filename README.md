@@ -81,7 +81,6 @@ systemctl enable nat
 
 mkdir /opt/nat
 touch /opt/nat/env
-# echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat.conf <<EOF
@@ -142,6 +141,31 @@ systemctl disable nat
 
 ## 常问问题
 
+### 兼容docker
+
+首先，最新版本已经与docker兼容，docker的iptables规则不会被清空。
+
+然后，如果更新dnat到最新版后发现自定义的nat规则不生效，可能是因为最新版的docker（28.x.x）将filter表forward链的默认策略设置为了drop，参考[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)。该链接也介绍了解决方案：在 `/etc/docker/daemon.json`，增加如下内容：
+
+```json
+{
+  "ip-forward-no-drop": true
+}
+```
+
+然后重启docker daemon ：
+
+```shell
+systemctl restart docker
+```
+
+### 多网卡机器指定ip
+
+```bash
+echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
+systemctl restart nat
+```
+
 ### 关于trojan转发
 
 总是有人说，不能转发trojan，这么说的人大部分是证书配置不对。最简单的解决方案是：客户端选择不验证证书。复杂一点是自己把证书和中转机的域名搭配好。
@@ -165,12 +189,6 @@ nft list ruleset
 ### 查看日志
 
 执行
-
-```shell
-cat /opt/nat/nat.log
-```
-
-或执行
 
 ```shell
 journalctl -exfu nat
