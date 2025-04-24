@@ -7,7 +7,7 @@ mod logger;
 mod prepare;
 
 use log::info;
-use std::{env, io};
+use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
@@ -60,11 +60,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .arg(FILE_NAME_SCRIPT)
                 .output()?;
             info!(
-                "执行/usr/sbin/nft -f {FILE_NAME_SCRIPT}\n执行结果: {}",
+                "执行/usr/sbin/nft -f {FILE_NAME_SCRIPT} 执行结果: {}",
                 output.status
             );
-            io::stdout().write_all(&output.stdout)?;
-            io::stderr().write_all(&output.stderr)?;
+            log::info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            log::error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
             info!("WAIT:等待配置或目标IP发生改变....\n");
         }
 

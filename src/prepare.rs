@@ -23,8 +23,8 @@ pub(crate) fn check_and_prepare() -> Result<(), io::Error> {
             .arg(FILE_NAME_PREPARE)
             .output()?;
         info!("执行结果: {}", output.status);
-        io::stdout().write_all(&output.stdout)?;
-        io::stderr().write_all(&output.stderr)?;
+        log::info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        log::error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
     Ok(())
 }

@@ -157,6 +157,8 @@ nft delete table ip self-nat
 
 ### 多网卡机器指定ip
 
+可以执行以下脚本来自定义本机ip，该示例是将本机ip定义为`10.10.10.10`
+
 ```bash
 echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
 systemctl restart nat
@@ -167,14 +169,6 @@ systemctl restart nat
 总是有人说，不能转发trojan，这么说的人大部分是证书配置不对。最简单的解决方案是：客户端选择不验证证书。复杂一点是自己把证书和中转机的域名搭配好。
 
 小白记住一句话就好：客户端不验证证书。
-
-### 用于多网卡的机器时，如何指定用于转发的本机ip
-
-可以执行以下脚本来自定义本机ip，该示例是将本机ip定义为`10.10.10.10`
-
-```shell
-echo "nat_local_ip=10.10.10.10" > /opt/nat/env
-```
 
 ### 如何查看最终的nftables规则
 
