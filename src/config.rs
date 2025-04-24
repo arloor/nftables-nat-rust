@@ -2,6 +2,7 @@
 use crate::ip;
 use log::info;
 use std::env;
+use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::process::exit;
@@ -71,6 +72,26 @@ pub enum NatCell {
     },
 }
 
+impl Display for NatCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NatCell::Single {
+                src_port,
+                dst_port,
+                dst_domain,
+                protocol,
+            } => write!(f, "SINGLE,{src_port},{dst_port},{dst_domain},{protocol:?}"),
+            NatCell::Range {
+                port_start,
+                port_end,
+                dst_domain,
+                protocol,
+            } => write!(f, "RANGE,{port_start},{port_end},{dst_domain},{protocol:?}"),
+            NatCell::Comment { content } => write!(f, "{content}"),
+        }
+    }
+}
+
 impl NatCell {
     pub fn build(&self) -> Result<String, io::Error> {
         let dst_domain = match &self {
@@ -89,11 +110,10 @@ impl NatCell {
                 dst_domain: _,
                 protocol,
             } => {
-                let res=format!("# {cell:?}\n\
-                    {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd}\n\
-                    {udpPrefix}add rule ip self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd}\n\
-                    {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {portStart}-{portEnd} counter snat to {localIP}\n\
-                    {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {portStart}-{portEnd} counter snat to {localIP}\n\n\
+                let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    {udpPrefix}add rule ip self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {portStart}-{portEnd} counter snat to {localIP} comment \"{cell}\"\n\
+                    {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {portStart}-{portEnd} counter snat to {localIP} comment \"{cell}\"\n\n\
                     ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
                 Ok(res)
             }
@@ -105,18 +125,16 @@ impl NatCell {
             } => {
                 if dst_domain == "localhost" || dst_domain == "127.0.0.1" {
                     // 重定向到本机
-                    let res=format!("# {cell:?}\n\
-                        {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}\n\
-                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}\n\n\
+                    let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
+                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
                         ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
                     Ok(res)
                 } else {
                     // 转发到其他机器
-                    let res=format!("# {cell:?}\n\
-                        {tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}\n\
-                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}\n\
-                        {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter snat to {localIP}\n\
-                        {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter snat to {localIP}\n\n\
+                    let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                        {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\
+                        {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\n\
                         ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
                     Ok(res)
                 }
