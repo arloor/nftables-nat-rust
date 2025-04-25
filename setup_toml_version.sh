@@ -32,7 +32,11 @@ systemctl enable nat
 
 mkdir -p /opt/nat
 touch /opt/nat/env
-touch /etc/nat.toml
+# Check if /etc/nat.toml exists, if not create it with example content
+if [ ! -f /etc/nat.toml ]; then
+    echo "rules = []" > /etc/nat.toml
+    echo "Created /etc/nat.toml with no rules. Refer to /etc/nat_example.toml for more example rules."
+fi
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
 cat > /etc/nat_example.toml <<EOF
