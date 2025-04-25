@@ -1,4 +1,5 @@
 use std::io;
+use std::net::ToSocketAddrs;
 use std::net::UdpSocket;
 use std::ops::Add;
 use std::sync::LazyLock;
@@ -14,7 +15,11 @@ fn default_src_ip() -> io::Result<String> {
 }
 
 pub fn remote_ip(domain: &String) -> io::Result<String> {
-    let socket = UdpSocket::bind("0.0.0.0:0")?;
-    socket.connect(domain.to_string().add(":80"))?;
-    socket.peer_addr().map(|addr| addr.ip().to_string())
+    domain
+        .to_string()
+        .add(":80")
+        .to_socket_addrs()?
+        .find(|addr| addr.is_ipv4())
+        .map(|addr| addr.ip().to_string())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to resolve IPv4 address"))
 }

@@ -115,7 +115,7 @@ fn handle_loop(nat_cells: Vec<config::NatCell>) -> Result<(), io::Error> {
 
 fn build_new_script(nat_cells: &[config::NatCell]) -> Result<String, io::Error> {
     //脚本的前缀
-    let script_prefix = String::from(
+    let mut script = String::from(
         "#!/usr/sbin/nft -f\n\
         \n\
         add table ip self-nat\n\
@@ -126,11 +126,13 @@ fn build_new_script(nat_cells: &[config::NatCell]) -> Result<String, io::Error> 
         ",
     );
 
-    let mut script = String::new();
-    script += &script_prefix;
-
     for x in nat_cells.iter() {
-        script += &x.build()?;
+        match x.build() {
+            Ok(rule) => script += &rule,
+            Err(e) => {
+                log::error!("Failed to build rule for {:?}: {}", x, e);
+            }
+        }
     }
     Ok(script)
 }
