@@ -41,4 +41,4 @@ EOF
 
 systemctl restart nat
 
-echo 编辑 /etc/nat.conf 以自定义规则
+echo 安装成功。请编辑 /etc/nat.conf 以自定义规则
