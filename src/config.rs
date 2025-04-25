@@ -5,7 +5,6 @@ use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
-use std::process::exit;
 
 #[derive(Debug)]
 pub enum Protocol {
@@ -230,7 +229,7 @@ impl NatCell {
     }
 }
 
-pub fn example(conf: &str) {
+pub(crate) fn example(conf: &str) {
     info!("请在 {} 编写转发规则，内容类似：", &conf);
     info!(
         "{}",
@@ -239,24 +238,16 @@ pub fn example(conf: &str) {
     )
 }
 
-pub fn read_config(conf: &str) -> Vec<NatCell> {
+pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
     let mut nat_cells = vec![];
-    let mut contents = match fs::read_to_string(conf) {
-        Ok(s) => s,
-        Err(_e) => {
-            example(conf);
-            exit(1);
-        }
-    };
+    let mut contents = fs::read_to_string(conf)?;
     contents = contents.replace("\r\n", "\n");
 
     let strs = contents.split('\n');
     for line in strs {
-        match NatCell::parse(line) {
-            Ok(Some(nat_cell)) => nat_cells.push(nat_cell),
-            Ok(None) => {} // 空行，跳过
-            Err(e) => info!("#! 错误: {}", e),
+        if let Some(nat_cell) = NatCell::parse(line)? {
+            nat_cells.push(nat_cell);
         }
     }
-    nat_cells
+    Ok(nat_cells)
 }

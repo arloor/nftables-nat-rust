@@ -6,10 +6,10 @@ mod ip;
 mod logger;
 mod prepare;
 
+use clap::Parser;
 use log::info;
-use std::env;
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
@@ -18,19 +18,35 @@ const NFTABLES_ETC: &str = "/etc/nftables-nat";
 const FILE_NAME_SCRIPT: &str = "/etc/nftables-nat/nat-diy.nft";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
 const CARGO_CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
+
+/// A nftables NAT management tool
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// 配置文件路径
+    #[arg(value_name = "CONFIG_FILE", help = "配置文件路径")]
+    compatible_config_file: String,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     logger::init(CARGO_CRATE_NAME);
-    let args: Vec<String> = env::args().collect();
-    let mut conf = String::new();
-    if args.len() != 2 {
-        let conf = "nat.conf".to_string();
-        info!("{}{}", "使用方式：nat ", conf);
-        config::example(&conf);
-        return Ok(());
-    } else {
-        conf += &args[1];
+    // 使用 clap 解析命令行参数
+    let args = Args::parse();
+    let conf = args.compatible_config_file;
+    match config::read_config(&conf) {
+        Ok(nat_cells) => {
+            global_prepare();
+            Ok(handle_loop(nat_cells)?)
+        }
+        Err(e) => {
+            info!("读取配置文件失败: {:?}, cause: {:?}", conf, e);
+            config::example(&conf);
+            Err(Box::new(e))
+        }
     }
+}
 
+fn global_prepare() {
     let _ = std::fs::create_dir_all(NFTABLES_ETC);
     // 修改内核参数，开启端口转发
     match std::fs::write(IP_FORWARD, "1") {
@@ -41,12 +57,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e)
         }
     };
+}
 
+fn handle_loop(nat_cells: Vec<config::NatCell>) -> Result<(), io::Error> {
     let mut latest_script = String::new();
-
     loop {
+        let script = build_new_script(&nat_cells)?;
         prepare::check_and_prepare()?;
-        let script = build_new_script(&conf);
         if script != latest_script {
             info!("nftables脚本如下：\n{}", script);
             latest_script.clone_from(&script);
@@ -73,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn build_new_script(conf: &str) -> String {
+fn build_new_script(nat_cells: &[config::NatCell]) -> Result<String, io::Error> {
     //脚本的前缀
     let script_prefix = String::from(
         "#!/usr/sbin/nft -f\n\
@@ -86,19 +103,11 @@ fn build_new_script(conf: &str) -> String {
         ",
     );
 
-    let vec = config::read_config(conf);
     let mut script = String::new();
     script += &script_prefix;
 
-    for x in vec.iter() {
-        match x.build() {
-            Ok(string) => {
-                script += &string;
-            }
-            Err(e) => {
-                info!("build error: {:?}", e);
-            }
-        }
+    for x in nat_cells.iter() {
+        script += &x.build()?;
     }
-    script
+    Ok(script)
 }
