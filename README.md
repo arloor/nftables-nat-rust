@@ -51,7 +51,7 @@ yum install -y  nftables
 ### 传统配置文件版本
 
 ```shell
-bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/legacy_setup.sh)
+bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/setup_legacy_version.sh)
 ```
 
 **配置文件说明**
@@ -79,7 +79,7 @@ RANGE,50000,50010,baidu.com
 ### toml配置文件版本
 
 ```shell
-bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/toml_setup.sh)
+bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/setup_toml_version.sh)
 ```
 
 ## 更新新版
