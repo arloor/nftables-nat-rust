@@ -122,20 +122,23 @@ impl NatCell {
                 dst_domain,
                 protocol,
             } => {
-                if dst_domain == "localhost" || dst_domain == "127.0.0.1" {
-                    // 重定向到本机
-                    let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
-                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
-                        ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
-                    Ok(res)
-                } else {
-                    // 转发到其他机器
-                    let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
-                        {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
-                        {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\
-                        {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\n\
-                        ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
-                    Ok(res)
+                match dst_domain.as_str() {
+                    "localhost" | "127.0.0.1" => {
+                        // 重定向到本机
+                        let res = format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
+                            ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                        Ok(res)
+                    },
+                    _ => {
+                        // 转发到其他机器
+                        let res = format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                            {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter snat to {localIP} comment \"{cell}\"\n\n\
+                            ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, localIP = local_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                        Ok(res)
+                    }
                 }
             }
             NatCell::Comment { .. } => Err(io::Error::new(
