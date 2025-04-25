@@ -1,0 +1,20 @@
+[[rules]]
+type = "single"
+src_port = 10000
+dst_port = 443
+dst_domain = "baidu.com"
+protocol = "all"
+
+[[rules]]
+type = "single"
+src_port = 10000
+dst_port = 443
+dst_domain = "localhost"
+protocol = "all"
+
+[[rules]]
+type = "range"
+port_start = 1000
+port_end = 2000
+dst_domain = "baidu.com"
+protocol = "tcp"

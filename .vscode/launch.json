@@ -9,12 +9,16 @@
             "request": "launch",
             "name": "Debug",
             "program": "${workspaceFolder}/target/debug/dnat",
-            "args": ["nat.conf"],
+            "args": [
+                // "nat.conf",
+                "--toml",
+                "nat.toml"
+            ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "rust: cargo build",
             "console": "internalConsole",
             "env": {
-                "HOSTNAME":"test"
+                "HOSTNAME": "test"
             }
         }
     ]

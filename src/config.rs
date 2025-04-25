@@ -1,6 +1,8 @@
 #![deny(warnings)]
 use crate::ip;
 use log::info;
+use serde::Deserialize;
+use serde::Serialize;
 use std::env;
 use std::fmt::Display;
 use std::fs;
@@ -44,8 +46,10 @@ impl From<String> for Protocol {
     fn from(protocol: String) -> Self {
         match protocol {
             protocol if protocol == "udp" => Protocol::Udp,
+            protocol if protocol == "Udp" => Protocol::Udp,
             protocol if protocol == "UDP" => Protocol::Udp,
             protocol if protocol == "tcp" => Protocol::Tcp,
+            protocol if protocol == "Tcp" => Protocol::Tcp,
             protocol if protocol == "TCP" => Protocol::Tcp,
             _ => Protocol::All,
         }
@@ -96,7 +100,7 @@ impl NatCell {
         let dst_domain = match &self {
             NatCell::Single { dst_domain, .. } => dst_domain,
             NatCell::Range { dst_domain, .. } => dst_domain,
-            NatCell::Comment { content } => return Ok(content.clone()),
+            NatCell::Comment { content } => return Ok(content.clone() + "\n"),
         };
         let dst_ip = ip::remote_ip(dst_domain)?;
         // 从环境变量读取本机ip或自动探测
@@ -129,7 +133,7 @@ impl NatCell {
                             {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
                             ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
                         Ok(res)
-                    },
+                    }
                     _ => {
                         // 转发到其他机器
                         let res = format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
@@ -155,7 +159,7 @@ impl NatCell {
         // 处理注释
         if line.starts_with('#') {
             return Ok(Some(NatCell::Comment {
-                content: line.to_string() + "\n",
+                content: line.to_string(),
             }));
         }
 
@@ -253,4 +257,108 @@ pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
         }
     }
     Ok(nat_cells)
+}
+
+// 读取TOML配置文件
+pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
+    let contents = fs::read_to_string(toml_path)?;
+    let config: TomlConfig = toml::from_str(&contents).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("解析TOML配置失败: {}", e),
+        )
+    })?;
+
+    let mut nat_cells = Vec::new();
+
+    for rule in config.rules {
+        match rule {
+            Rule::Single {
+                src_port,
+                dst_port,
+                dst_domain,
+                protocol,
+            } => {
+                nat_cells.push(NatCell::Single {
+                    src_port,
+                    dst_port,
+                    dst_domain,
+                    protocol: protocol.into(),
+                });
+            }
+            Rule::Range {
+                port_start,
+                port_end,
+                dst_domain,
+                protocol,
+            } => {
+                nat_cells.push(NatCell::Range {
+                    port_start,
+                    port_end,
+                    dst_domain,
+                    protocol: protocol.into(),
+                });
+            }
+        }
+    }
+
+    Ok(nat_cells)
+}
+
+// TOML配置示例函数
+pub fn toml_example(conf: &str) -> Result<(), io::Error> {
+    let example_config = TomlConfig {
+        rules: vec![
+            Rule::Single {
+                src_port: 10000,
+                dst_port: 443,
+                dst_domain: "baidu.com".to_string(),
+                protocol: "all".to_string(),
+            },
+            Rule::Range {
+                port_start: 1000,
+                port_end: 2000,
+                dst_domain: "baidu.com".to_string(),
+                protocol: "tcp".to_string(),
+            },
+        ],
+    };
+
+    let toml_str = toml::to_string_pretty(&example_config)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("序列化TOML失败: {}", e)))?;
+
+    info!("请在 {} 编写转发规则，内容类似：\n {toml_str}", &conf);
+
+    Ok(())
+}
+
+// TOML配置结构定义
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TomlConfig {
+    pub rules: Vec<Rule>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Rule {
+    #[serde(rename = "single")]
+    Single {
+        src_port: i32,
+        dst_port: i32,
+        dst_domain: String,
+        #[serde(default = "default_protocol")]
+        protocol: String,
+    },
+    #[serde(rename = "range")]
+    Range {
+        port_start: i32,
+        port_end: i32,
+        dst_domain: String,
+        #[serde(default = "default_protocol")]
+        protocol: String,
+    },
+}
+
+fn default_protocol() -> String {
+    "all".to_string()
 }

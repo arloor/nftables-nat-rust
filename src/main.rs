@@ -24,26 +24,42 @@ const CARGO_CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// 配置文件路径
-    #[arg(value_name = "CONFIG_FILE", help = "配置文件路径")]
-    compatible_config_file: String,
+    #[arg(value_name = "CONFIG_FILE", help = "老版本配置文件")]
+    compatible_config_file: Option<String>,
+    #[arg(long, value_name = "TOML_CONFIG", help = "toml配置文件")]
+    toml: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     logger::init(CARGO_CRATE_NAME);
     // 使用 clap 解析命令行参数
     let args = Args::parse();
-    let conf = args.compatible_config_file;
-    match config::read_config(&conf) {
-        Ok(nat_cells) => {
-            global_prepare();
-            Ok(handle_loop(nat_cells)?)
-        }
-        Err(e) => {
-            info!("读取配置文件失败: {:?}, cause: {:?}", conf, e);
-            config::example(&conf);
-            Err(Box::new(e))
-        }
+    let nat_cells = if let Some(compatible_config_file) = args.compatible_config_file {
+        info!("使用老版本配置文件: {:?}", compatible_config_file);
+        config::read_config(&compatible_config_file).map_err(|e| {
+            info!("读取配置文件失败: {:?}", e);
+            config::example(&compatible_config_file);
+            e
+        })?
+    } else if let Some(toml) = args.toml {
+        info!("使用toml配置文件: {:?}", toml);
+        config::read_toml_config(&toml).map_err(|e| {
+            info!("读取配置文件失败: {:?}", e);
+            if let Err(e) = config::toml_example(&toml) {
+                info!("{:?}", e);
+            }
+            e
+        })?
+    } else {
+        return Err("请提供配置文件路径".into());
+    };
+    info!("读取配置文件成功: ");
+    for ele in &nat_cells {
+        info!("{:?}", ele);
     }
+
+    global_prepare();
+    Ok(handle_loop(nat_cells)?)
 }
 
 fn global_prepare() {
