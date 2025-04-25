@@ -278,7 +278,15 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 dst_port,
                 dst_domain,
                 protocol,
+                comment,
             } => {
+                // 如果有注释，先添加注释
+                if let Some(comment_text) = comment {
+                    nat_cells.push(NatCell::Comment {
+                        content: format!("# {}", comment_text),
+                    });
+                }
+                
                 nat_cells.push(NatCell::Single {
                     src_port,
                     dst_port,
@@ -291,7 +299,15 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 port_end,
                 dst_domain,
                 protocol,
+                comment,
             } => {
+                // 如果有注释，先添加注释
+                if let Some(comment_text) = comment {
+                    nat_cells.push(NatCell::Comment {
+                        content: format!("# {}", comment_text),
+                    });
+                }
+                
                 nat_cells.push(NatCell::Range {
                     port_start,
                     port_end,
@@ -314,12 +330,14 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 dst_port: 443,
                 dst_domain: "baidu.com".to_string(),
                 protocol: "all".to_string(),
+                comment: Some("百度HTTPS服务转发示例".to_string()),
             },
             Rule::Range {
                 port_start: 1000,
                 port_end: 2000,
                 dst_domain: "baidu.com".to_string(),
                 protocol: "tcp".to_string(),
+                comment: Some("端口范围转发示例".to_string()),
             },
         ],
     };
@@ -348,6 +366,8 @@ pub enum Rule {
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,
+        #[serde(default)]
+        comment: Option<String>,
     },
     #[serde(rename = "range")]
     Range {
@@ -356,6 +376,8 @@ pub enum Rule {
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,
+        #[serde(default)]
+        comment: Option<String>,
     },
 }
 

@@ -4,6 +4,7 @@ src_port = 10000
 dst_port = 443
 dst_domain = "baidu.com"
 protocol = "all"
+comment = "This is a comment"
 
 [[rules]]
 type = "single"
