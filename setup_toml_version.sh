@@ -17,7 +17,7 @@ Wants=network-online.target
 [Service]
 WorkingDirectory=/opt/nat
 EnvironmentFile=/opt/nat/env
-ExecStart=/usr/local/bin/nat -t /etc/nat.toml
+ExecStart=/usr/local/bin/nat --toml /etc/nat.toml
 LimitNOFILE=100000
 Restart=always
 RestartSec=60
