@@ -23,7 +23,7 @@ jobs:
       - name: build
         run: |
           cargo build --release
-          cp target/release/dnat target/release/dnat_gnu;
+          cp target/release/nat target/release/nat_gnu;
       - name: build_musl
         id: build_musl
         uses: arloor/rust_musl_action@v2
@@ -33,7 +33,7 @@ jobs:
           if [ ! -d "target/release/" ]; then
             mkdir -p target/release/
           fi
-          cp ${{ steps.build_musl.outputs.release_dir }}dnat target/release/dnat;
+          cp ${{ steps.build_musl.outputs.release_dir }}nat target/release/nat;
       - name: gihub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' 
         env:
@@ -46,4 +46,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create v${version} target/release/dnat target/release/dnat_gnu -n "$version" -t "$version" --latest
+          gh release create v${version} target/release/nat target/release/nat_gnu -n "$version" -t "$version" --latest

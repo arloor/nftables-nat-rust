@@ -1,5 +1,5 @@
 [package]
-name = "dnat"
+name = "nat"
 version = "0.2.0"
 authors = ["arloor <admin@arloor.com>"]
 edition = "2018"

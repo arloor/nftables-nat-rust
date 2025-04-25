@@ -46,48 +46,12 @@ yum install -y  nftables
 
 **Debian系**请自行使用apt安装nftables，并禁用iptables
 
-## 使用说明
+## 安装说明
+
+### 传统配置文件版本
 
 ```shell
-# 必须是root用户
-# sudo su
-# 下载可执行文件
-curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
-install /tmp/nat /usr/local/bin/nat
-
-# 创建systemd服务
-cat > /lib/systemd/system/nat.service <<EOF
-[Unit]
-Description=dnat-service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-WorkingDirectory=/opt/nat
-EnvironmentFile=/opt/nat/env
-ExecStart=/usr/local/bin/nat /etc/nat.conf
-LimitNOFILE=100000
-Restart=always
-RestartSec=60
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 设置开机启动，并启动该服务
-systemctl daemon-reload
-systemctl enable nat
-
-mkdir /opt/nat
-touch /opt/nat/env
-
-# 生成配置文件，配置文件可按需求修改（请看下文）
-cat > /etc/nat.conf <<EOF
-SINGLE,49999,59999,baidu.com
-RANGE,50000,50010,baidu.com
-EOF
-
-systemctl restart nat
+bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/legacy_setup.sh)
 ```
 
 **配置文件说明**
@@ -112,12 +76,18 @@ RANGE,50000,50010,baidu.com
 
 如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
+### toml配置文件版本
+
+```shell
+bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/toml_setup.sh)
+```
+
 ## 更新新版
 
 本程序由github actions自动发布新v1.0.0版本，可以通过下面的命令更新：
 
 ```bash
-curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/dnat -o /tmp/nat
+curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/nat -o /tmp/nat
 install /tmp/nat /usr/local/bin/nat
 systemctl restart nat
 ```
