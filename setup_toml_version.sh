@@ -30,7 +30,7 @@ EOF
 systemctl daemon-reload
 systemctl enable nat
 
-mkdir /opt/nat
+mkdir -p /opt/nat
 touch /opt/nat/env
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
