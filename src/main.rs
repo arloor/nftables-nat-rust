@@ -68,7 +68,7 @@ fn parse_conf(args: Args) -> Result<Vec<config::NatCell>, Box<dyn std::error::Er
 }
 
 fn global_prepare() -> Result<(), io::Error> {
-    let _ = std::fs::create_dir_all(NFTABLES_ETC);
+    std::fs::create_dir_all(NFTABLES_ETC)?;
     // 修改内核参数，开启端口转发
     match std::fs::write(IP_FORWARD, "1") {
         Ok(_s) => {
