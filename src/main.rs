@@ -34,6 +34,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     logger::init(CARGO_CRATE_NAME);
     // 使用 clap 解析命令行参数
     let args = Args::parse();
+    let nat_cells = parse_conf(args)?;
+    info!("读取配置文件成功: ");
+    for ele in &nat_cells {
+        info!("{:?}", ele);
+    }
+
+    global_prepare();
+    Ok(handle_loop(nat_cells)?)
+}
+
+fn parse_conf(args: Args) -> Result<Vec<config::NatCell>, Box<dyn std::error::Error>> {
     let nat_cells = if let Some(compatible_config_file) = args.compatible_config_file {
         info!("使用老版本配置文件: {:?}", compatible_config_file);
         config::read_config(&compatible_config_file).map_err(|e| {
@@ -53,13 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         return Err("请提供配置文件路径".into());
     };
-    info!("读取配置文件成功: ");
-    for ele in &nat_cells {
-        info!("{:?}", ele);
-    }
-
-    global_prepare();
-    Ok(handle_loop(nat_cells)?)
+    Ok(nat_cells)
 }
 
 fn global_prepare() {
