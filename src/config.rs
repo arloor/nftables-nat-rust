@@ -286,7 +286,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                         content: format!("# {}", comment_text),
                     });
                 }
-                
+
                 nat_cells.push(NatCell::Single {
                     src_port,
                     dst_port,
@@ -307,7 +307,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                         content: format!("# {}", comment_text),
                     });
                 }
-                
+
                 nat_cells.push(NatCell::Range {
                     port_start,
                     port_end,
@@ -361,8 +361,11 @@ pub struct TomlConfig {
 pub enum Rule {
     #[serde(rename = "single")]
     Single {
+        #[serde(rename = "sport")]
         src_port: i32,
+        #[serde(rename = "dport")]
         dst_port: i32,
+        #[serde(rename = "domain")]
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,
@@ -371,8 +374,11 @@ pub enum Rule {
     },
     #[serde(rename = "range")]
     Range {
+        #[serde(rename = "portStart")]
         port_start: i32,
+        #[serde(rename = "portEnd")]
         port_end: i32,
+        #[serde(rename = "domain")]
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,

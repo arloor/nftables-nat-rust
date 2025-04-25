@@ -1,21 +1,21 @@
 [[rules]]
 type = "single"
-src_port = 10000
-dst_port = 443
-dst_domain = "baidu.com"
+sport = 10000
+dport = 443
+domain = "baidu.com"
 protocol = "all"
 comment = "This is a comment"
 
 [[rules]]
 type = "single"
-src_port = 10000
-dst_port = 443
-dst_domain = "localhost"
+sport = 10000
+dport = 443
+domain = "localhost"
 protocol = "all"
 
 [[rules]]
 type = "range"
-port_start = 1000
-port_end = 2000
-dst_domain = "baidu.com"
+portStart = 1000
+portEnd = 2000
+domain = "baidu.com"
 protocol = "tcp"
