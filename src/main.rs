@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("{:?}", ele);
     }
 
-    global_prepare();
+    global_prepare()?;
     Ok(handle_loop(nat_cells)?)
 }
 
@@ -67,7 +67,7 @@ fn parse_conf(args: Args) -> Result<Vec<config::NatCell>, Box<dyn std::error::Er
     Ok(nat_cells)
 }
 
-fn global_prepare() {
+fn global_prepare() -> Result<(), io::Error> {
     let _ = std::fs::create_dir_all(NFTABLES_ETC);
     // 修改内核参数，开启端口转发
     match std::fs::write(IP_FORWARD, "1") {
@@ -75,9 +75,11 @@ fn global_prepare() {
             info!("kernel ip_forward config enabled!\n")
         }
         Err(e) => {
-            info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e)
+            info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e);
+            return Err(e);
         }
     };
+    Ok(())
 }
 
 fn handle_loop(nat_cells: Vec<config::NatCell>) -> Result<(), io::Error> {
