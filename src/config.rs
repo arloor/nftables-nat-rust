@@ -104,7 +104,12 @@ impl NatCell {
         };
         let dst_ip = ip::remote_ip(dst_domain)?;
         // 从环境变量读取本机ip或自动探测
-        let local_ip = env::var("nat_local_ip").unwrap_or(ip::local_ip()?);
+        let local_ip = env::var("nat_local_ip").unwrap_or(
+            ip::LOCAL_IP
+                .as_deref()
+                .map_err(|e| io::Error::new(e.kind(), e))?
+                .to_owned(),
+        );
 
         match &self {
             NatCell::Range {
