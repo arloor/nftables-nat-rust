@@ -32,9 +32,10 @@ systemctl enable nat
 
 mkdir -p /opt/nat
 touch /opt/nat/env
+touch /etc/nat.toml
 
 # 生成配置文件，配置文件可按需求修改（请看下文）
-cat > /etc/nat.toml <<EOF
+cat > /etc/nat_example.toml <<EOF
 [[rules]]
 type = "single"
 sport = 10000
@@ -60,4 +61,6 @@ EOF
 
 systemctl restart nat
 
-echo 安装成功。请编辑 /etc/nat.toml 以自定义规则
+echo 安装成功，服务已启动。请编辑 /etc/nat.toml 以自定义规则。
+echo 配置示例如下：
+cat /etc/nat_example.toml
