@@ -20,10 +20,10 @@ jobs:
       - name: Set outputs
         id: vars
         run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
-      # - name: build
-      #   run: |
-      #     cargo build --release
-      #     cp target/release/nat target/release/nat_gnu;
+      - name: build
+        run: |
+          cargo build --release
+          cp target/release/nat target/release/nat_gnu;
       - name: build_musl
         id: build_musl
         uses: arloor/rust_musl_action@v2
