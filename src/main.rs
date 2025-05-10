@@ -34,29 +34,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     logger::init(CARGO_CRATE_NAME);
     // 使用 clap 解析命令行参数
     let args = Args::parse();
-    let nat_cells = parse_conf(args)?;
-    info!("读取配置文件成功: ");
-    for ele in &nat_cells {
-        info!("{:?}", ele);
-    }
 
+    if let Err(e) = parse_conf(&args).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e)) {
+        info!("解析配置文件失败: {:?}", e);
+        return Err(e.into());
+    }
     global_prepare()?;
-    Ok(handle_loop(nat_cells)?)
+    Ok(handle_loop(&args)?)
 }
 
-fn parse_conf(args: Args) -> Result<Vec<config::NatCell>, Box<dyn std::error::Error>> {
-    let nat_cells = if let Some(compatible_config_file) = args.compatible_config_file {
-        info!("使用老版本配置文件: {:?}", compatible_config_file);
-        config::read_config(&compatible_config_file).map_err(|e| {
+fn parse_conf(
+    args: &Args,
+) -> Result<Vec<config::NatCell>, Box<dyn std::error::Error + Send + Sync>> {
+    let nat_cells = if let Some(compatible_config_file) = &args.compatible_config_file {
+        config::read_config(compatible_config_file).map_err(|e| {
             info!("读取配置文件失败: {:?}", e);
-            config::example(&compatible_config_file);
+            config::example(compatible_config_file);
             e
         })?
-    } else if let Some(toml) = args.toml {
-        info!("使用toml配置文件: {:?}", toml);
-        config::read_toml_config(&toml).map_err(|e| {
+    } else if let Some(toml) = &args.toml {
+        config::read_toml_config(toml).map_err(|e| {
             info!("读取配置文件失败: {:?}", e);
-            if let Err(e) = config::toml_example(&toml) {
+            if let Err(e) = config::toml_example(toml) {
                 info!("{:?}", e);
             }
             e
@@ -82,12 +81,18 @@ fn global_prepare() -> Result<(), io::Error> {
     Ok(())
 }
 
-fn handle_loop(nat_cells: Vec<config::NatCell>) -> Result<(), io::Error> {
+fn handle_loop(args: &Args) -> Result<(), io::Error> {
     let mut latest_script = String::new();
     loop {
+        let nat_cells =
+            parse_conf(args).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let script = build_new_script(&nat_cells)?;
         prepare::check_and_prepare()?;
         if script != latest_script {
+            info!("当前配置: ");
+            for ele in &nat_cells {
+                info!("{:?}", ele);
+            }
             info!("nftables脚本如下：\n{}", script);
             latest_script.clone_from(&script);
             let f = File::create(FILE_NAME_SCRIPT);
@@ -108,8 +113,12 @@ fn handle_loop(nat_cells: Vec<config::NatCell>) -> Result<(), io::Error> {
             info!("WAIT:等待配置或目标IP发生改变....\n");
         }
 
-        //等待60秒
-        sleep(Duration::new(60, 0));
+        if cfg!(debug_assertions) {
+            sleep(Duration::from_secs(5));
+        } else {
+            //等待60秒
+            sleep(Duration::new(60, 0));
+        }
     }
 }
 
