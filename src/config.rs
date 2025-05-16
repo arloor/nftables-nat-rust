@@ -348,7 +348,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
     };
 
     let toml_str = toml::to_string_pretty(&example_config)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("序列化TOML失败: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("序列化TOML失败: {}", e)))?;
 
     info!("请在 {} 编写转发规则，内容类似：\n {toml_str}", &conf);
 

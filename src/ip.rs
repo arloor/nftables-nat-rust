@@ -21,7 +21,7 @@ pub fn remote_ip(domain: &String) -> io::Result<String> {
         .to_socket_addrs()?
         .find(|addr| addr.is_ipv4())
         .map(|addr| addr.ip().to_string())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to resolve IPv4 address"))
+        .ok_or_else(|| io::Error::other("Failed to resolve IPv4 address"))
 }
 
 #[allow(clippy::unwrap_used)]

@@ -53,8 +53,7 @@ fn check_current_ruleset() -> Result<CheckResult, io::Error> {
 
     if !output.status.success() {
         info!("执行 nft -j list ruleset 命令失败");
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "执行 nft -j list ruleset 命令失败",
         ));
     }
