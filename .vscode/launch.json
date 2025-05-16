@@ -18,7 +18,7 @@
             "preLaunchTask": "rust: cargo build",
             "console": "internalConsole",
             "env": {
-                "HOSTNAME": "test"
+                // "nat_local_ip": "192.168.5.40"
             }
         }
     ]
