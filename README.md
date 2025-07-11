@@ -125,9 +125,9 @@ nft delete table ip self-nat
 
 > 更多说明：Docker v28 将filter表forward链的默认策略设置为了drop（参见[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)），这会导致我们的自定义nat规则无法通过forward链。为了解决此问题，此程序会自动将filter表forward链的默认策略重置为accept。
 
-### 多网卡机器指定ip
+### 指定 src ip
 
-可以执行以下脚本来自定义本机ip，该示例是将本机ip定义为`10.10.10.10`
+当前版本使用 masquerade 来处理多网卡的SNAT，可以自动处理多网卡路由不同的问题。如果仍然需要自定义src ip，则可以执行以下脚本来自定义本机ip，该示例是将本机ip定义为`10.10.10.10`
 
 ```bash
 echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
