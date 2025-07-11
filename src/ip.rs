@@ -28,7 +28,7 @@ mod test {
         use std::net::Ipv4Addr;
         let domain = "www.google.com".to_string();
         let ip = super::remote_ip(&domain).unwrap();
-        println!("Resolved IP for {}: {}", domain, ip);
+        println!("Resolved IP for {domain}: {ip}");
         assert!(!ip.is_empty());
         assert!(ip.parse::<Ipv4Addr>().is_ok());
     }
@@ -37,7 +37,7 @@ mod test {
     fn test_remote_ip2() {
         let domain = "example.asddddddddddddddddddddaasdasdasdasdasdasadasads.com".to_string();
         let res = super::remote_ip(&domain);
-        println!("Resolved IP for {}: {:?}", domain, res);
+        println!("Resolved IP for {domain}: {res:?}");
         assert!(res.is_err());
     }
 }

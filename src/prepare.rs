@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 // we need set it to accept
 pub(crate) fn check_and_prepare() -> Result<(), io::Error> {
     if let Some(prepare_script) = prepare_script()? {
-        let final_prepare_script = format!("#!/usr/sbin/nft -f\n\n{}\n", prepare_script);
+        let final_prepare_script = format!("#!/usr/sbin/nft -f\n\n{prepare_script}\n");
         info!(
             "执行 nft -f {FILE_NAME_PREPARE}\n\
             {final_prepare_script}",
@@ -62,7 +62,7 @@ fn check_current_ruleset() -> Result<CheckResult, io::Error> {
     let nftables_output: NftablesOutput = match serde_json::from_str(&json_str) {
         Ok(output) => output,
         Err(e) => {
-            info!("解析 nft 输出的 JSON 失败: {}", e);
+            info!("解析 nft 输出的 JSON 失败: {e}");
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "解析 nft 输出的 JSON 失败",

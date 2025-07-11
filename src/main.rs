@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     if let Err(e) = parse_conf(&args).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e)) {
-        info!("解析配置文件失败: {:?}", e);
+        info!("解析配置文件失败: {e:?}");
         return Err(e.into());
     }
     global_prepare()?;
@@ -48,15 +48,15 @@ fn parse_conf(
 ) -> Result<Vec<config::NatCell>, Box<dyn std::error::Error + Send + Sync>> {
     let nat_cells = if let Some(compatible_config_file) = &args.compatible_config_file {
         config::read_config(compatible_config_file).map_err(|e| {
-            info!("读取配置文件失败: {:?}", e);
+            info!("读取配置文件失败: {e:?}");
             config::example(compatible_config_file);
             e
         })?
     } else if let Some(toml) = &args.toml {
         config::read_toml_config(toml).map_err(|e| {
-            info!("读取配置文件失败: {:?}", e);
+            info!("读取配置文件失败: {e:?}");
             if let Err(e) = config::toml_example(toml) {
-                info!("{:?}", e);
+                info!("{e:?}");
             }
             e
         })?
@@ -74,7 +74,7 @@ fn global_prepare() -> Result<(), io::Error> {
             info!("kernel ip_forward config enabled!\n")
         }
         Err(e) => {
-            info!("enable ip_forward FAILED! cause: {:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n", e);
+            info!("enable ip_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n");
             return Err(e);
         }
     };
@@ -91,9 +91,9 @@ fn handle_loop(args: &Args) -> Result<(), io::Error> {
         if script != latest_script {
             info!("当前配置: ");
             for ele in &nat_cells {
-                info!("{:?}", ele);
+                info!("{ele:?}");
             }
-            info!("nftables脚本如下：\n{}", script);
+            info!("nftables脚本如下：\n{script}");
             latest_script.clone_from(&script);
             let f = File::create(FILE_NAME_SCRIPT);
             if let Ok(mut file) = f {
@@ -139,7 +139,7 @@ fn build_new_script(nat_cells: &[config::NatCell]) -> Result<String, io::Error> 
         match x.build() {
             Ok(rule) => script += &rule,
             Err(e) => {
-                log::error!("Failed to build rule for {:?}: {}", x, e);
+                log::error!("Failed to build rule for {x:?}: {e}");
             }
         }
     }

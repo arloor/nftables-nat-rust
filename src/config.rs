@@ -178,7 +178,7 @@ impl NatCell {
         if cells.len() != 4 && cells.len() != 5 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("无效的配置行: {}, 字段数量不正确", line),
+                format!("无效的配置行: {line}, 字段数量不正确"),
             ));
         }
 
@@ -195,14 +195,14 @@ impl NatCell {
                 let port_start = cells[1].trim().parse::<i32>().map_err(|e| {
                     io::Error::new(
                         io::ErrorKind::InvalidData,
-                        format!("无法解析起始端口: {}", e),
+                        format!("无法解析起始端口: {e}"),
                     )
                 })?;
 
                 let port_end = cells[2].trim().parse::<i32>().map_err(|e| {
                     io::Error::new(
                         io::ErrorKind::InvalidData,
-                        format!("无法解析结束端口: {}", e),
+                        format!("无法解析结束端口: {e}"),
                     )
                 })?;
 
@@ -215,13 +215,13 @@ impl NatCell {
             }
             "SINGLE" => {
                 let src_port = cells[1].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {}", e))
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {e}"))
                 })?;
 
                 let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
                     io::Error::new(
                         io::ErrorKind::InvalidData,
-                        format!("无法解析目标端口: {}", e),
+                        format!("无法解析目标端口: {e}"),
                     )
                 })?;
 
@@ -269,7 +269,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
     let config: TomlConfig = toml::from_str(&contents).map_err(|e| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("解析TOML配置失败: {}", e),
+            format!("解析TOML配置失败: {e}"),
         )
     })?;
 
@@ -287,7 +287,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 // 如果有注释，先添加注释
                 if let Some(comment_text) = comment {
                     nat_cells.push(NatCell::Comment {
-                        content: format!("# {}", comment_text),
+                        content: format!("# {comment_text}"),
                     });
                 }
 
@@ -308,7 +308,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 // 如果有注释，先添加注释
                 if let Some(comment_text) = comment {
                     nat_cells.push(NatCell::Comment {
-                        content: format!("# {}", comment_text),
+                        content: format!("# {comment_text}"),
                     });
                 }
 
@@ -347,7 +347,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
     };
 
     let toml_str = toml::to_string_pretty(&example_config)
-        .map_err(|e| io::Error::other(format!("序列化TOML失败: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("序列化TOML失败: {e}")))?;
 
     info!("请在 {} 编写转发规则，内容类似：\n {toml_str}", &conf);
 
