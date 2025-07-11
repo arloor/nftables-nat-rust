@@ -1,0 +1,44 @@
+[[rules]]
+type = "single"
+sport = 8080
+dport = 80
+domain = "127.0.0.1"
+protocol = "tcp"
+ip_version = "ipv4"
+comment = "IPv4 local redirect test"
+
+[[rules]]
+type = "single"
+sport = 8081
+dport = 80
+domain = "::1"
+protocol = "tcp"
+ip_version = "ipv6"
+comment = "IPv6 local redirect test"
+
+[[rules]]
+type = "single"
+sport = 9000
+dport = 443
+domain = "baidu.com"
+protocol = "all"
+ip_version = "ipv4"
+comment = "IPv4 external forwarding test"
+
+[[rules]]
+type = "single"
+sport = 9001
+dport = 443
+domain = "ttl6.arloor.com"
+protocol = "all"
+ip_version = "ipv6"
+comment = "IPv6 external forwarding test with explicit IPv6 address"
+
+[[rules]]
+type = "range"
+portStart = 10000
+portEnd = 10010
+domain = "google.com"
+protocol = "tcp"
+ip_version = "both"
+comment = "Dual-stack port range forwarding"

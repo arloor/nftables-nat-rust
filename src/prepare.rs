@@ -33,14 +33,28 @@ fn prepare_script() -> Result<Option<String>, io::Error> {
     // 检查当前 nftables 中表、链和规则的存在情况
     let check_result = check_current_ruleset()?;
 
-    // 只有在相关实体不存在时才添加相应的命令
+    let mut prepare_script = String::new();
+    let mut needs_script = false;
+
+    // 检查IPv4 FORWARD链策略
     if check_result.ip_forward_drop {
-        let mut prepare_script = String::new();
-        prepare_script.push_str("# 修改 type filter hook forward的默认策略为accept \n");
+        prepare_script.push_str("# 修改 IPv4 type filter hook forward的默认策略为accept \n");
         prepare_script.push_str("chain ip filter FORWARD { policy accept ; }\n");
-        return Ok(Some(prepare_script));
+        needs_script = true;
     }
-    Ok(None)
+
+    // 检查IPv6 FORWARD链策略
+    if check_result.ip6_forward_drop {
+        prepare_script.push_str("# 修改 IPv6 type filter hook forward的默认策略为accept \n");
+        prepare_script.push_str("chain ip6 filter FORWARD { policy accept ; }\n");
+        needs_script = true;
+    }
+
+    if needs_script {
+        Ok(Some(prepare_script))
+    } else {
+        Ok(None)
+    }
 }
 
 fn check_current_ruleset() -> Result<CheckResult, io::Error> {
@@ -72,6 +86,7 @@ fn check_current_ruleset() -> Result<CheckResult, io::Error> {
         #[allow(clippy::single_match)]
         match entry {
             NftablesEntry::Chain { chain } => {
+                // IPv4 FORWARD链检查
                 // nft list table ip filter:
                 // chain FORWARD {
                 //      type filter hook forward priority filter; policy drop;
@@ -84,9 +99,27 @@ fn check_current_ruleset() -> Result<CheckResult, io::Error> {
                     && chain.policy == Some("drop".to_string())
                 {
                     info!(
-                        "iptables-nft创建的FORWARD链存在，且type=filter，hook=forward，policy=drop"
+                        "iptables-nft创建的IPv4 FORWARD链存在，且type=filter，hook=forward，policy=drop"
                     );
                     res.ip_forward_drop = true;
+                }
+                
+                // IPv6 FORWARD链检查
+                // nft list table ip6 filter:
+                // chain FORWARD {
+                //      type filter hook forward priority filter; policy drop;
+                // }
+                if chain.family == "ip6"
+                    && chain.table == "filter"
+                    && chain.name == "FORWARD"
+                    && chain.r#type == Some("filter".to_string())
+                    && chain.hook == Some("forward".to_string())
+                    && chain.policy == Some("drop".to_string())
+                {
+                    info!(
+                        "ip6tables-nft创建的IPv6 FORWARD链存在，且type=filter，hook=forward，policy=drop"
+                    );
+                    res.ip6_forward_drop = true;
                 }
             }
             _ => {}
@@ -155,4 +188,5 @@ struct Rule {
 #[derive(Default)]
 struct CheckResult {
     ip_forward_drop: bool,
+    ip6_forward_drop: bool,
 }
