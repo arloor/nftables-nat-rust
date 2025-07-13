@@ -18,6 +18,7 @@ Wants=network-online.target
 WorkingDirectory=/opt/nat
 EnvironmentFile=/opt/nat/env
 ExecStart=/usr/local/bin/nat /etc/nat.conf
+ExecStop=/bin/bash -c 'nft add table ip self-nat; nft delete table ip self-nat'
 LimitNOFILE=100000
 Restart=always
 RestartSec=60
