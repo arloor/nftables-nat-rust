@@ -102,9 +102,6 @@ systemctl restart nat
 ```shell
 ## 停止定时监听域名解析地任务
 systemctl disable --now nat
-## 清空nat规则
-nft add table ip self-nat
-nft delete table ip self-nat
 ```
 
 ## webui
