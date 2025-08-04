@@ -12,7 +12,7 @@ use std::io;
 pub enum IpVersion {
     V4,
     V6,
-    Both,
+    Both, // 优先IPv4，如果IPv4不可用则使用IPv6
 }
 
 impl From<String> for IpVersion {
@@ -21,7 +21,7 @@ impl From<String> for IpVersion {
             "ipv4" | "v4" | "4" => IpVersion::V4,
             "ipv6" | "v6" | "6" => IpVersion::V6,
             "both" | "all" => IpVersion::Both,
-            _ => IpVersion::V4, // 默认IPv4
+            _ => IpVersion::Both,
         }
     }
 }
@@ -150,14 +150,7 @@ impl NatCell {
         };
 
         // 根据配置的IP版本解析目标IP
-        let dst_ip = match ip_version {
-            IpVersion::V4 => ip::remote_ipv4(dst_domain)?,
-            IpVersion::V6 => ip::remote_ipv6(dst_domain)?,
-            IpVersion::Both => {
-                // 对于Both模式，优先使用IPv4，如果失败则使用IPv6
-                ip::remote_ipv4(dst_domain).or_else(|_| ip::remote_ipv6(dst_domain))?
-            }
-        };
+        let dst_ip = ip::remote_ip(dst_domain, ip_version)?;
 
         let mut result = String::new();
 
