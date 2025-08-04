@@ -4,7 +4,6 @@ sport = 10000
 dport = 443
 domain = "baidu.com"
 protocol = "all"
-comment = "comment"
 
 [[rules]]
 type = "single"
@@ -12,7 +11,7 @@ sport = 10001
 dport = 443
 domain = "baidu.com"
 protocol = "all"
-comment = "comment"
+comment = "some comment"
 
 [[rules]]
 type = "single"
