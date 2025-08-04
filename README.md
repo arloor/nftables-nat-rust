@@ -33,13 +33,6 @@ systemctl disable --now firewalld
 # 关闭selinux
 setenforce 0
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config  
-# 修改内存参数，开启端口转发
-echo 1 > /proc/sys/net/ipv4/ip_forward
-sed -i '/^net.ipv4.ip_forward=0/'d /etc/sysctl.conf
-sed -n '/^net.ipv4.ip_forward=1/'p /etc/sysctl.conf | grep -q "net.ipv4.ip_forward=1"
-if [ $? -ne 0 ]; then
-    echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
-fi
 # 确保nftables已安装
 yum install -y  nftables
 ```
@@ -130,6 +123,12 @@ systemctl disable --now nat
 echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
 systemctl restart nat
 ```
+
+### IPv6支持
+
+本软件已经支持ipv6转发，详见：
+
+[IPv6_SUPPORT.md](IPv6_SUPPORT.md)
 
 ### 关于trojan转发
 

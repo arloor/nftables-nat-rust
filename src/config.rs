@@ -8,6 +8,34 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 
+#[derive(Debug, Clone)]
+pub enum IpVersion {
+    V4,
+    V6,
+    Both, // 优先IPv4，如果IPv4不可用则使用IPv6
+}
+
+impl From<String> for IpVersion {
+    fn from(version: String) -> Self {
+        match version.to_lowercase().as_str() {
+            "ipv4" | "v4" | "4" => IpVersion::V4,
+            "ipv6" | "v6" | "6" => IpVersion::V6,
+            "both" | "all" => IpVersion::Both,
+            _ => IpVersion::Both,
+        }
+    }
+}
+
+impl Display for IpVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IpVersion::V4 => write!(f, "IPv4"),
+            IpVersion::V6 => write!(f, "IPv6"),
+            IpVersion::Both => write!(f, "Both"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Protocol {
     All,
@@ -63,12 +91,14 @@ pub enum NatCell {
         dst_port: i32,
         dst_domain: String,
         protocol: Protocol,
+        ip_version: IpVersion,
     },
     Range {
         port_start: i32,
         port_end: i32,
         dst_domain: String,
         protocol: Protocol,
+        ip_version: IpVersion,
     },
     Comment {
         content: String,
@@ -83,13 +113,21 @@ impl Display for NatCell {
                 dst_port,
                 dst_domain,
                 protocol,
-            } => write!(f, "SINGLE,{src_port},{dst_port},{dst_domain},{protocol:?}"),
+                ip_version,
+            } => write!(
+                f,
+                "SINGLE,{src_port},{dst_port},{dst_domain},{protocol:?},{ip_version}"
+            ),
             NatCell::Range {
                 port_start,
                 port_end,
                 dst_domain,
                 protocol,
-            } => write!(f, "RANGE,{port_start},{port_end},{dst_domain},{protocol:?}"),
+                ip_version,
+            } => write!(
+                f,
+                "RANGE,{port_start},{port_end},{dst_domain},{protocol:?},{ip_version}"
+            ),
             NatCell::Comment { content } => write!(f, "{content}"),
         }
     }
@@ -97,12 +135,60 @@ impl Display for NatCell {
 
 impl NatCell {
     pub fn build(&self) -> Result<String, io::Error> {
-        let dst_domain = match &self {
-            NatCell::Single { dst_domain, .. } => dst_domain,
-            NatCell::Range { dst_domain, .. } => dst_domain,
+        let (dst_domain, ip_version) = match &self {
+            NatCell::Single {
+                dst_domain,
+                ip_version,
+                ..
+            } => (dst_domain, ip_version),
+            NatCell::Range {
+                dst_domain,
+                ip_version,
+                ..
+            } => (dst_domain, ip_version),
             NatCell::Comment { content } => return Ok(content.clone() + "\n"),
         };
-        let dst_ip = ip::remote_ip(dst_domain)?;
+
+        // 根据配置的IP版本解析目标IP
+        let dst_ip = ip::remote_ip(dst_domain, ip_version)?;
+
+        let mut result = String::new();
+
+        // 检测实际IP类型并生成相应的规则
+        let is_ipv6_target = dst_ip.contains(':');
+
+        match ip_version {
+            IpVersion::V4 => {
+                if is_ipv6_target {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "IPv6 target address resolved but rule is configured for IPv4 only",
+                    ));
+                }
+                result += &self.build_ipv4_rules(&dst_ip)?;
+            }
+            IpVersion::V6 => {
+                if !is_ipv6_target {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "IPv4 target address resolved but rule is configured for IPv6 only",
+                    ));
+                }
+                result += &self.build_ipv6_rules(&dst_ip)?;
+            }
+            IpVersion::Both => {
+                if is_ipv6_target {
+                    result += &self.build_ipv6_rules(&dst_ip)?;
+                } else {
+                    result += &self.build_ipv4_rules(&dst_ip)?;
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn build_ipv4_rules(&self, dst_ip: &str) -> Result<String, io::Error> {
         // 从环境变量读取本机ip或自动探测
         let local_ip = env::var("nat_local_ip");
         let snat_to_part = match local_ip {
@@ -116,6 +202,7 @@ impl NatCell {
                 port_end,
                 dst_domain: _,
                 protocol,
+                ip_version: _,
             } => {
                 let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
                     {udpPrefix}add rule ip self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
@@ -129,6 +216,7 @@ impl NatCell {
                 dst_port,
                 dst_domain,
                 protocol,
+                ip_version: _,
             } => {
                 match dst_domain.as_str() {
                     "localhost" | "127.0.0.1" => {
@@ -144,6 +232,62 @@ impl NatCell {
                             {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
                             {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\
                             {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
+                            ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                        Ok(res)
+                    }
+                }
+            }
+            NatCell::Comment { .. } => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Comment cell cannot be built",
+            )),
+        }
+    }
+
+    fn build_ipv6_rules(&self, dst_ip: &str) -> Result<String, io::Error> {
+        // 从环境变量读取本机IPv6或自动探测
+        let local_ipv6 = env::var("nat_local_ipv6");
+        let snat_to_part = match local_ipv6 {
+            Ok(ip) => "snat to ".to_owned() + &ip,
+            Err(_) => "masquerade".to_owned(),
+        };
+
+        match &self {
+            NatCell::Range {
+                port_start,
+                port_end,
+                dst_domain: _,
+                protocol,
+                ip_version: _,
+            } => {
+                let res=format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    {tcpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} tcp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\
+                    {udpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} udp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                Ok(res)
+            }
+            NatCell::Single {
+                src_port,
+                dst_port,
+                dst_domain,
+                protocol,
+                ip_version: _,
+            } => {
+                match dst_domain.as_str() {
+                    "localhost" | "::1" => {
+                        // 重定向到本机IPv6
+                        let res = format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
+                            ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                        Ok(res)
+                    }
+                    _ => {
+                        // 转发到其他机器
+                        let res = format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
+                            {tcpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} tcp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\
+                            {udpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} udp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
                             ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
                         Ok(res)
                     }
@@ -174,36 +318,37 @@ impl NatCell {
 
         let cells: Vec<&str> = line.split(',').collect();
 
-        // 验证字段数量
-        if cells.len() != 4 && cells.len() != 5 {
+        // 验证字段数量 - 现在支持4-6个字段: type,port(s),domain,protocol,ip_version
+        if cells.len() < 4 || cells.len() > 6 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("无效的配置行: {line}, 字段数量不正确"),
+                format!("无效的配置行: {line}, 字段数量不正确（需要4-6个字段）"),
             ));
         }
 
         // 解析协议
-        let protocol = if cells.len() == 5 {
+        let protocol = if cells.len() >= 5 {
             cells[4].trim().to_string().into()
         } else {
             Protocol::All
+        };
+
+        // 解析IP版本
+        let ip_version = if cells.len() >= 6 {
+            cells[5].trim().to_string().into()
+        } else {
+            IpVersion::V4 // 默认IPv4以保持向后兼容
         };
 
         // 解析类型并创建NatCell
         match cells[0].trim() {
             "RANGE" => {
                 let port_start = cells[1].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("无法解析起始端口: {e}"),
-                    )
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析起始端口: {e}"))
                 })?;
 
                 let port_end = cells[2].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("无法解析结束端口: {e}"),
-                    )
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析结束端口: {e}"))
                 })?;
 
                 Ok(Some(NatCell::Range {
@@ -211,6 +356,7 @@ impl NatCell {
                     port_end,
                     dst_domain: cells[3].trim().to_string(),
                     protocol,
+                    ip_version,
                 }))
             }
             "SINGLE" => {
@@ -219,10 +365,7 @@ impl NatCell {
                 })?;
 
                 let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("无法解析目标端口: {e}"),
-                    )
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
                 })?;
 
                 Ok(Some(NatCell::Single {
@@ -230,6 +373,7 @@ impl NatCell {
                     dst_port,
                     dst_domain: cells[3].trim().to_string(),
                     protocol,
+                    ip_version,
                 }))
             }
             _ => Err(io::Error::new(
@@ -244,8 +388,12 @@ pub(crate) fn example(conf: &str) {
     info!("请在 {} 编写转发规则，内容类似：", &conf);
     info!(
         "{}",
-        "SINGLE,10000,443,baidu.com\n\
-                    RANGE,1000,2000,baidu.com"
+        "SINGLE,10000,443,baidu.com,all,ipv4\n\
+                    RANGE,1000,2000,baidu.com,tcp,ipv6\n\
+                    # 格式: TYPE,port1,port2,domain,protocol,ip_version\n\
+                    # TYPE: SINGLE 或 RANGE\n\
+                    # protocol: tcp, udp, all\n\
+                    # ip_version: ipv4, ipv6, both"
     )
 }
 
@@ -267,10 +415,7 @@ pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
 pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
     let contents = fs::read_to_string(toml_path)?;
     let config: TomlConfig = toml::from_str(&contents).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("解析TOML配置失败: {e}"),
-        )
+        io::Error::new(io::ErrorKind::InvalidData, format!("解析TOML配置失败: {e}"))
     })?;
 
     let mut nat_cells = Vec::new();
@@ -282,6 +427,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 dst_port,
                 dst_domain,
                 protocol,
+                ip_version,
                 comment,
             } => {
                 // 如果有注释，先添加注释
@@ -296,6 +442,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                     dst_port,
                     dst_domain,
                     protocol: protocol.into(),
+                    ip_version: ip_version.into(),
                 });
             }
             Rule::Range {
@@ -303,6 +450,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 port_end,
                 dst_domain,
                 protocol,
+                ip_version,
                 comment,
             } => {
                 // 如果有注释，先添加注释
@@ -317,6 +465,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                     port_end,
                     dst_domain,
                     protocol: protocol.into(),
+                    ip_version: ip_version.into(),
                 });
             }
         }
@@ -334,6 +483,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 dst_port: 443,
                 dst_domain: "baidu.com".to_string(),
                 protocol: "all".to_string(),
+                ip_version: "ipv4".to_string(),
                 comment: Some("百度HTTPS服务转发示例".to_string()),
             },
             Rule::Range {
@@ -341,6 +491,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 port_end: 2000,
                 dst_domain: "baidu.com".to_string(),
                 protocol: "tcp".to_string(),
+                ip_version: "ipv4".to_string(),
                 comment: Some("端口范围转发示例".to_string()),
             },
         ],
@@ -373,6 +524,8 @@ pub enum Rule {
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,
+        #[serde(default = "default_ip_version")]
+        ip_version: String,
         #[serde(default)]
         comment: Option<String>,
     },
@@ -386,6 +539,8 @@ pub enum Rule {
         dst_domain: String,
         #[serde(default = "default_protocol")]
         protocol: String,
+        #[serde(default = "default_ip_version")]
+        ip_version: String,
         #[serde(default)]
         comment: Option<String>,
     },
@@ -393,4 +548,8 @@ pub enum Rule {
 
 fn default_protocol() -> String {
     "all".to_string()
+}
+
+fn default_ip_version() -> String {
+    "both".to_string()
 }

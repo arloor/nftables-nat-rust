@@ -17,6 +17,7 @@ use std::time::Duration;
 const NFTABLES_ETC: &str = "/etc/nftables-nat";
 const FILE_NAME_SCRIPT: &str = "/etc/nftables-nat/nat-diy.nft";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
+const IPV6_FORWARD: &str = "/proc/sys/net/ipv6/conf/all/forwarding";
 const CARGO_CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
 
 /// A nftables NAT management tool
@@ -68,7 +69,7 @@ fn parse_conf(
 
 fn global_prepare() -> Result<(), io::Error> {
     std::fs::create_dir_all(NFTABLES_ETC)?;
-    // 修改内核参数，开启端口转发
+    // 修改内核参数，开启IPv4端口转发
     match std::fs::write(IP_FORWARD, "1") {
         Ok(_s) => {
             info!("kernel ip_forward config enabled!\n")
@@ -76,6 +77,18 @@ fn global_prepare() -> Result<(), io::Error> {
         Err(e) => {
             info!("enable ip_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n");
             return Err(e);
+        }
+    };
+
+    // 修改内核参数，开启IPv6端口转发
+    match std::fs::write(IPV6_FORWARD, "1") {
+        Ok(_s) => {
+            info!("kernel ipv6_forward config enabled!\n")
+        }
+        Err(e) => {
+            info!("enable ipv6_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv6/conf/all/forwarding` manually\n");
+            // IPv6转发失败不作为致命错误，因为可能系统不支持IPv6
+            info!("IPv6 forwarding setup failed, continuing with IPv4 only...");
         }
     };
     Ok(())
@@ -123,15 +136,23 @@ fn handle_loop(args: &Args) -> Result<(), io::Error> {
 }
 
 fn build_new_script(nat_cells: &[config::NatCell]) -> Result<String, io::Error> {
-    //脚本的前缀
+    //脚本的前缀 - 创建IPv4和IPv6表
     let mut script = String::from(
         "#!/usr/sbin/nft -f\n\
         \n\
+        # IPv4 NAT table\n\
         add table ip self-nat\n\
         delete table ip self-nat\n\
         add table ip self-nat\n\
-        add chain self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
-        add chain self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\
+        add chain ip self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
+        add chain ip self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\
+        \n\
+        # IPv6 NAT table\n\
+        add table ip6 self-nat\n\
+        delete table ip6 self-nat\n\
+        add table ip6 self-nat\n\
+        add chain ip6 self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
+        add chain ip6 self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\
         ",
     );
 
