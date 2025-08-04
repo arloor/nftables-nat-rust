@@ -12,7 +12,7 @@
             "args": [
                 // "nat.conf",
                 "--toml",
-                "test-ipv6.toml"
+                "nat.toml"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "rust: cargo build",

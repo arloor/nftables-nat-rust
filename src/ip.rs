@@ -97,6 +97,23 @@ mod test {
     }
 
     #[test]
+    fn test_resolve_localhost() {
+        use super::IpVersion;
+        let domain = "localhost".to_string();
+        let ip = super::remote_ip(&domain, &IpVersion::Both).unwrap();
+        println!("Resolved IP (Both mode) for {domain}: {ip}");
+        assert!(!ip.is_empty());
+        // Should resolve to either IPv4 or IPv6, but prefer IPv4
+        assert!(ip.parse::<std::net::IpAddr>().is_ok());
+        
+        let ip = super::remote_ip(&domain, &IpVersion::V6).unwrap();
+        println!("Resolved IP (V6) for {domain}: {ip}");
+        assert!(!ip.is_empty());
+        // Should resolve to either IPv4 or IPv6, but prefer IPv4
+        assert!(ip.parse::<std::net::IpAddr>().is_ok());
+    }
+
+    #[test]
     fn test_remote_ip_fail() {
         use super::IpVersion;
         let domain = "example.asddddddddddddddddddddaasdasdasdasdasdasadasads.com".to_string();

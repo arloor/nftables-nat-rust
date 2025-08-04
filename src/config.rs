@@ -551,5 +551,5 @@ fn default_protocol() -> String {
 }
 
 fn default_ip_version() -> String {
-    "ipv4".to_string()
+    "both".to_string()
 }
