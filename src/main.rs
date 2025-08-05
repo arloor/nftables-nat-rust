@@ -7,7 +7,7 @@ mod logger;
 mod prepare;
 
 use clap::Parser;
-use log::info;
+use log::{error, info};
 use std::fs::File;
 use std::io::{self, Write};
 use std::process::Command;
@@ -36,6 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 使用 clap 解析命令行参数
     let args = Args::parse();
 
+    // 启动时解析一次配置文件，并且快速失败
     if let Err(e) = parse_conf(&args).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e)) {
         info!("解析配置文件失败: {e:?}");
         return Err(e.into());
@@ -97,8 +98,18 @@ fn global_prepare() -> Result<(), io::Error> {
 fn handle_loop(args: &Args) -> Result<(), io::Error> {
     let mut latest_script = String::new();
     loop {
-        let nat_cells =
-            parse_conf(args).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let nat_cells = match parse_conf(args) {
+            Ok(cells) => cells,
+            Err(e) => {
+                error!("解析配置文件失败: {e:?}");
+                if cfg!(debug_assertions) {
+                    sleep(Duration::from_secs(5));
+                } else {
+                    sleep(Duration::new(60, 0));
+                }
+                continue;
+            }
+        };
         let script = build_new_script(&nat_cells)?;
         prepare::check_and_prepare()?;
         if script != latest_script {
