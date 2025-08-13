@@ -85,36 +85,45 @@ fn check_current_ruleset() -> Result<CheckResult, io::Error> {
     for entry in nftables_output.nftables {
         #[allow(clippy::single_match)]
         match entry {
-            NftablesEntry::Chain { chain } => {
+            NftablesEntry::Chain {
+                family,
+                table,
+                name,
+                handle: _,
+                r#type,
+                hook,
+                prio: _,
+                policy,
+            } => {
                 // IPv4 FORWARD链检查
                 // nft list table ip filter:
                 // chain FORWARD {
                 //      type filter hook forward priority filter; policy drop;
                 // }
-                if chain.family == "ip"
-                    && chain.table == "filter"
-                    && chain.name == "FORWARD"
-                    && chain.r#type == Some("filter".to_string())
-                    && chain.hook == Some("forward".to_string())
-                    && chain.policy == Some("drop".to_string())
+                if family == "ip"
+                    && table == "filter"
+                    && name == "FORWARD"
+                    && r#type == Some("filter".to_string())
+                    && hook == Some("forward".to_string())
+                    && policy == Some("drop".to_string())
                 {
                     info!(
                         "iptables-nft创建的IPv4 FORWARD链存在，且type=filter，hook=forward，policy=drop"
                     );
                     res.ip_forward_drop = true;
                 }
-                
+
                 // IPv6 FORWARD链检查
                 // nft list table ip6 filter:
                 // chain FORWARD {
                 //      type filter hook forward priority filter; policy drop;
                 // }
-                if chain.family == "ip6"
-                    && chain.table == "filter"
-                    && chain.name == "FORWARD"
-                    && chain.r#type == Some("filter".to_string())
-                    && chain.hook == Some("forward".to_string())
-                    && chain.policy == Some("drop".to_string())
+                if family == "ip6"
+                    && table == "filter"
+                    && name == "FORWARD"
+                    && r#type == Some("filter".to_string())
+                    && hook == Some("forward".to_string())
+                    && policy == Some("drop".to_string())
                 {
                     info!(
                         "ip6tables-nft创建的IPv6 FORWARD链存在，且type=filter，hook=forward，policy=drop"
@@ -138,97 +147,99 @@ struct NftablesOutput {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+// #[serde(untagged)]
+#[serde(rename_all = "snake_case")]
 enum NftablesEntry {
-    Metainfo { metainfo: Metainfo },
-    Table { table: Table },
-    Chain { chain: Chain },
-    Rule { rule: Rule },
-    Set { set: Set },
-    Map { map: Map },
-    Element { element: Element },
+    Metainfo {
+        version: String,
+        release_name: String,
+        json_schema_version: u8,
+    },
+    Table {
+        family: String,
+        name: String,
+        handle: u32,
+    },
+    Chain {
+        family: String,
+        table: String,
+        name: String,
+        handle: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        r#type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        hook: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        prio: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        policy: Option<String>,
+    },
+    Rule {
+        family: String,
+        table: String,
+        chain: String,
+        handle: u32,
+        expr: Vec<serde_json::Value>,
+    },
+    Set {
+        family: String,
+        table: String,
+        name: String,
+        handle: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        r#type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        policy: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        flags: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        elem: Option<Vec<serde_json::Value>>,
+    },
+    Map {
+        family: String,
+        table: String,
+        name: String,
+        handle: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        r#type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        map: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        flags: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        elem: Option<Vec<serde_json::Value>>,
+    },
+    Element {
+        family: String,
+        table: String,
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        elem: Option<Vec<serde_json::Value>>,
+    },
+    #[serde(untagged)]
     Unknown(serde_json::Value),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Metainfo {
-    version: String,
-    release_name: String,
-    json_schema_version: u8,
-}
+struct Metainfo {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Table {
-    family: String,
-    name: String,
-    handle: u32,
-}
+struct Table {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Chain {
-    family: String,
-    table: String,
-    name: String,
-    handle: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hook: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    prio: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    policy: Option<String>,
-}
+struct Chain {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Rule {
-    family: String,
-    table: String,
-    chain: String,
-    handle: u32,
-    expr: Vec<serde_json::Value>,
-}
+struct Rule {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Set {
-    family: String,
-    table: String,
-    name: String,
-    handle: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    policy: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    flags: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    elem: Option<Vec<serde_json::Value>>,
-}
+struct Set {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Map {
-    family: String,
-    table: String,
-    name: String,
-    handle: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    map: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    flags: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    elem: Option<Vec<serde_json::Value>>,
-}
+struct Map {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Element {
-    family: String,
-    table: String,
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    elem: Option<Vec<serde_json::Value>>,
-}
+struct Element {}
 
 #[derive(Default)]
 struct CheckResult {
@@ -354,67 +365,103 @@ mod tests {
 }"#;
 
         let result: Result<NftablesOutput, _> = serde_json::from_str(json_data);
-        assert!(result.is_ok(), "Failed to deserialize JSON: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to deserialize JSON: {:?}",
+            result.err()
+        );
 
         let nftables_output = result.unwrap();
         assert_eq!(nftables_output.nftables.len(), 8);
 
         // 验证 metainfo
         match &nftables_output.nftables[0] {
-            NftablesEntry::Metainfo { metainfo } => {
-                assert_eq!(metainfo.version, "1.1.3");
-                assert_eq!(metainfo.release_name, "Commodore Bullmoose #4");
-                assert_eq!(metainfo.json_schema_version, 1);
+            NftablesEntry::Metainfo {
+                version,
+                release_name,
+                json_schema_version,
+            } => {
+                assert_eq!(version, "1.1.3");
+                assert_eq!(release_name, "Commodore Bullmoose #4");
+                assert_eq!(*json_schema_version, 1);
             }
             _ => panic!("Expected Metainfo entry"),
         }
 
         // 验证 table
         match &nftables_output.nftables[1] {
-            NftablesEntry::Table { table } => {
-                assert_eq!(table.family, "inet");
-                assert_eq!(table.name, "filter");
-                assert_eq!(table.handle, 1);
+            NftablesEntry::Table {
+                family,
+                name,
+                handle,
+            } => {
+                assert_eq!(family, "inet");
+                assert_eq!(name, "filter");
+                assert_eq!(*handle, 1);
             }
             _ => panic!("Expected Table entry"),
         }
 
         // 验证 chain
         match &nftables_output.nftables[2] {
-            NftablesEntry::Chain { chain } => {
-                assert_eq!(chain.family, "inet");
-                assert_eq!(chain.table, "filter");
-                assert_eq!(chain.name, "input");
-                assert_eq!(chain.handle, 1);
-                assert_eq!(chain.r#type, Some("filter".to_string()));
-                assert_eq!(chain.hook, Some("input".to_string()));
-                assert_eq!(chain.prio, Some(0));
-                assert_eq!(chain.policy, Some("accept".to_string()));
+            NftablesEntry::Chain {
+                family,
+                table,
+                handle,
+                name,
+                r#type,
+                hook,
+                prio,
+                policy,
+            } => {
+                assert_eq!(family, "inet");
+                assert_eq!(table, "filter");
+                assert_eq!(name, "input");
+                assert_eq!(*handle, 1);
+                assert_eq!(*r#type, Some("filter".to_string()));
+                assert_eq!(*hook, Some("input".to_string()));
+                assert_eq!(*prio, Some(0));
+                assert_eq!(*policy, Some("accept".to_string()));
             }
             _ => panic!("Expected Chain entry"),
         }
 
         // 验证 set
         match &nftables_output.nftables[6] {
-            NftablesEntry::Set { set } => {
-                assert_eq!(set.family, "ip");
-                assert_eq!(set.name, "nb0000001");
-                assert_eq!(set.table, "netbird");
-                assert_eq!(set.handle, 40);
-                assert_eq!(set.r#type, Some("ipv4_addr".to_string()));
-                assert_eq!(set.flags, Some(vec!["dynamic".to_string()]));
+            NftablesEntry::Set {
+                family,
+                table,
+                name,
+                handle,
+                r#type,
+                policy:_,
+                flags,
+                elem:_,
+            } => {
+                assert_eq!(family, "ip");
+                assert_eq!(name, "nb0000001");
+                assert_eq!(table, "netbird");
+                assert_eq!(*handle, 40);
+                assert_eq!(*r#type, Some("ipv4_addr".to_string()));
+                assert_eq!(*flags, Some(vec!["dynamic".to_string()]));
             }
             _ => panic!("Expected Set entry"),
         }
 
         // 验证 rule
         match &nftables_output.nftables[7] {
-            NftablesEntry::Rule { rule } => {
-                assert_eq!(rule.family, "ip");
-                assert_eq!(rule.table, "netbird");
-                assert_eq!(rule.chain, "netbird-rt-fwd");
-                assert_eq!(rule.handle, 22);
-                assert_eq!(rule.expr.len(), 3);
+            NftablesEntry::Rule {
+                family,
+                table,
+                chain,
+                handle,
+                expr,
+            } => {
+                assert_eq!(family, "ip");
+                assert_eq!(table, "netbird");
+                assert_eq!(chain, "netbird-rt-fwd");
+                assert_eq!(*handle, 22);
+                assert_eq!(expr.len(), 3);
             }
             _ => panic!("Expected Rule entry"),
         }
@@ -434,7 +481,11 @@ mod tests {
 }"#;
 
         let result: Result<NftablesOutput, _> = serde_json::from_str(json_data);
-        assert!(result.is_ok(), "Failed to deserialize JSON with unknown entry: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to deserialize JSON with unknown entry: {:?}",
+            result.err()
+        );
 
         let nftables_output = result.unwrap();
         assert_eq!(nftables_output.nftables.len(), 1);
