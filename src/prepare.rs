@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{
     fs::File,
     io::{self, Write},
@@ -434,9 +435,9 @@ mod tests {
                 name,
                 handle,
                 r#type,
-                policy:_,
+                policy: _,
                 flags,
-                elem:_,
+                elem: _,
             } => {
                 assert_eq!(family, "ip");
                 assert_eq!(name, "nb0000001");
