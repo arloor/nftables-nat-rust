@@ -69,6 +69,15 @@ fn parse_conf(
 }
 
 fn global_prepare() -> Result<(), io::Error> {
+    if let Err(e) = Command::new("/usr/sbin/nft").arg("-v").output() {
+        if e.kind() == io::ErrorKind::NotFound {
+            let err = "未检测到 nftables，请先安装 nftables (Debian/Ubuntu: apt install nftables, CentOS/RHEL: yum install nftables)";
+            error!("{}", err);
+            return Err(io::Error::new(io::ErrorKind::NotFound, err));
+        }
+        return Err(e);
+    }
+
     std::fs::create_dir_all(NFTABLES_ETC)?;
     // 修改内核参数，开启IPv4端口转发
     match std::fs::write(IP_FORWARD, "1") {
