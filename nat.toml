@@ -2,7 +2,7 @@
 type = "single"
 sport = 10000
 dport = 443
-domain = "baidu.com"
+domain = "toutiao.com"
 protocol = "all"
 ip_version = "both"
 

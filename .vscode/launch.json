@@ -63,7 +63,8 @@
                 }
             },
             "args": [
-                "${workspaceFolder}/nat.conf"
+                // "${workspaceFolder}/nat.conf",
+                "--toml=${workspaceFolder}/nat.toml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
