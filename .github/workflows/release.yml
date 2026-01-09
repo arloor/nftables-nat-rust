@@ -22,11 +22,14 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
       - name: build
         run: |
-          cargo build --release
+          cargo build --release -p nat-cli
           cp target/release/nat target/release/nat_gnu;
       - name: build_musl
         id: build_musl
-        uses: arloor/rust_musl_action@v2
+        uses: arloor/rust_musl_action@latest
+        with:
+          args: "--release -p nat-cli"
+          use_musl: true
       - name: mv_musl_bin
         run: |
           # 如果target/release/不存在，则创建该文件夹

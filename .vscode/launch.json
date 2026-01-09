@@ -7,11 +7,52 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
-            // "program": "${workspaceFolder}/target/debug/nat",
+            "name": "Debug WebUI (HTTPS)",
             "cargo": {
                 "args": [
-                    "build"
+                    "build",
+                    "--package=webui",
+                    "--bin=webui"
+                ],
+                "problemMatcher": [
+                    "$rustc"
+                ],
+                "filter": {
+                    "name": "webui",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--port",
+                "8444",
+                "--username",
+                "admin",
+                "--password",
+                "your_strong_password_here",
+                "--jwt-secret",
+                "dev-secret-key-do-not-use-in-production",
+                "--toml-config=${workspaceFolder}/nat.toml",
+                "--compatible-config=${workspaceFolder}/nat.conf",
+                "--cert",
+                "${workspaceFolder}/cert.pem",
+                "--key",
+                "${workspaceFolder}/privkey.pem"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "RUST_LOG": "debug,webui=trace"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug NAT CLI (Legacy)",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--package=nat-cli",
+                    "--bin=nat"
                 ],
                 "problemMatcher": [
                     "$rustc"
@@ -22,15 +63,13 @@
                 }
             },
             "args": [
-                "nat.conf",
-                // "--toml",
-                // "nat.toml"
+                // "${workspaceFolder}/nat.conf",
+                "--toml=${workspaceFolder}/nat.toml"
             ],
             "cwd": "${workspaceFolder}",
-            // "preLaunchTask": "rust: cargo build",
             "console": "integratedTerminal",
             "env": {
-                // "nat_local_ip": "192.168.5.40"
+                "RUST_LOG": "debug"
             }
         }
     ]

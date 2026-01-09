@@ -5,3 +5,5 @@
 temp.nft
 /log
 nat.log
+privkey.pem
+cert.pem

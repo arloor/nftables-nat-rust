@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAT 管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .username {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .tabs {
+            background: white;
+            padding: 0;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:first-child {
+            border-radius: 12px 0 0 0;
+        }
+
+        .tab:last-child {
+            border-radius: 0 12px 0 0;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .tab-content {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .config-editor {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 400px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'SF Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+
+        .rules-display {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .rules-display pre {
+            margin: 0;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'SF Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .config-format {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 NAT 管理系统</h1>
+            <div class="user-info">
+                <span class="username">👤 <span id="currentUsername">-</span></span>
+                <button class="btn btn-secondary" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('config')">📝 配置管理</div>
+            <div class="tab" onclick="switchTab('rules')">📋 规则查看</div>
+        </div>
+
+        <div id="configTab" class="tab-content active">
+            <div id="alert" class="alert"></div>
+            
+            <div class="config-format">
+                配置格式: <span id="configFormat">-</span>
+            </div>
+
+            <div class="config-editor">
+                <textarea id="configEditor" placeholder="加载配置中..."></textarea>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+                <button class="btn btn-secondary" onclick="loadConfig()">🔄 重新加载</button>
+            </div>
+        </div>
+
+        <div id="rulesTab" class="tab-content">
+            <div class="actions" style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="loadRules()">🔄 刷新规则</button>
+            </div>
+
+            <div id="rulesContent" class="loading">
+                点击"刷新规则"查看当前 nftables 规则
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentConfig = null;
+        let currentFormat = null;
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/me', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    window.location.href = '/login.html';
+                    return false;
+                }
+
+                const data = await response.json();
+                document.getElementById('currentUsername').textContent = data.username;
+                return true;
+            } catch (e) {
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+
+        function showAlert(message, isError = false) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${isError ? 'alert-error' : 'alert-success'}`;
+            alert.style.display = 'block';
+
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('加载配置失败');
+                }
+
+                const data = await response.json();
+                currentConfig = data.content;
+                currentFormat = data.format;
+
+                document.getElementById('configFormat').textContent = 
+                    data.format === 'toml' ? 'TOML' : '传统格式';
+
+                const editor = document.getElementById('configEditor');
+                // 直接显示配置内容（TOML 或 传统格式字符串）
+                editor.value = data.content;
+            } catch (error) {
+                showAlert('加载配置失败: ' + error.message, true);
+            }
+        }
+
+        async function saveConfig() {
+            try {
+                const editor = document.getElementById('configEditor');
+                // 直接发送编辑器中的内容（字符串）
+                const content = editor.value;
+
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        format: currentFormat,
+                        content: content
+                    })
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text);
+                }
+
+                showAlert('配置保存成功！', false);
+                await loadConfig();
+            } catch (error) {
+                showAlert('保存配置失败: ' + error.message, true);
+            }
+        }
+
+        async function loadRules() {
+            const rulesContent = document.getElementById('rulesContent');
+            rulesContent.className = 'loading';
+            rulesContent.textContent = '加载中...';
+
+            try {
+                const response = await fetch('/api/rules', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('加载规则失败');
+                }
+
+                const data = await response.json();
+                rulesContent.className = 'rules-display';
+                rulesContent.innerHTML = `<pre>${data.rules}</pre>`;
+            } catch (error) {
+                rulesContent.className = 'loading';
+                rulesContent.textContent = '加载失败: ' + error.message;
+            }
+        }
+
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            if (tab === 'config') {
+                tabs[0].classList.add('active');
+                document.getElementById('configTab').classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('rulesTab').classList.add('active');
+                // 切换到规则页面时自动加载规则
+                loadRules();
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                window.location.href = '/login.html';
+            } catch (e) {
+                alert('退出登录失败');
+            }
+        }
+
+        window.addEventListener('load', async () => {
+            if (await checkAuth()) {
+                await loadConfig();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,12 +1,14 @@
-[package]
-name = "nat"
+[workspace]
+members = ["nat-cli", "webui", "nat-common"]
+resolver = "2"
+
+[workspace.package]
 version = "0.2.0"
 authors = ["arloor <admin@arloor.com>"]
-edition = "2024"
+edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[workspace.dependencies]
+# 共享依赖
 env_logger = "0.11"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
@@ -14,3 +16,22 @@ serde_json = "1.0"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 toml = "0.9"
+
+# WebUI 相关依赖
+axum = "0.8"
+axum-bootstrap = "0.1"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = [
+    "fs",
+    "trace",
+    "timeout",
+    "compression-gzip",
+    "compression-br",
+    "compression-deflate",
+    "compression-zstd",
+    "cors",
+] }
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+bcrypt = "0.17"
+axum-extra = { version = "0.12", features = ["cookie"] }
