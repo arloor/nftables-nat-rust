@@ -18,6 +18,9 @@ chrono.workspace = true
 clap.workspace = true
 toml.workspace = true
 
+# 共享库
+nat-common = { path = "../nat-common" }
+
 # Web 框架
 axum.workspace = true
 axum-bootstrap.workspace = true

@@ -979,6 +979,16 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "nat-common",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "nat-common"
+version = "0.2.0"
+dependencies = [
  "serde",
  "serde_json",
  "toml",
@@ -1879,6 +1889,7 @@ dependencies = [
  "env_logger",
  "jsonwebtoken",
  "log",
+ "nat-common",
  "rustls",
  "serde",
  "serde_json",

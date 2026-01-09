@@ -1,0 +1,10 @@
+[package]
+name = "nat-common"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true

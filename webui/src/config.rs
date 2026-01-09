@@ -1,53 +1,7 @@
+use nat_common::TomlConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum Rule {
-    Single {
-        sport: u16,
-        dport: u16,
-        domain: String,
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        comment: Option<String>,
-    },
-    Range {
-        #[serde(rename = "portStart")]
-        port_start: u16,
-        #[serde(rename = "portEnd")]
-        port_end: u16,
-        domain: String,
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        comment: Option<String>,
-    },
-    Redirect {
-        #[serde(rename = "srcPort")]
-        src_port: String, // 可以是 "8080" 或 "8080-8090"
-        #[serde(rename = "dstPort")]
-        dst_port: u16,
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        comment: Option<String>,
-    },
-}
-
-fn default_ip_version() -> String {
-    "both".to_string()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TomlConfig {
-    pub rules: Vec<Rule>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegacyConfigLine {
@@ -56,16 +10,17 @@ pub struct LegacyConfigLine {
 
 #[derive(Debug, Clone)]
 pub enum ConfigFormat {
-    Toml(TomlConfig),
+    Toml(String), // 直接存储 TOML 字符串
     Legacy(Vec<LegacyConfigLine>),
 }
 
 impl ConfigFormat {
     pub fn from_toml_file(path: &str) -> Result<Self, io::Error> {
         let content = fs::read_to_string(path)?;
-        let config: TomlConfig =
-            toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        Ok(ConfigFormat::Toml(config))
+        // 验证 TOML 格式
+        TomlConfig::from_toml_str(&content)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        Ok(ConfigFormat::Toml(content))
     }
 
     pub fn from_legacy_file(path: &str) -> Result<Self, io::Error> {
@@ -79,42 +34,20 @@ impl ConfigFormat {
         Ok(ConfigFormat::Legacy(lines))
     }
 
-    pub fn to_toml_string(&self) -> Result<String, io::Error> {
+    pub fn to_string(&self) -> String {
         match self {
-            ConfigFormat::Toml(config) => toml::to_string_pretty(config)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e)),
-            ConfigFormat::Legacy(_) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Cannot convert legacy config to TOML",
-            )),
-        }
-    }
-
-    pub fn to_legacy_string(&self) -> Result<String, io::Error> {
-        match self {
-            ConfigFormat::Legacy(lines) => Ok(lines
+            ConfigFormat::Toml(content) => content.clone(),
+            ConfigFormat::Legacy(lines) => lines
                 .iter()
                 .map(|l| l.line.clone())
                 .collect::<Vec<_>>()
-                .join("\n")),
-            ConfigFormat::Toml(_) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Cannot convert TOML config to legacy",
-            )),
+                .join("\n"),
         }
     }
 
     pub fn save_to_file(&self, path: &str) -> Result<(), io::Error> {
-        match self {
-            ConfigFormat::Toml(_) => {
-                let content = self.to_toml_string()?;
-                fs::write(path, content)?;
-            }
-            ConfigFormat::Legacy(_) => {
-                let content = self.to_legacy_string()?;
-                fs::write(path, content)?;
-            }
-        }
+        let content = self.to_string();
+        fs::write(path, content)?;
         Ok(())
     }
 }

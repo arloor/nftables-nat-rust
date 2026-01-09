@@ -31,7 +31,7 @@
                 "your_strong_password_here",
                 "--jwt-secret",
                 "dev-secret-key-do-not-use-in-production",
-                // "--toml-config=${workspaceFolder}/nat.toml",
+                "--toml-config=${workspaceFolder}/nat.toml",
                 "--compatible-config=${workspaceFolder}/nat.conf",
                 "--cert",
                 "${workspaceFolder}/cert.pem",

@@ -1,9 +1,10 @@
 use crate::auth::{create_jwt, AuthUser, JwtConfig};
-use crate::config::{get_nftables_rules, ConfigFormat, LegacyConfigLine, TomlConfig};
+use crate::config::{get_nftables_rules, ConfigFormat, LegacyConfigLine};
 use axum::{extract::State, http::StatusCode, response::Html, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
 use log::{error, info};
+use nat_common::TomlConfig;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -120,7 +121,7 @@ pub async fn get_current_user(
 #[derive(Serialize)]
 pub struct ConfigResponse {
     format: String,
-    content: serde_json::Value,
+    content: String, // 直接返回字符串格式
 }
 
 pub async fn get_config(
@@ -129,36 +130,19 @@ pub async fn get_config(
 ) -> Result<Json<ConfigResponse>, StatusCode> {
     let config = state.config_format.read().await;
 
-    match &*config {
-        ConfigFormat::Toml(toml_config) => {
-            let content = serde_json::to_value(toml_config).map_err(|e| {
-                error!("Failed to serialize TOML config: {:?}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-            Ok(Json(ConfigResponse {
-                format: "toml".to_string(),
-                content,
-            }))
-        }
-        ConfigFormat::Legacy(lines) => {
-            let content = serde_json::to_value(lines).map_err(|e| {
-                error!("Failed to serialize legacy config: {:?}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-            Ok(Json(ConfigResponse {
-                format: "legacy".to_string(),
-                content,
-            }))
-        }
-    }
+    Ok(Json(ConfigResponse {
+        format: match &*config {
+            ConfigFormat::Toml(_) => "toml".to_string(),
+            ConfigFormat::Legacy(_) => "legacy".to_string(),
+        },
+        content: config.to_string(),
+    }))
 }
 
 #[derive(Deserialize)]
 pub struct SaveConfigRequest {
     format: String,
-    content: serde_json::Value,
+    content: String, // 直接接收字符串格式
 }
 
 pub async fn save_config(
@@ -170,27 +154,24 @@ pub async fn save_config(
 
     let new_config = match req.format.as_str() {
         "toml" => {
-            let toml_config: TomlConfig = serde_json::from_value(req.content).map_err(|e| {
-                error!("Failed to deserialize TOML config: {:?}", e);
-                (
-                    StatusCode::BAD_REQUEST,
-                    format!("Invalid TOML config: {}", e),
-                )
+            // 使用 nat-common 的验证功能
+            TomlConfig::from_toml_str(&req.content).map_err(|e| {
+                error!("Invalid TOML config: {:?}", e);
+                (StatusCode::BAD_REQUEST, format!("配置验证失败: {}", e))
             })?;
-            ConfigFormat::Toml(toml_config)
+            ConfigFormat::Toml(req.content)
         }
         "legacy" => {
-            let lines: Vec<LegacyConfigLine> =
-                serde_json::from_value(req.content).map_err(|e| {
-                    error!("Failed to deserialize legacy config: {:?}", e);
-                    (
-                        StatusCode::BAD_REQUEST,
-                        format!("Invalid legacy config: {}", e),
-                    )
-                })?;
+            let lines: Vec<LegacyConfigLine> = req
+                .content
+                .lines()
+                .map(|line| LegacyConfigLine {
+                    line: line.to_string(),
+                })
+                .collect();
             ConfigFormat::Legacy(lines)
         }
-        _ => return Err((StatusCode::BAD_REQUEST, "Unknown config format".to_string())),
+        _ => return Err((StatusCode::BAD_REQUEST, "未知的配置格式".to_string())),
     };
 
     // 保存到文件
@@ -198,7 +179,7 @@ pub async fn save_config(
         error!("Failed to save config to file: {:?}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to save config: {}", e),
+            format!("保存配置失败: {}", e),
         )
     })?;
 

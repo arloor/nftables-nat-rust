@@ -1,8 +1,7 @@
 #![deny(warnings)]
 use crate::ip;
 use log::info;
-use serde::Deserialize;
-use serde::Serialize;
+use nat_common::{Rule as CommonRule, TomlConfig};
 use std::env;
 use std::fmt::Display;
 use std::fs;
@@ -684,18 +683,19 @@ pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
 // 读取TOML配置文件
 pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
     let contents = fs::read_to_string(toml_path)?;
-    let config: TomlConfig = toml::from_str(&contents).map_err(|e| {
-        io::Error::new(io::ErrorKind::InvalidData, format!("解析TOML配置失败: {e}"))
-    })?;
+
+    // 使用 nat-common 的解析和验证
+    let config = TomlConfig::from_toml_str(&contents)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
     let mut nat_cells = Vec::new();
 
     for rule in config.rules {
         match rule {
-            Rule::Single {
-                src_port,
-                dst_port,
-                dst_domain,
+            CommonRule::Single {
+                sport,
+                dport,
+                domain,
                 protocol,
                 ip_version,
                 comment,
@@ -708,17 +708,17 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 }
 
                 nat_cells.push(NatCell::Single {
-                    src_port,
-                    dst_port,
-                    dst_domain,
+                    src_port: sport as i32,
+                    dst_port: dport as i32,
+                    dst_domain: domain,
                     protocol: protocol.into(),
                     ip_version: ip_version.into(),
                 });
             }
-            Rule::Range {
+            CommonRule::Range {
                 port_start,
                 port_end,
-                dst_domain,
+                domain,
                 protocol,
                 ip_version,
                 comment,
@@ -731,14 +731,14 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 }
 
                 nat_cells.push(NatCell::Range {
-                    port_start,
-                    port_end,
-                    dst_domain,
+                    port_start: port_start as i32,
+                    port_end: port_end as i32,
+                    dst_domain: domain,
                     protocol: protocol.into(),
                     ip_version: ip_version.into(),
                 });
             }
-            Rule::Redirect {
+            CommonRule::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
@@ -754,9 +754,9 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 }
 
                 nat_cells.push(NatCell::Redirect {
-                    src_port_start: src_port,
-                    src_port_end,
-                    dst_port,
+                    src_port_start: src_port as i32,
+                    src_port_end: src_port_end.map(|p| p as i32),
+                    dst_port: dst_port as i32,
                     protocol: protocol.into(),
                     ip_version: ip_version.into(),
                 });
@@ -769,25 +769,27 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
 
 // TOML配置示例函数
 pub fn toml_example(conf: &str) -> Result<(), io::Error> {
+    use nat_common::Rule as CommonRule;
+
     let example_config = TomlConfig {
         rules: vec![
-            Rule::Single {
-                src_port: 10000,
-                dst_port: 443,
-                dst_domain: "baidu.com".to_string(),
+            CommonRule::Single {
+                sport: 10000,
+                dport: 443,
+                domain: "baidu.com".to_string(),
                 protocol: "all".to_string(),
                 ip_version: "ipv4".to_string(),
                 comment: Some("百度HTTPS服务转发示例".to_string()),
             },
-            Rule::Range {
+            CommonRule::Range {
                 port_start: 1000,
                 port_end: 2000,
-                dst_domain: "baidu.com".to_string(),
+                domain: "baidu.com".to_string(),
                 protocol: "tcp".to_string(),
                 ip_version: "ipv4".to_string(),
                 comment: Some("端口范围转发示例".to_string()),
             },
-            Rule::Redirect {
+            CommonRule::Redirect {
                 src_port: 8000,
                 src_port_end: None,
                 dst_port: 3128,
@@ -795,7 +797,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 ip_version: "ipv4".to_string(),
                 comment: Some("单端口重定向到本机示例".to_string()),
             },
-            Rule::Redirect {
+            CommonRule::Redirect {
                 src_port: 30001,
                 src_port_end: Some(39999),
                 dst_port: 45678,
@@ -806,77 +808,13 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
         ],
     };
 
-    let toml_str = toml::to_string_pretty(&example_config)
+    let toml_str = example_config
+        .to_toml_string()
         .map_err(|e| io::Error::other(format!("序列化TOML失败: {e}")))?;
 
     info!("请在 {} 编写转发规则，内容类似：\n {toml_str}", &conf);
 
     Ok(())
-}
-
-// TOML配置结构定义
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TomlConfig {
-    pub rules: Vec<Rule>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum Rule {
-    #[serde(rename = "single")]
-    Single {
-        #[serde(rename = "sport")]
-        src_port: i32,
-        #[serde(rename = "dport")]
-        dst_port: i32,
-        #[serde(rename = "domain")]
-        dst_domain: String,
-        #[serde(default = "default_protocol")]
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(default)]
-        comment: Option<String>,
-    },
-    #[serde(rename = "range")]
-    Range {
-        #[serde(rename = "portStart")]
-        port_start: i32,
-        #[serde(rename = "portEnd")]
-        port_end: i32,
-        #[serde(rename = "domain")]
-        dst_domain: String,
-        #[serde(default = "default_protocol")]
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(default)]
-        comment: Option<String>,
-    },
-    #[serde(rename = "redirect")]
-    Redirect {
-        #[serde(rename = "srcPort")]
-        src_port: i32,
-        #[serde(rename = "srcPortEnd")]
-        #[serde(skip_serializing_if = "Option::is_none")]
-        src_port_end: Option<i32>,
-        #[serde(rename = "dstPort")]
-        dst_port: i32,
-        #[serde(default = "default_protocol")]
-        protocol: String,
-        #[serde(default = "default_ip_version")]
-        ip_version: String,
-        #[serde(default)]
-        comment: Option<String>,
-    },
-}
-
-fn default_protocol() -> String {
-    "all".to_string()
-}
-
-fn default_ip_version() -> String {
-    "both".to_string()
 }
 
 #[allow(clippy::unwrap_used)]
@@ -979,12 +917,8 @@ mod redirect_build_tests {
         };
 
         let result = cell.build().unwrap();
-        assert!(
-            result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128")
-        );
-        assert!(
-            result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128")
-        );
+        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128"));
+        assert!(result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128"));
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -999,16 +933,10 @@ mod redirect_build_tests {
         };
 
         let result = cell.build().unwrap();
-        assert!(
-            result.contains(
-                "add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"
-            )
-        );
-        assert!(
-            result.contains(
-                "#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678"
-            )
-        ); // UDP commented out
+        assert!(result
+            .contains("add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"));
+        assert!(result
+            .contains("#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678")); // UDP commented out
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -1024,9 +952,7 @@ mod redirect_build_tests {
 
         let result = cell.build().unwrap();
         // Should have both IPv4 and IPv6 rules
-        assert!(
-            result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000")
-        );
+        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000"));
         assert!(
             result.contains("add rule ip6 self-nat PREROUTING tcp dport 5000 redirect to :4000")
         );

@@ -295,13 +295,8 @@
                     data.format === 'toml' ? 'TOML' : '传统格式';
 
                 const editor = document.getElementById('configEditor');
-                if (data.format === 'toml') {
-                    // TOML 格式
-                    editor.value = JSON.stringify(data.content, null, 2);
-                } else {
-                    // 传统格式
-                    editor.value = data.content.map(line => line.line).join('\n');
-                }
+                // 直接显示配置内容（TOML 或 传统格式字符串）
+                editor.value = data.content;
             } catch (error) {
                 showAlert('加载配置失败: ' + error.message, true);
             }
@@ -310,14 +305,8 @@
         async function saveConfig() {
             try {
                 const editor = document.getElementById('configEditor');
-                let content;
-
-                if (currentFormat === 'toml') {
-                    content = JSON.parse(editor.value);
-                } else {
-                    const lines = editor.value.split('\n');
-                    content = lines.map(line => ({ line }));
-                }
+                // 直接发送编辑器中的内容（字符串）
+                const content = editor.value;
 
                 const response = await fetch('/api/config', {
                     method: 'POST',
@@ -379,6 +368,8 @@
             } else {
                 tabs[1].classList.add('active');
                 document.getElementById('rulesTab').classList.add('active');
+                // 切换到规则页面时自动加载规则
+                loadRules();
             }
         }
 

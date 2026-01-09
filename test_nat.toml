@@ -1,0 +1,25 @@
+[[rules]]
+type = "single"
+sport = 10000
+dport = 443
+domain = "baidu.com"
+protocol = "all"
+ip_version = "ipv4"
+comment = "测试规则 - 百度HTTPS"
+
+[[rules]]
+type = "range"
+portStart = 20000
+portEnd = 20010
+domain = "google.com"
+protocol = "tcp"
+ip_version = "both"
+comment = "测试规则 - 端口范围"
+
+[[rules]]
+type = "redirect"
+srcPort = 8080
+dstPort = 3128
+protocol = "all"
+ip_version = "ipv4"
+comment = "测试规则 - 端口重定向"
