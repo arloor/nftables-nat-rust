@@ -65,16 +65,16 @@ cargo build --release --package webui
 
 ## 📦 快速安装
 
-### 方法一：传统配置文件版本（推荐）
-
-```bash
-bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_legacy_version.sh)
-```
-
-### 方法二：TOML 配置文件版本
+### 方法一：TOML 配置文件版本（推荐）
 
 ```bash
 bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_toml_version.sh)
+```
+
+### 方法二：传统配置文件版本
+
+```bash
+bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_legacy_version.sh)
 ```
 
 ## ⚙️ 系统准备
@@ -105,9 +105,9 @@ systemctl disable --now iptables
 
 ## 📝 配置说明
 
-### 传统配置文件（推荐）
+### TOML 配置文件（推荐）
 
-配置文件位置：`/etc/nat.conf`
+配置文件位置：`/etc/nat.toml` 或自定义路径
 
 ```
 # 单端口转发：本机端口 -> 目标地址:端口
@@ -138,9 +138,12 @@ SINGLE,10001,53,dns.example.com,udp
 - `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]`
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]`
 
-### TOML 配置文件
+**优势**：
 
-配置文件位置：`/etc/nat.toml` 或自定义路径
+- ✅ 支持配置验证，保证格式正确
+- ✅ 支持注释，便于维护
+- ✅ WebUI 可视化编辑和验证
+- ✅ 结构化配置，可读性更好
 
 ```toml
 # 单端口转发示例
@@ -192,6 +195,39 @@ protocol = "all"
 ip_version = "ipv6"    # 仅使用 IPv6
 comment = "IPv6 专用转发"
 ```
+
+### 传统配置文件
+
+配置文件位置：`/etc/nat.conf`
+
+```
+# 单端口转发：本机端口 -> 目标地址:端口
+SINGLE,49999,59999,example.com
+
+# 端口段转发：本机端口段 -> 目标地址:端口段
+RANGE,50000,50010,example.com
+
+# 端口重定向：外部端口 -> 本机端口
+REDIRECT,8000,3128
+
+# 端口段重定向：外部端口段 -> 本机端口
+REDIRECT,30001-39999,45678
+
+# 仅转发 TCP 流量
+SINGLE,10000,443,example.com,tcp
+
+# 仅转发 UDP 流量
+SINGLE,10001,53,dns.example.com,udp
+
+# 以 # 开头的行为注释
+# SINGLE,3000,3000,disabled.example.com
+```
+
+**配置格式说明：**
+
+- `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]`
+- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]`
+- `REDIRECT,源端口,目标端口[,协议][,IP版本]`
 
 ## 🚀 使用方法
 
