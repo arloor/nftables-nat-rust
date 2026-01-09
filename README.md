@@ -1,173 +1,283 @@
-## 基于nftables的端口转发管理工具
+# NFTables NAT Rust
 
-用途：便捷地设置nat流量转发
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 
-> 适用于centos8及以后的redhat系发行版和支持nftables的debian系linux发行版如debian10
+基于 nftables 的高性能 NAT 端口转发管理工具，使用 Rust 语言开发。
 
-## 优势
+## ✨ 核心特性
 
-1. 实现动态nat：自动探测配置文件和目标域名IP的变化，除变更配置外无需任何手工介入
-2. 支持IP和域名
-3. 支持单独转发tcp或udp
-4. 支持转发到本机其他端口（nat重定向）【2023.1.17更新】
-5. 以配置文件保存转发规则，可备份或迁移到其他机器
-6. 自动探测本机ip
-7. 支持自定义本机ip【2023.1.17更新】
-8. 开机自启动
-9. 支持端口段
-10. 兼容Docker
-11. 轻量，只依赖rust标准库和日志库
+- 🔄 **动态 NAT 转发**：自动监测配置文件和目标域名 IP 变化，实时更新转发规则
+- 🌐 **IPv4/IPv6 双栈支持**：完整支持 IPv4 和 IPv6 NAT 转发
+- 📝 **灵活配置**：支持传统配置文件和 TOML 格式，满足不同使用场景
+- 🎯 **精准控制**：支持单端口、端口段、TCP/UDP 协议选择
+- 🔌 **本地重定向**：支持端口重定向到本机其他端口
+- 🐋 **Docker 兼容**：与 Docker 网络完美兼容
+- ⚡ **高性能轻量**：基于 Rust 编写，仅依赖标准库和少量核心库
+- 🚀 **开机自启**：支持 systemd 服务管理，开机自动启动
+- 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
 
-## 准备工作
+## 🖥️ 系统要求
 
-1. 关闭firewalld
-2. 关闭selinux
-3. 开启内核端口转发
-4. 安装nftables（一般情况下，centos8默认包含nftables）
+适用于以下 Linux 发行版：
 
-以下是**Centos8/9**上一键完成的脚本：
+- CentOS 8+ / RHEL 8+ / Fedora
+- Debian 10+ / Ubuntu 18.04+
+- 其他支持 nftables 的现代 Linux 发行版
 
-```shell
-# 关闭firewalld
+## 📦 快速安装
+
+### 方法一：传统配置文件版本（推荐）
+
+```bash
+bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_legacy_version.sh)
+```
+
+### 方法二：TOML 配置文件版本
+
+```bash
+bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_toml_version.sh)
+```
+
+## ⚙️ 系统准备
+
+### CentOS / RHEL / Fedora
+
+```bash
+# 关闭 firewalld
 systemctl disable --now firewalld
-# 关闭selinux
+
+# 关闭 SELinux
 setenforce 0
-sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config  
-# 确保nftables已安装
-yum install -y  nftables
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+
+# 安装 nftables
+yum install -y nftables
 ```
 
-**Debian系**请自行使用apt安装nftables，并禁用iptables
+### Debian / Ubuntu
 
-## 安装说明
+```bash
+# 安装 nftables
+apt update && apt install -y nftables
 
-### 传统配置文件版本
-
-```shell
-bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/setup_legacy_version.sh)
+# 禁用 iptables（可选）
+systemctl disable --now iptables
 ```
 
-**配置文件说明**
+## 📝 配置说明
 
-`/etc/nat.conf` 如下：
+### 传统配置文件（推荐）
 
-```$xslt
-SINGLE,49999,59999,baidu.com
-RANGE,50000,50010,baidu.com
+配置文件位置：`/etc/nat.conf`
+
+```
+# 单端口转发：本机端口 -> 目标地址:端口
+SINGLE,49999,59999,example.com
+
+# 端口段转发：本机端口段 -> 目标地址:端口段
+RANGE,50000,50010,example.com
+
+# 端口重定向：外部端口 -> 本机端口
 REDIRECT,8000,3128
+
+# 端口段重定向：外部端口段 -> 本机端口
 REDIRECT,30001-39999,45678
+
+# 仅转发 TCP 流量
+SINGLE,10000,443,example.com,tcp
+
+# 仅转发 UDP 流量
+SINGLE,10001,53,dns.example.com,udp
+
+# 以 # 开头的行为注释
+# SINGLE,3000,3000,disabled.example.com
 ```
 
-- 每行代表一个规则；行内以英文逗号分隔为若干段内容
-- SINGLE：单端口转发：本机49999端口转发到baidu.com:59999
-- RANGE：范围端口转发：本机50000-50010转发到baidu.com:50000-50010
-- REDIRECT：端口重定向到本机：将入站流量重定向到本机其他端口
-  - `REDIRECT,8000,3128`：单端口重定向，将8000端口重定向到本机3128端口
-  - `REDIRECT,30001-39999,45678`：范围端口重定向，将30001-39999端口范围重定向到本机45678端口
-  - **重要**：REDIRECT工作在PREROUTING链上，仅对外部入站流量有效，本机访问的流量不会被REDIRECT
-- 请确保配置文件符合格式要求，否则程序可能会出现不可预期的错误，包括但不限于你和你的服务器炸掉（认真
-- 以 `#` 开始的行会被当成注释
+**配置格式说明：**
 
-高级用法：
+- `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]`
+- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]`
+- `REDIRECT,源端口,目标端口[,协议][,IP版本]`
 
-1. **转发到本地**：行尾域名处填写localhost即可，例如`SINGLE,2222,22,localhost`，表示本机的2222端口重定向到本机的22端口。
-2. **仅转发tcp/udp流量**：行尾增加tcp/udp即可，例如`SINGLE,10000,443,baidu.com,tcp`表示仅转发tcp流量，`SINGLE,10000,443,baidu.com,udp`仅转发udp流量
-3. **REDIRECT类型参数**：REDIRECT类型也支持协议和IP版本参数，例如`REDIRECT,8000-9000,3128,tcp,ipv4`表示仅重定向TCP流量的IPv4版本
+### TOML 配置文件
 
-如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
+配置文件位置：`/etc/nat.toml` 或自定义路径
 
-### toml配置文件版本
+```toml
+# 单端口转发示例
+[[rules]]
+type = "single"
+sport = 10000          # 本机端口
+dport = 443            # 目标端口
+domain = "example.com" # 目标域名或 IP
+protocol = "all"       # all, tcp 或 udp
+ip_version = "ipv4"    # ipv4, ipv6 或 both
+comment = "HTTPS 转发"
 
-```shell
-bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/setup_toml_version.sh)
+# 端口段转发示例
+[[rules]]
+type = "range"
+portStart = 20000      # 起始端口
+portEnd = 20100        # 结束端口
+domain = "example.com"
+protocol = "tcp"
+ip_version = "both"    # 同时支持 IPv4 和 IPv6
+comment = "端口段转发"
+
+# 强制 IPv6 转发
+[[rules]]
+type = "single"
+sport = 9001
+dport = 9090
+domain = "ipv6.example.com"
+protocol = "all"
+ip_version = "ipv6"    # 仅使用 IPv6
+comment = "IPv6 专用转发"
 ```
 
-## 更新新版
+## 🚀 使用方法
 
-本程序由github actions自动发布新v1.0.0版本，可以通过下面的命令更新：
+### 启动/停止服务
 
 ```bash
-curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v1.0.0/nat -o /tmp/nat
-install /tmp/nat /usr/local/bin/nat
+# 启动服务
+systemctl start nat
+
+# 停止服务
+systemctl stop nat
+
+# 重启服务
 systemctl restart nat
+
+# 查看服务状态
+systemctl status nat
+
+# 开机自启
+systemctl enable nat
+
+# 取消开机自启
+systemctl disable nat
 ```
 
-## 其他
+### 修改配置
 
-1. 本工具在centos8、redhat8、fedora31上有效，其他发行版未作测试
-2. 与前作[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)不兼容，在两个工具之间切换时，请先卸载原来的工具或重装系统
-
-## 如何停止以及卸载
-
-```shell
-## 停止定时监听域名解析地任务
-systemctl disable --now nat
-```
-
-## webui
-
-感谢 @C018 贡献的[webui](webui/README.md)
-
-## 致谢
-
-1. [通过自定义nftables表名来避免与docker等服务冲突](https://github.com/arloor/nftables-nat-rust/pull/34)
-2. [解决会清空防火墙的问题](https://github.com/arloor/nftables-nat-rust/pull/6)
-3. [ubuntu18.04适配](https://github.com/arloor/nftables-nat-rust/issues/1)
-
-## 常见问题
-
-### docker兼容性
-
-最新版本已经与docker兼容，欢迎试用和反馈。
-
-> 更多说明：Docker v28 将filter表forward链的默认策略设置为了drop（参见[Docker Engine v28: Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default/)），这会导致我们的自定义nat规则无法通过forward链。为了解决此问题，此程序会自动将filter表forward链的默认策略重置为accept。
-
-### 指定 src ip
-
-当前版本使用 masquerade 来处理多网卡的SNAT，可以自动处理多网卡路由不同的问题。如果仍然需要自定义src ip，则可以执行以下脚本来自定义本机ip，该示例是将本机ip定义为`10.10.10.10`
+修改配置文件后，程序会在 **60 秒内自动应用新配置**，无需手动重启服务。
 
 ```bash
-echo "nat_local_ip=10.10.10.10" > /opt/nat/env #自定义本机ip，用于多网卡的机器
-systemctl restart nat
-```
+# TOML 版本
+vim /etc/nat.toml
 
-### IPv6支持
-
-本软件已经支持ipv6转发，详见：
-
-[IPv6_SUPPORT.md](IPv6_SUPPORT.md)
-
-### 关于trojan转发
-
-总是有人说，不能转发trojan，这么说的人大部分是证书配置不对。最简单的解决方案是：客户端选择不验证证书。复杂一点是自己把证书和中转机的域名搭配好。
-
-小白记住一句话就好：客户端不验证证书。
-
-### 如何查看最终的nftables规则
-
-```shell
-nft list ruleset
+# 传统版本
+vim /etc/nat.conf
 ```
 
 ### 查看日志
 
-执行
+```bash
+# 实时查看日志
+journalctl -fu nat
 
-```shell
+# 查看详细日志
 journalctl -exfu nat
+
+# 查看最近 100 行日志
+journalctl -u nat -n 100
 ```
 
-### REDIRECT类型的限制
+### 查看 nftables 规则
 
-REDIRECT类型使用nftables的`redirect to`语句，工作在PREROUTING链上。这意味着：
+```bash
+# 查看所有规则
+nft list ruleset
 
-- ✅ **有效**：外部机器访问本机的重定向端口时，流量会被正确重定向到目标端口
-- ❌ **无效**：本机进程访问本机的重定向端口时，流量不会被重定向
+# 仅查看 NAT 表
+nft list table ip self-nat
+nft list table ip6 self-nat6
+```
 
-**原因**：本机产生的流量不会经过PREROUTING链，而是直接进入OUTPUT链，因此REDIRECT规则对本机访问无效。
+## 🔧 高级配置
+
+### 自定义源 IP（多网卡场景）
+
+默认使用 masquerade 自动处理 SNAT。如需指定源 IP：
+
+```bash
+# 设置自定义源 IP
+echo "nat_local_ip=10.10.10.10" > /opt/nat/env
+
+# 重启服务
+systemctl restart nat
+```
+
+### IPv6 支持
+
+本工具完整支持 IPv6 NAT 转发，详细说明请参考 [IPv6_SUPPORT.md](IPv6_SUPPORT.md)
+
+主要特性：
+
+- 自动启用 IPv6 转发内核参数
+- 支持 IPv6 域名解析
+- 支持 IPv4/IPv6 双栈转发
+- 灵活的 IP 版本控制
+
+## 🔄 更新升级
+
+```bash
+# 下载最新版本
+curl -sSLf https://github.com/arloor/nftables-nat-rust/releases/latest/download/nat -o /tmp/nat
+
+# 安装
+install /tmp/nat /usr/local/bin/nat
+
+# 重启服务
+systemctl restart nat
+```
+
+## 🐋 Docker 兼容性
+
+本工具已与 Docker 完全兼容。程序会自动调整 nftables 规则以适配 Docker 网络。
+
+> **说明**：Docker v28 将 filter 表 forward 链默认策略改为 DROP，本工具会自动将其重置为 ACCEPT 以确保 NAT 规则正常工作。
+
+## 📌 注意事项
+
+### REDIRECT 类型限制
+
+`REDIRECT` 类型工作在 PREROUTING 链，仅对外部流量有效：
+
+- ✅ **有效**：外部机器访问重定向端口 → 成功重定向
+- ❌ **无效**：本机进程访问重定向端口 → 不会重定向
+
+**原因**：本机流量直接进入 OUTPUT 链，不经过 PREROUTING 链。
 
 **示例**：
-- 配置：`REDIRECT,8000,3128`
-- 外部访问 `http://your-server:8000` → 成功重定向到 3128 端口
-- 本机执行 `curl http://localhost:8000` → 不会重定向，直接访问 8000 端口
 
+```bash
+# 配置：REDIRECT,8000,3128
+curl http://remote-server:8000  # ✅ 成功重定向到 3128
+curl http://localhost:8000      # ❌ 不会重定向，直接访问 8000
+```
+
+### TLS/Trojan 转发
+
+转发 TLS/Trojan 等加密协议时，常见问题是证书配置错误。
+
+**解决方案**：
+
+1. **简单**：客户端禁用证书验证
+2. **推荐**：正确配置证书和域名，确保证书域名与中转机匹配
+
+## 📄 许可证
+
+本项目采用 [MIT License](LICENSE) 开源协议。
+
+## 🔗 相关链接
+
+- **项目地址**：https://github.com/arloor/nftables-nat-rust
+- **问题反馈**：https://github.com/arloor/nftables-nat-rust/issues
+- **前代项目**：[arloor/iptablesUtils](https://github.com/arloor/iptablesUtils)（不兼容）
+
+---
+
+**注意**：与旧版 iptablesUtils 不兼容，切换时请先卸载旧版或重装系统。
