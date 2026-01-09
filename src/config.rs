@@ -234,11 +234,19 @@ impl NatCell {
                 protocol,
                 ip_version: _,
             } => {
-                let res=format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
+                let res = format!(
+                    "{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
                     {udpPrefix}add rule ip self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
                     {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\
                     {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
-                    ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                    ",
+                    cell = self,
+                    portStart = port_start,
+                    portEnd = port_end,
+                    dstIp = dst_ip,
+                    tcpPrefix = protocol.tcp_prefix(),
+                    udpPrefix = protocol.udp_prefix()
+                );
                 Ok(res)
             }
             NatCell::Single {
@@ -251,18 +259,33 @@ impl NatCell {
                 match dst_domain.as_str() {
                     "localhost" | "127.0.0.1" => {
                         // 重定向到本机
-                        let res = format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
+                        let res = format!(
+                            "{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
                             {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
-                            ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                            ",
+                            cell = self,
+                            localPort = src_port,
+                            remotePort = dst_port,
+                            tcpPrefix = protocol.tcp_prefix(),
+                            udpPrefix = protocol.udp_prefix()
+                        );
                         Ok(res)
                     }
                     _ => {
                         // 转发到其他机器
-                        let res = format!("{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                        let res = format!(
+                            "{tcpPrefix}add rule ip self-nat PREROUTING tcp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
                             {udpPrefix}add rule ip self-nat PREROUTING udp dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
                             {tcpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} tcp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\
                             {udpPrefix}add rule ip self-nat POSTROUTING ip daddr {dstIp} udp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
-                            ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                            ",
+                            cell = self,
+                            localPort = src_port,
+                            dstPort = dst_port,
+                            dstIp = dst_ip,
+                            tcpPrefix = protocol.tcp_prefix(),
+                            udpPrefix = protocol.udp_prefix()
+                        );
                         Ok(res)
                     }
                 }
@@ -294,11 +317,19 @@ impl NatCell {
                 protocol,
                 ip_version: _,
             } => {
-                let res=format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
+                let res = format!(
+                    "{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
                     {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
                     {tcpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} tcp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\
                     {udpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} udp dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
-                    ", cell = self, portStart = port_start, portEnd = port_end, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                    ",
+                    cell = self,
+                    portStart = port_start,
+                    portEnd = port_end,
+                    dstIp = dst_ip,
+                    tcpPrefix = protocol.tcp_prefix(),
+                    udpPrefix = protocol.udp_prefix()
+                );
                 Ok(res)
             }
             NatCell::Single {
@@ -311,18 +342,33 @@ impl NatCell {
                 match dst_domain.as_str() {
                     "localhost" | "::1" => {
                         // 重定向到本机IPv6
-                        let res = format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
+                        let res = format!(
+                            "{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\
                             {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
-                            ", cell = self, localPort = src_port, remotePort = dst_port, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                            ",
+                            cell = self,
+                            localPort = src_port,
+                            remotePort = dst_port,
+                            tcpPrefix = protocol.tcp_prefix(),
+                            udpPrefix = protocol.udp_prefix()
+                        );
                         Ok(res)
                     }
                     _ => {
                         // 转发到其他机器
-                        let res = format!("{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
+                        let res = format!(
+                            "{tcpPrefix}add rule ip6 self-nat PREROUTING tcp dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
                             {udpPrefix}add rule ip6 self-nat PREROUTING udp dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
                             {tcpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} tcp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\
                             {udpPrefix}add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} udp dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
-                            ", cell = self, localPort = src_port, dstPort = dst_port, dstIp = dst_ip, tcpPrefix = protocol.tcp_prefix(), udpPrefix = protocol.udp_prefix());
+                            ",
+                            cell = self,
+                            localPort = src_port,
+                            dstPort = dst_port,
+                            dstIp = dst_ip,
+                            tcpPrefix = protocol.tcp_prefix(),
+                            udpPrefix = protocol.udp_prefix()
+                        );
                         Ok(res)
                     }
                 }
@@ -338,10 +384,9 @@ impl NatCell {
         }
     }
 
-
     fn build_redirect_rules(&self, ip_version: &IpVersion) -> Result<String, io::Error> {
         let mut result = String::new();
-        
+
         match ip_version {
             IpVersion::V4 => {
                 result += &self.build_ipv4_redirect_rules()?;
@@ -354,7 +399,7 @@ impl NatCell {
                 result += &self.build_ipv6_redirect_rules()?;
             }
         }
-        
+
         Ok(result)
     }
 
@@ -369,14 +414,29 @@ impl NatCell {
             } => {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
-                    format!("{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                    format!(
+                        "{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
                         {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ", cell = self, src_port_start = src_port_start, src_port_end = end, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                        ",
+                        cell = self,
+                        src_port_start = src_port_start,
+                        src_port_end = end,
+                        dst_port = dst_port,
+                        tcp_prefix = protocol.tcp_prefix(),
+                        udp_prefix = protocol.udp_prefix()
+                    )
                 } else {
                     // Single port redirect
-                    format!("{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
+                    format!(
+                        "{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
                         {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ", cell = self, src_port = src_port_start, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                        ",
+                        cell = self,
+                        src_port = src_port_start,
+                        dst_port = dst_port,
+                        tcp_prefix = protocol.tcp_prefix(),
+                        udp_prefix = protocol.udp_prefix()
+                    )
                 };
                 Ok(res)
             }
@@ -398,14 +458,29 @@ impl NatCell {
             } => {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
-                    format!("{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                    format!(
+                        "{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
                         {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ", cell = self, src_port_start = src_port_start, src_port_end = end, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                        ",
+                        cell = self,
+                        src_port_start = src_port_start,
+                        src_port_end = end,
+                        dst_port = dst_port,
+                        tcp_prefix = protocol.tcp_prefix(),
+                        udp_prefix = protocol.udp_prefix()
+                    )
                 } else {
                     // Single port redirect
-                    format!("{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
+                    format!(
+                        "{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
                         {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ", cell = self, src_port = src_port_start, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                        ",
+                        cell = self,
+                        src_port = src_port_start,
+                        dst_port = dst_port,
+                        tcp_prefix = protocol.tcp_prefix(),
+                        udp_prefix = protocol.udp_prefix()
+                    )
                 };
                 Ok(res)
             }
@@ -436,7 +511,7 @@ impl NatCell {
 
         // 解析类型以确定所需的字段数量
         let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
-        
+
         // 验证字段数量
         match rule_type {
             "REDIRECT" => {
@@ -804,6 +879,7 @@ fn default_ip_version() -> String {
     "both".to_string()
 }
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod redirect_parse_tests {
     use super::*;
@@ -814,7 +890,12 @@ mod redirect_parse_tests {
         let result = NatCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect { src_port_start, src_port_end, dst_port, .. } => {
+            NatCell::Redirect {
+                src_port_start,
+                src_port_end,
+                dst_port,
+                ..
+            } => {
                 assert_eq!(src_port_start, 8000);
                 assert_eq!(src_port_end, None);
                 assert_eq!(dst_port, 3128);
@@ -829,7 +910,12 @@ mod redirect_parse_tests {
         let result = NatCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect { src_port_start, src_port_end, dst_port, .. } => {
+            NatCell::Redirect {
+                src_port_start,
+                src_port_end,
+                dst_port,
+                ..
+            } => {
                 assert_eq!(src_port_start, 30001);
                 assert_eq!(src_port_end, Some(39999));
                 assert_eq!(dst_port, 45678);
@@ -844,7 +930,11 @@ mod redirect_parse_tests {
         let result = NatCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect { src_port_start, dst_port, .. } => {
+            NatCell::Redirect {
+                src_port_start,
+                dst_port,
+                ..
+            } => {
                 assert_eq!(src_port_start, 9000);
                 assert_eq!(dst_port, 8080);
             }
@@ -858,7 +948,12 @@ mod redirect_parse_tests {
         let result = NatCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Single { src_port, dst_port, dst_domain, .. } => {
+            NatCell::Single {
+                src_port,
+                dst_port,
+                dst_domain,
+                ..
+            } => {
                 assert_eq!(src_port, 2222);
                 assert_eq!(dst_port, 22);
                 assert_eq!(dst_domain, "localhost");
@@ -868,6 +963,7 @@ mod redirect_parse_tests {
     }
 }
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod redirect_build_tests {
     use super::*;
@@ -881,10 +977,14 @@ mod redirect_build_tests {
             protocol: Protocol::All,
             ip_version: IpVersion::V4,
         };
-        
+
         let result = cell.build().unwrap();
-        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128"));
-        assert!(result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128"));
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128")
+        );
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128")
+        );
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -897,10 +997,18 @@ mod redirect_build_tests {
             protocol: Protocol::Tcp,
             ip_version: IpVersion::V4,
         };
-        
+
         let result = cell.build().unwrap();
-        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"));
-        assert!(result.contains("#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678")); // UDP commented out
+        assert!(
+            result.contains(
+                "add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"
+            )
+        );
+        assert!(
+            result.contains(
+                "#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678"
+            )
+        ); // UDP commented out
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -913,10 +1021,14 @@ mod redirect_build_tests {
             protocol: Protocol::All,
             ip_version: IpVersion::Both,
         };
-        
+
         let result = cell.build().unwrap();
         // Should have both IPv4 and IPv6 rules
-        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000"));
-        assert!(result.contains("add rule ip6 self-nat PREROUTING tcp dport 5000 redirect to :4000"));
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000")
+        );
+        assert!(
+            result.contains("add rule ip6 self-nat PREROUTING tcp dport 5000 redirect to :4000")
+        );
     }
 }
