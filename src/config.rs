@@ -435,7 +435,7 @@ impl NatCell {
         let cells: Vec<&str> = line.split(',').collect();
 
         // 解析类型以确定所需的字段数量
-        let rule_type = cells.get(0).map(|s| s.trim()).unwrap_or("");
+        let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
         
         // 验证字段数量
         match rule_type {

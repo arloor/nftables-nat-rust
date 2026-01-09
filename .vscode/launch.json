@@ -10,9 +10,9 @@
             "name": "Debug",
             "program": "${workspaceFolder}/target/debug/nat",
             "args": [
-                // "nat.conf",
-                "--toml",
-                "nat.toml"
+                "nat.conf",
+                // "--toml",
+                // "nat.toml"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "rust: cargo build",
