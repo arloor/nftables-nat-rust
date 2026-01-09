@@ -4,6 +4,7 @@ sport = 10000
 dport = 443
 domain = "baidu.com"
 protocol = "all"
+ip_version = "both"
 
 [[rules]]
 type = "single"
@@ -11,6 +12,7 @@ sport = 10001
 dport = 443
 domain = "baidu.com"
 protocol = "all"
+ip_version = "both"
 comment = "some comment"
 
 [[rules]]
@@ -19,6 +21,7 @@ sport = 10002
 dport = 443
 domain = "localhost"
 protocol = "all"
+ip_version = "both"
 comment = "redirect to localhost"
 
 [[rules]]
@@ -33,8 +36,8 @@ comment = "Both IPv4 and IPv6 support"
 [[rules]]
 type = "single"
 sport = 9001
-dport = 9090
+dport = 9099
 domain = "ipv6.example.com"
-protocol = "all"
+protocol = "tcp"
 ip_version = "ipv6"
 comment = "force to nat to IPv6"
