@@ -36,7 +36,7 @@ impl Display for IpVersion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Protocol {
     All,
     Tcp,
@@ -100,6 +100,13 @@ pub enum NatCell {
         protocol: Protocol,
         ip_version: IpVersion,
     },
+    Redirect {
+        src_port_start: i32,
+        src_port_end: Option<i32>, // None for single port, Some for range
+        dst_port: i32,
+        protocol: Protocol,
+        ip_version: IpVersion,
+    },
     Comment {
         content: String,
     },
@@ -128,6 +135,25 @@ impl Display for NatCell {
                 f,
                 "RANGE,{port_start},{port_end},{dst_domain},{protocol:?},{ip_version}"
             ),
+            NatCell::Redirect {
+                src_port_start,
+                src_port_end,
+                dst_port,
+                protocol,
+                ip_version,
+            } => {
+                if let Some(end) = src_port_end {
+                    write!(
+                        f,
+                        "REDIRECT,{src_port_start}-{end},{dst_port},{protocol:?},{ip_version}"
+                    )
+                } else {
+                    write!(
+                        f,
+                        "REDIRECT,{src_port_start},{dst_port},{protocol:?},{ip_version}"
+                    )
+                }
+            }
             NatCell::Comment { content } => write!(f, "{content}"),
         }
     }
@@ -146,6 +172,10 @@ impl NatCell {
                 ip_version,
                 ..
             } => (dst_domain, ip_version),
+            NatCell::Redirect { ip_version, .. } => {
+                // Redirect doesn't need domain resolution
+                return self.build_redirect_rules(ip_version);
+            }
             NatCell::Comment { content } => return Ok(content.clone() + "\n"),
         };
 
@@ -241,6 +271,10 @@ impl NatCell {
                 io::ErrorKind::InvalidData,
                 "Comment cell cannot be built",
             )),
+            NatCell::Redirect { .. } => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Redirect cell should be built via build_redirect_rules",
+            )),
         }
     }
 
@@ -297,6 +331,88 @@ impl NatCell {
                 io::ErrorKind::InvalidData,
                 "Comment cell cannot be built",
             )),
+            NatCell::Redirect { .. } => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Redirect cell should be built via build_redirect_rules",
+            )),
+        }
+    }
+
+
+    fn build_redirect_rules(&self, ip_version: &IpVersion) -> Result<String, io::Error> {
+        let mut result = String::new();
+        
+        match ip_version {
+            IpVersion::V4 => {
+                result += &self.build_ipv4_redirect_rules()?;
+            }
+            IpVersion::V6 => {
+                result += &self.build_ipv6_redirect_rules()?;
+            }
+            IpVersion::Both => {
+                result += &self.build_ipv4_redirect_rules()?;
+                result += &self.build_ipv6_redirect_rules()?;
+            }
+        }
+        
+        Ok(result)
+    }
+
+    fn build_ipv4_redirect_rules(&self) -> Result<String, io::Error> {
+        match &self {
+            NatCell::Redirect {
+                src_port_start,
+                src_port_end,
+                dst_port,
+                protocol,
+                ip_version: _,
+            } => {
+                let res = if let Some(end) = src_port_end {
+                    // Range redirect
+                    format!("{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        ", cell = self, src_port_start = src_port_start, src_port_end = end, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                } else {
+                    // Single port redirect
+                    format!("{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        ", cell = self, src_port = src_port_start, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                };
+                Ok(res)
+            }
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Not a Redirect cell",
+            )),
+        }
+    }
+
+    fn build_ipv6_redirect_rules(&self) -> Result<String, io::Error> {
+        match &self {
+            NatCell::Redirect {
+                src_port_start,
+                src_port_end,
+                dst_port,
+                protocol,
+                ip_version: _,
+            } => {
+                let res = if let Some(end) = src_port_end {
+                    // Range redirect
+                    format!("{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        ", cell = self, src_port_start = src_port_start, src_port_end = end, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                } else {
+                    // Single port redirect
+                    format!("{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        ", cell = self, src_port = src_port_start, dst_port = dst_port, tcp_prefix = protocol.tcp_prefix(), udp_prefix = protocol.udp_prefix())
+                };
+                Ok(res)
+            }
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Not a Redirect cell",
+            )),
         }
     }
 
@@ -318,23 +434,59 @@ impl NatCell {
 
         let cells: Vec<&str> = line.split(',').collect();
 
-        // 验证字段数量 - 现在支持4-6个字段: type,port(s),domain,protocol,ip_version
-        if cells.len() < 4 || cells.len() > 6 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("无效的配置行: {line}, 字段数量不正确（需要4-6个字段）"),
-            ));
+        // 解析类型以确定所需的字段数量
+        let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
+        
+        // 验证字段数量
+        match rule_type {
+            "REDIRECT" => {
+                // REDIRECT,port(s),dst_port[,protocol[,ip_version]]
+                // 需要3-5个字段
+                if cells.len() < 3 || cells.len() > 5 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("无效的配置行: {line}, REDIRECT类型需要3-5个字段"),
+                    ));
+                }
+            }
+            "SINGLE" | "RANGE" => {
+                // 需要4-6个字段: type,port(s),domain,protocol,ip_version
+                if cells.len() < 4 || cells.len() > 6 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("无效的配置行: {line}, 字段数量不正确（需要4-6个字段）"),
+                    ));
+                }
+            }
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("无效的转发规则类型: {}", rule_type),
+                ));
+            }
         }
 
-        // 解析协议
-        let protocol = if cells.len() >= 5 {
+        // 解析协议 - REDIRECT从第3个字段开始，SINGLE/RANGE从第4个字段开始
+        let protocol = if rule_type == "REDIRECT" {
+            if cells.len() >= 4 {
+                cells[3].trim().to_string().into()
+            } else {
+                Protocol::All
+            }
+        } else if cells.len() >= 5 {
             cells[4].trim().to_string().into()
         } else {
             Protocol::All
         };
 
-        // 解析IP版本
-        let ip_version = if cells.len() >= 6 {
+        // 解析IP版本 - REDIRECT从第4个字段开始，SINGLE/RANGE从第5个字段开始
+        let ip_version = if rule_type == "REDIRECT" {
+            if cells.len() >= 5 {
+                cells[4].trim().to_string().into()
+            } else {
+                IpVersion::V4 // 默认IPv4以保持向后兼容
+            }
+        } else if cells.len() >= 6 {
             cells[5].trim().to_string().into()
         } else {
             IpVersion::V4 // 默认IPv4以保持向后兼容
@@ -376,6 +528,46 @@ impl NatCell {
                     ip_version,
                 }))
             }
+            "REDIRECT" => {
+                // 解析第二个字段：可能是单个端口或端口范围（格式：8000 或 8000-9000）
+                let port_field = cells[1].trim();
+                let (src_port_start, src_port_end) = if port_field.contains('-') {
+                    // 端口范围
+                    let parts: Vec<&str> = port_field.split('-').collect();
+                    if parts.len() != 2 {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("无效的端口范围格式: {port_field}，应为 start-end"),
+                        ));
+                    }
+                    let start = parts[0].trim().parse::<i32>().map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析起始端口: {e}"))
+                    })?;
+                    let end = parts[1].trim().parse::<i32>().map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析结束端口: {e}"))
+                    })?;
+                    (start, Some(end))
+                } else {
+                    // 单个端口
+                    let port = port_field.parse::<i32>().map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {e}"))
+                    })?;
+                    (port, None)
+                };
+
+                // 解析目标端口
+                let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
+                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
+                })?;
+
+                Ok(Some(NatCell::Redirect {
+                    src_port_start,
+                    src_port_end,
+                    dst_port,
+                    protocol,
+                    ip_version,
+                }))
+            }
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("无效的转发规则类型: {}", cells[0].trim()),
@@ -390,8 +582,11 @@ pub(crate) fn example(conf: &str) {
         "{}",
         "SINGLE,10000,443,baidu.com,all,ipv4\n\
                     RANGE,1000,2000,baidu.com,tcp,ipv6\n\
-                    # 格式: TYPE,port1,port2,domain,protocol,ip_version\n\
-                    # TYPE: SINGLE 或 RANGE\n\
+                    REDIRECT,8000,3128,all,ipv4\n\
+                    REDIRECT,8000-9000,3128,tcp,both\n\
+                    # 格式: TYPE,port(s),port/domain,protocol,ip_version\n\
+                    # TYPE: SINGLE, RANGE, 或 REDIRECT\n\
+                    # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port_start-src_port_end,dst_port\n\
                     # protocol: tcp, udp, all\n\
                     # ip_version: ipv4, ipv6, both"
     )
@@ -468,6 +663,29 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                     ip_version: ip_version.into(),
                 });
             }
+            Rule::Redirect {
+                src_port,
+                src_port_end,
+                dst_port,
+                protocol,
+                ip_version,
+                comment,
+            } => {
+                // 如果有注释，先添加注释
+                if let Some(comment_text) = comment {
+                    nat_cells.push(NatCell::Comment {
+                        content: format!("# {comment_text}"),
+                    });
+                }
+
+                nat_cells.push(NatCell::Redirect {
+                    src_port_start: src_port,
+                    src_port_end,
+                    dst_port,
+                    protocol: protocol.into(),
+                    ip_version: ip_version.into(),
+                });
+            }
         }
     }
 
@@ -493,6 +711,22 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 protocol: "tcp".to_string(),
                 ip_version: "ipv4".to_string(),
                 comment: Some("端口范围转发示例".to_string()),
+            },
+            Rule::Redirect {
+                src_port: 8000,
+                src_port_end: None,
+                dst_port: 3128,
+                protocol: "all".to_string(),
+                ip_version: "ipv4".to_string(),
+                comment: Some("单端口重定向到本机示例".to_string()),
+            },
+            Rule::Redirect {
+                src_port: 30001,
+                src_port_end: Some(39999),
+                dst_port: 45678,
+                protocol: "tcp".to_string(),
+                ip_version: "both".to_string(),
+                comment: Some("端口范围重定向到本机示例".to_string()),
             },
         ],
     };
@@ -544,6 +778,22 @@ pub enum Rule {
         #[serde(default)]
         comment: Option<String>,
     },
+    #[serde(rename = "redirect")]
+    Redirect {
+        #[serde(rename = "srcPort")]
+        src_port: i32,
+        #[serde(rename = "srcPortEnd")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        src_port_end: Option<i32>,
+        #[serde(rename = "dstPort")]
+        dst_port: i32,
+        #[serde(default = "default_protocol")]
+        protocol: String,
+        #[serde(default = "default_ip_version")]
+        ip_version: String,
+        #[serde(default)]
+        comment: Option<String>,
+    },
 }
 
 fn default_protocol() -> String {
@@ -552,4 +802,121 @@ fn default_protocol() -> String {
 
 fn default_ip_version() -> String {
     "both".to_string()
+}
+
+#[cfg(test)]
+mod redirect_parse_tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_redirect_single_port() {
+        let line = "REDIRECT,8000,3128";
+        let result = NatCell::parse(line).unwrap();
+        assert!(result.is_some());
+        match result.unwrap() {
+            NatCell::Redirect { src_port_start, src_port_end, dst_port, .. } => {
+                assert_eq!(src_port_start, 8000);
+                assert_eq!(src_port_end, None);
+                assert_eq!(dst_port, 3128);
+            }
+            other => panic!("Expected Redirect variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_redirect_port_range() {
+        let line = "REDIRECT,30001-39999,45678";
+        let result = NatCell::parse(line).unwrap();
+        assert!(result.is_some());
+        match result.unwrap() {
+            NatCell::Redirect { src_port_start, src_port_end, dst_port, .. } => {
+                assert_eq!(src_port_start, 30001);
+                assert_eq!(src_port_end, Some(39999));
+                assert_eq!(dst_port, 45678);
+            }
+            other => panic!("Expected Redirect variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_redirect_with_protocol() {
+        let line = "REDIRECT,9000,8080,tcp";
+        let result = NatCell::parse(line).unwrap();
+        assert!(result.is_some());
+        match result.unwrap() {
+            NatCell::Redirect { src_port_start, dst_port, .. } => {
+                assert_eq!(src_port_start, 9000);
+                assert_eq!(dst_port, 8080);
+            }
+            other => panic!("Expected Redirect variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_backward_compatibility_localhost() {
+        let line = "SINGLE,2222,22,localhost";
+        let result = NatCell::parse(line).unwrap();
+        assert!(result.is_some());
+        match result.unwrap() {
+            NatCell::Single { src_port, dst_port, dst_domain, .. } => {
+                assert_eq!(src_port, 2222);
+                assert_eq!(dst_port, 22);
+                assert_eq!(dst_domain, "localhost");
+            }
+            other => panic!("Expected Single variant, got {:?}", other),
+        }
+    }
+}
+
+#[cfg(test)]
+mod redirect_build_tests {
+    use super::*;
+
+    #[test]
+    fn test_build_redirect_single_ipv4() {
+        let cell = NatCell::Redirect {
+            src_port_start: 8000,
+            src_port_end: None,
+            dst_port: 3128,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+        };
+        
+        let result = cell.build().unwrap();
+        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128"));
+        assert!(result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128"));
+        assert!(!result.contains("ip6")); // Should not have IPv6 rules
+    }
+
+    #[test]
+    fn test_build_redirect_range_ipv4() {
+        let cell = NatCell::Redirect {
+            src_port_start: 30001,
+            src_port_end: Some(39999),
+            dst_port: 45678,
+            protocol: Protocol::Tcp,
+            ip_version: IpVersion::V4,
+        };
+        
+        let result = cell.build().unwrap();
+        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"));
+        assert!(result.contains("#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678")); // UDP commented out
+        assert!(!result.contains("ip6")); // Should not have IPv6 rules
+    }
+
+    #[test]
+    fn test_build_redirect_both_ipv() {
+        let cell = NatCell::Redirect {
+            src_port_start: 5000,
+            src_port_end: None,
+            dst_port: 4000,
+            protocol: Protocol::All,
+            ip_version: IpVersion::Both,
+        };
+        
+        let result = cell.build().unwrap();
+        // Should have both IPv4 and IPv6 rules
+        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000"));
+        assert!(result.contains("add rule ip6 self-nat PREROUTING tcp dport 5000 redirect to :4000"));
+    }
 }

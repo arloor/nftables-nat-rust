@@ -54,11 +54,17 @@ bash <( curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-
 ```$xslt
 SINGLE,49999,59999,baidu.com
 RANGE,50000,50010,baidu.com
+REDIRECT,8000,3128
+REDIRECT,30001-39999,45678
 ```
 
-- 每行代表一个规则；行内以英文逗号分隔为4段内容
+- 每行代表一个规则；行内以英文逗号分隔为若干段内容
 - SINGLE：单端口转发：本机49999端口转发到baidu.com:59999
 - RANGE：范围端口转发：本机50000-50010转发到baidu.com:50000-50010
+- REDIRECT：端口重定向到本机：将入站流量重定向到本机其他端口
+  - `REDIRECT,8000,3128`：单端口重定向，将8000端口重定向到本机3128端口
+  - `REDIRECT,30001-39999,45678`：范围端口重定向，将30001-39999端口范围重定向到本机45678端口
+  - **重要**：REDIRECT工作在PREROUTING链上，仅对外部入站流量有效，本机访问的流量不会被REDIRECT
 - 请确保配置文件符合格式要求，否则程序可能会出现不可预期的错误，包括但不限于你和你的服务器炸掉（认真
 - 以 `#` 开始的行会被当成注释
 
@@ -66,6 +72,7 @@ RANGE,50000,50010,baidu.com
 
 1. **转发到本地**：行尾域名处填写localhost即可，例如`SINGLE,2222,22,localhost`，表示本机的2222端口重定向到本机的22端口。
 2. **仅转发tcp/udp流量**：行尾增加tcp/udp即可，例如`SINGLE,10000,443,baidu.com,tcp`表示仅转发tcp流量，`SINGLE,10000,443,baidu.com,udp`仅转发udp流量
+3. **REDIRECT类型参数**：REDIRECT类型也支持协议和IP版本参数，例如`REDIRECT,8000-9000,3128,tcp,ipv4`表示仅重定向TCP流量的IPv4版本
 
 如需修改转发规则，请`vim /etc/nat.conf`以设定你想要的转发规则。修改完毕后，无需重新启动vps或服务，程序将会自动在最多一分钟内更新nat转发规则（PS：受dns缓存影响，可能会超过一分钟）
 
@@ -149,4 +156,18 @@ nft list ruleset
 ```shell
 journalctl -exfu nat
 ```
+
+### REDIRECT类型的限制
+
+REDIRECT类型使用nftables的`redirect to`语句，工作在PREROUTING链上。这意味着：
+
+- ✅ **有效**：外部机器访问本机的重定向端口时，流量会被正确重定向到目标端口
+- ❌ **无效**：本机进程访问本机的重定向端口时，流量不会被重定向
+
+**原因**：本机产生的流量不会经过PREROUTING链，而是直接进入OUTPUT链，因此REDIRECT规则对本机访问无效。
+
+**示例**：
+- 配置：`REDIRECT,8000,3128`
+- 外部访问 `http://your-server:8000` → 成功重定向到 3128 端口
+- 本机执行 `curl http://localhost:8000` → 不会重定向，直接访问 8000 端口
 
