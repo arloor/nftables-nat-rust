@@ -8,15 +8,27 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug",
-            "program": "${workspaceFolder}/target/debug/nat",
+            // "program": "${workspaceFolder}/target/debug/nat",
+            "cargo": {
+                "args": [
+                    "build"
+                ],
+                "problemMatcher": [
+                    "$rustc"
+                ],
+                "filter": {
+                    "name": "nat",
+                    "kind": "bin"
+                }
+            },
             "args": [
                 "nat.conf",
                 // "--toml",
                 // "nat.toml"
             ],
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "rust: cargo build",
-            "console": "internalConsole",
+            // "preLaunchTask": "rust: cargo build",
+            "console": "integratedTerminal",
             "env": {
                 // "nat_local_ip": "192.168.5.40"
             }
