@@ -2,7 +2,7 @@
 # WebUI 启动示例脚本
 
 # 配置项
-PORT=8443
+PORT=8444
 USERNAME="admin"
 PASSWORD="your_strong_password_here"
 JWT_SECRET=$(openssl rand -base64 32)

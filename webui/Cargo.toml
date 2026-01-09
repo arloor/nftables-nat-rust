@@ -30,6 +30,9 @@ tower-http.workspace = true
 jsonwebtoken.workspace = true
 bcrypt.workspace = true
 
+# TLS/加密
+rustls = { version = "0.23", features = ["aws_lc_rs"] }
+
 # 其他
 anyhow = "1.0"
 thiserror = "1.0"
