@@ -171,5 +171,3 @@ REDIRECT类型使用nftables的`redirect to`语句，工作在PREROUTING链上�
 - 外部访问 `http://your-server:8000` → 成功重定向到 3128 端口
 - 本机执行 `curl http://localhost:8000` → 不会重定向，直接访问 8000 端口
 
-如果需要本机访问也生效，建议使用`SINGLE,端口,端口,localhost`的方式（仅支持单端口）。
-
