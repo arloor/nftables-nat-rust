@@ -16,6 +16,44 @@
 - ⚡ **高性能轻量**：基于 Rust 编写，仅依赖标准库和少量核心库
 - 🚀 **开机自启**：支持 systemd 服务管理，开机自动启动
 - 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
+- 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则
+
+## 🆕 WebUI 管理界面
+
+本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
+
+### WebUI 特性
+
+- 🔐 基于 JWT 的安全认证
+- 🔒 支持 HTTPS/TLS 加密传输
+- 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
+- 📋 实时查看 nftables 规则
+- 🎨 现代化的用户界面
+
+### 快速启动 WebUI
+
+```bash
+# 编译 WebUI
+cargo build --release --package webui
+
+# HTTP 模式（开发环境）
+./target/release/webui \
+  --port 8080 \
+  --username admin \
+  --password your_password \
+  --toml-config /etc/nat.toml
+
+# HTTPS 模式（生产环境，推荐）
+./target/release/webui \
+  --port 8443 \
+  --username admin \
+  --password your_password \
+  --toml-config /etc/nat.toml \
+  --cert /path/to/cert.pem \
+  --key /path/to/key.pem
+```
+
+详细文档请查看 [webui/README.md](webui/README.md)
 
 ## 🖥️ 系统要求
 
