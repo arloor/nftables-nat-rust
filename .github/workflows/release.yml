@@ -28,7 +28,7 @@ jobs:
         id: build_musl
         uses: arloor/rust_musl_action@latest
         with:
-          args: "--release -p nat-cli"
+          args: "-p nat-cli"
           use_musl: true
       - name: mv_musl_bin
         run: |
