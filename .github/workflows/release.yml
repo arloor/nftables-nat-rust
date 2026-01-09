@@ -20,6 +20,8 @@ jobs:
       - name: Set outputs
         id: vars
         run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
+      - name: mkdir
+        run: mkdir -p target/release/
       # - name: build
       #   run: |
       #     cargo build --release -p nat-cli
