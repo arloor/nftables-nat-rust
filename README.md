@@ -55,6 +55,9 @@ cargo build --release --package webui
 
 详细文档请查看 [webui/README.md](webui/README.md)
 
+![alt text](image.png)
+![alt text](image-1.png)
+
 ## 🖥️ 系统要求
 
 适用于以下 Linux 发行版：
