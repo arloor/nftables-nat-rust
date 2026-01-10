@@ -84,12 +84,12 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 ### 安装管理界面 WebUI
 
 ```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) # -p 5533  -k /root/.acme.sh/arloor.dev/arloor.dev.key -c /root/.acme.sh/arloor.dev/fullchain.cer
 ```
 
 1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
-2. 监听端口默认为 5533（可通过第一个参数修改）。
-3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
+2. 通过 `-p` 参数可以指定 WebUI 监听端口，默认端口为 5533。
+3. 通过 `-c` 和 `-k` 参数可以指定自定义 TLS 证书和私钥文件路径，如果未提供，将自动生成自签名证书。
 4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
 
 安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [webui/README.md](webui/README.md)
@@ -100,7 +100,6 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
 systemctl restart nat-console
 ```
-
 
 ## 📝 配置说明
 
