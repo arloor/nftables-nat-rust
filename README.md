@@ -265,14 +265,14 @@ systemctl restart nat
 
 ### 安装管理界面 WebUI
 
-> 1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
-> 2. 监听端口默认为 5533（可通过第一个参数修改）。
-> 3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
-> 4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
-
 ```bash
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
 ```
+
+1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
+2. 监听端口默认为 5533（可通过第一个参数修改）。
+3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
+4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
 
 安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [webui/README.md](webui/README.md)
 
