@@ -14,15 +14,23 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            height: 100vh;
             padding: 20px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
         }
 
         .header {
@@ -34,6 +42,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
 
         h1 {
@@ -88,6 +97,7 @@
             border-radius: 12px 12px 0 0;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             display: flex;
+            flex-shrink: 0;
         }
 
         .tab {
@@ -121,34 +131,43 @@
             border-radius: 0 0 12px 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow-y: auto;
         }
 
         .tab-content.active {
-            display: block;
+            display: flex;
         }
 
         .config-editor {
             margin-bottom: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100px;
         }
 
         textarea {
             width: 100%;
-            min-height: 400px;
+            flex: 1;
+            min-height: 100px;
             padding: 15px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'SF Mono', 'Courier New', monospace;
             font-size: 14px;
             line-height: 1.6;
-            resize: vertical;
+            resize: none;
         }
 
         .rules-display {
             background: #f8f9fa;
             padding: 20px;
             border-radius: 6px;
-            max-height: 600px;
+            flex: 1;
             overflow-y: auto;
+            min-height: 100px;
         }
 
         .rules-display pre {
@@ -158,6 +177,7 @@
             line-height: 1.6;
             white-space: pre-wrap;
             word-wrap: break-word;
+            min-height: 100px;
         }
 
         .alert {
@@ -189,6 +209,7 @@
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            flex-shrink: 0;
         }
 
         .config-format {
@@ -199,6 +220,12 @@
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
+        }
+
+        .config-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 15px;
         }
     </style>
@@ -221,10 +248,12 @@
         <div id="configTab" class="tab-content active">
             <div id="alert" class="alert"></div>
             
-            <div class="config-format">
-                配置格式: <span id="configFormat">-</span>
+            <div class="config-header">
+                <div class="config-format">
+                    配置格式: <span id="configFormat">-</span>
+                </div>
+                <a href="https://github.com/arloor/nftables-nat-rust/blob/master/README.md#-%E9%85%8D%E7%BD%AE%E8%AF%B4%E6%98%8E" target="_blank" style="color: #1890ff; text-decoration: none; font-size: 14px;">📖 配置说明</a>
             </div>
-            <a href="https://github.com/arloor/nftables-nat-rust/blob/master/README.md#-%E9%85%8D%E7%BD%AE%E8%AF%B4%E6%98%8E" target="_blank" style="margin-left: 10px; color: #1890ff; text-decoration: none; font-size: 14px;">📖 配置说明</a>
 
             <div class="config-editor">
                 <textarea id="configEditor" placeholder="加载配置中..."></textarea>

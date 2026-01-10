@@ -48,4 +48,3 @@ sport = 10003
 dport = 45678
 protocol = "all"
 ip_version = "all"
-
