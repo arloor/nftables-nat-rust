@@ -133,28 +133,6 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     sudo chmod 600 "$KEY_FILE"
 fi
 
-# 创建 systemd service 文件
-echo "创建 systemd service..."
-SERVICE_FILE="/lib/systemd/system/nat-console.service"
-sudo tee "$SERVICE_FILE" > /dev/null <<EOF
-[Unit]
-Description=NAT Console WebUI Service
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=$WORK_DIR
-ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET $CONFIG_ARG --cert $CERT_FILE --key $KEY_FILE
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
 
 # 交互式读取用户名和密码
 echo ""
@@ -191,6 +169,28 @@ echo "  登录用户名: $USERNAME"
 echo "========================================="
 echo ""
 
+# 创建 systemd service 文件
+echo "创建 systemd service..."
+SERVICE_FILE="/lib/systemd/system/nat-console.service"
+sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+[Unit]
+Description=NAT Console WebUI Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=$WORK_DIR
+ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET $CONFIG_ARG --cert $CERT_FILE --key $KEY_FILE
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
 systemctl enable nat-console
 systemctl restart nat-console
 
