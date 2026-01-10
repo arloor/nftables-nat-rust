@@ -115,88 +115,140 @@ systemctl restart nat-console
 - ✅ 结构化配置，可读性更好
 
 ```toml
-# 单端口转发示例
+# ============ 基础转发示例 ============
+
+# 1. 单端口转发 - HTTPS 流量转发
 [[rules]]
 type = "single"
-sport = 10000          # 本机端口
-dport = 443            # 目标端口
-domain = "example.com" # 目标域名或 IP
-protocol = "all"       # all, tcp 或 udp
-ip_version = "ipv4"    # ipv4, ipv6 或 all
-comment = "HTTPS 转发"
+sport = 10443          # 本机监听端口
+dport = 443            # 目标服务端口
+domain = "example.com" # 目标域名或 IP 地址
+protocol = "all"       # 协议: all, tcp 或 udp
+ip_version = "ipv4"    # IP 版本: ipv4, ipv6 或 all
+comment = "转发 HTTPS 到 example.com"
 
-# 端口段转发示例
+# 2. 端口段转发 - 批量游戏端口
 [[rules]]
 type = "range"
-port_start = 20000      # 起始端口
-port_end = 20100        # 结束端口
-domain = "example.com"
-protocol = "tcp"
-ip_version = "all"    # 同时支持 IPv4 和 IPv6
-comment = "端口段转发"
+port_start = 20000     # 起始端口
+port_end = 20100       # 结束端口（含）
+domain = "game.example.com"
+protocol = "tcp"       # 仅 TCP 协议
+ip_version = "all"     # 同时支持 IPv4 和 IPv6
+comment = "游戏服务器端口段"
 
-# 单端口重定向示例
+# 3. UDP 专用转发 - DNS 服务
+[[rules]]
+type = "single"
+sport = 5353           # 本机 DNS 端口
+dport = 53             # 目标 DNS 端口
+domain = "8.8.8.8"     # 也可以直接使用 IP 地址
+protocol = "udp"       # 仅 UDP 协议
+ip_version = "ipv4"
+comment = "DNS 查询转发"
+
+# ============ 本地重定向示例 ============
+
+# 4. 单端口重定向到本机服务
 [[rules]]
 type = "redirect"
-sport = 8080         # 源端口
-dport = 3128         # 目标端口
+sport = 8080           # 外部访问端口
+dport = 3128           # 本机实际服务端口
 protocol = "all"
 ip_version = "ipv4"
-comment = "单端口重定向到本机"
+comment = "代理服务端口重定向"
 
-# 端口段重定向示例
+# 5. 端口段重定向到本机
 [[rules]]
 type = "redirect"
-sport = 30001        # 起始端口
-sport_end = 39999     # 结束端口
-dport = 45678        # 目标端口
+sport = 30001          # 起始端口
+sport_end = 30100      # 结束端口
+dport = 45678          # 本机目标端口
 protocol = "tcp"
 ip_version = "all"
-comment = "端口段重定向到本机"
+comment = "批量端口重定向到本机"
 
-# 强制 IPv6 转发
+# ============ 高级场景示例 ============
+
+# 6. 强制 IPv6 转发
 [[rules]]
 type = "single"
 sport = 9001
 dport = 9090
 domain = "ipv6.example.com"
 protocol = "all"
-ip_version = "ipv6"    # 仅使用 IPv6
-comment = "IPv6 专用转发"
+ip_version = "ipv6"    # 仅使用 IPv6 进行转发
+comment = "IPv6 专用服务"
+
+# 7. 双栈支持示例 - 自动选择 IPv4/IPv6
+[[rules]]
+type = "single"
+sport = 10080
+dport = 80
+domain = "dual-stack.example.com"  # 域名同时有 A 和 AAAA 记录
+protocol = "tcp"
+ip_version = "all"     # 根据客户端 IP 版本自动选择
+comment = "双栈 Web 服务"
 ```
 
 ### 传统配置文件
 
 配置文件位置：`/etc/nat.conf`
 
-```
-# 单端口转发：本机端口 -> 目标地址:端口
-SINGLE,49999,59999,example.com
+**基础格式**：
 
-# 端口段转发：本机端口段 -> 目标地址:端口段
-RANGE,50000,50010,example.com
+- `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]` - 单端口转发
+- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
+- `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
+- `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
 
-# 端口重定向：外部端口 -> 本机端口
-REDIRECT,8000,3128
+**参数说明**：
 
-# 端口段重定向：外部端口段 -> 本机端口
-REDIRECT,30001-39999,45678
+- 协议可选值：`tcp`、`udp`、`all`（默认为 `all`）
+- IP 版本可选值：`ipv4`、`ipv6`、`all`（默认为 `all`）
+- 以 `#` 开头的行为注释
 
-# 仅转发 TCP 流量
-SINGLE,10000,443,example.com,tcp
+**配置示例**：
 
-# 仅转发 UDP 流量
-SINGLE,10001,53,dns.example.com,udp
+```bash
+# ============ 基础转发 ============
 
-# 以 # 开头的行为注释
+# 单端口转发 - HTTPS 流量
+SINGLE,10443,443,example.com
+
+# 端口段转发 - 游戏服务器端口（20000-20100）
+RANGE,20000,20100,game.example.com
+
+# ============ 协议指定 ============
+
+# 仅转发 TCP 流量 - Web 服务
+SINGLE,10080,80,web.example.com,tcp
+
+# 仅转发 UDP 流量 - DNS 查询
+SINGLE,5353,53,8.8.8.8,udp
+
+# ============ 本地重定向 ============
+
+# 单端口重定向到本机服务
+REDIRECT,8080,3128
+
+# 端口段重定向到本机（30001-30100 → 45678）
+REDIRECT,30001-30100,45678
+
+# TCP 专用重定向
+REDIRECT,7000-7100,8080,tcp
+
+# ============ IPv6 支持 ============
+
+# 强制使用 IPv6 转发
+SINGLE,9001,9090,ipv6.example.com,all,ipv6
+
+# 双栈支持（根据客户端自动选择）
+SINGLE,10080,80,dual-stack.example.com,tcp,all
+
+# 禁用的规则（以 # 开头）
 # SINGLE,3000,3000,disabled.example.com
 ```
-
-**配置格式说明：**
-
-- `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]`
-- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]`
-- `REDIRECT,源端口,目标端口[,协议][,IP版本]`
 
 ## 🚀 使用方法
 
