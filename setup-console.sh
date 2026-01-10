@@ -3,23 +3,60 @@
 
 # 使用说明
 usage() {
-    echo "用法: $0 [CONFIG_TYPE] [PORT] [USERNAME] [PASSWORD]"
+    echo "用法: $0 [CONFIG_TYPE] [PORT]"
     echo "  CONFIG_TYPE - 配置格式: legacy 或 toml (默认: toml)"
     echo "  PORT        - WebUI 端口 (默认: 8444)"
-    echo "  USERNAME    - 登录用户名 (默认: admin)"
-    echo "  PASSWORD    - 登录密码 (默认: your_strong_password_here)"
     echo ""
     echo "示例:"
-    echo "  $0 toml 8444 admin myPassword123"
-    echo "  $0 legacy 8444 admin myPassword123"
+    echo "  $0 toml 8444"
+    echo "  $0 legacy 8444"
+    echo ""
+    echo "注意: 用户名和密码将在安装过程中交互式输入"
     exit 1
 }
+
+# 必须是root用户
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Please run as root"
+    exit 1
+fi
+
+# 检测系统并安装依赖
+echo "检测系统并安装依赖..."
+if [ -f /etc/redhat-release ]; then
+    # CentOS/RHEL/Fedora
+    echo "检测到 RedHat 系系统，使用 yum/dnf 安装依赖..."
+    if command -v dnf &> /dev/null; then
+        dnf install -y curl openssl
+    else
+        yum install -y curl openssl
+    fi
+elif [ -f /etc/debian_version ]; then
+    # Debian/Ubuntu
+    echo "检测到 Debian 系系统，使用 apt 安装依赖..."
+    apt update
+    apt install -y curl openssl
+else
+    echo "警告: 未识别的系统，请手动确保已安装 curl 和 openssl"
+fi
+
+# 验证必要工具是否可用
+if ! command -v curl &> /dev/null; then
+    echo "错误: curl 未安装或不可用"
+    exit 1
+fi
+
+if ! command -v openssl &> /dev/null; then
+    echo "错误: openssl 未安装或不可用"
+    exit 1
+fi
+
+echo "依赖检查完成"
+echo ""
 
 # 从命令行参数获取配置
 CONFIG_TYPE="${1:-toml}"
 PORT="${2:-8444}"
-USERNAME="${3:-admin}"
-PASSWORD="${4:-your_strong_password_here}"
 
 # 验证配置类型
 if [ "$CONFIG_TYPE" != "legacy" ] && [ "$CONFIG_TYPE" != "toml" ]; then
@@ -27,11 +64,40 @@ if [ "$CONFIG_TYPE" != "legacy" ] && [ "$CONFIG_TYPE" != "toml" ]; then
     usage
 fi
 
-# 检查参数
-if [ "$PASSWORD" = "your_strong_password_here" ]; then
-    echo "警告: 使用默认密码不安全，请通过参数指定密码"
-    usage
-fi
+# 交互式读取用户名和密码
+echo ""
+echo "========================================="
+echo "NAT Console WebUI 配置"
+echo "========================================="
+
+# 读取用户名
+read -p "请输入登录用户名 [默认: admin]: " USERNAME
+USERNAME="${USERNAME:-admin}"
+
+# 读取密码（隐藏输入）
+while true; do
+    read -s -p "请输入登录密码: " PASSWORD
+    echo ""
+    if [ -z "$PASSWORD" ]; then
+        echo "错误: 密码不能为空，请重新输入"
+        continue
+    fi
+    read -s -p "请再次输入密码确认: " PASSWORD_CONFIRM
+    echo ""
+    if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
+        echo "错误: 两次输入的密码不一致，请重新输入"
+        continue
+    fi
+    break
+done
+
+echo ""
+echo "配置信息:"
+echo "  配置格式: $CONFIG_TYPE"
+echo "  WebUI 端口: $PORT"
+echo "  登录用户名: $USERNAME"
+echo "========================================="
+echo ""
 
 # 下载 nat-console
 echo "下载 nat-console..."
@@ -122,6 +188,10 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
+
+systemctl daemon-reload
+systemctl enable nat-console
+systemctl restart nat-console
 
 echo ""
 echo "========================================="

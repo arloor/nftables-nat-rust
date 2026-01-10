@@ -39,10 +39,10 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 
 管理界面安装:
 
-> 8444 为管理界面端口，admin 为用户名，yourpasword 为密码。请务必修改用户名和密码
+> 安装过程会提醒输入用户名和密码。监听端口默认为 5533，为保证密码安全管理页面会使用自签名 TLS 证书（安装过程中使用 openssl 签发）
 
 ```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) toml 8444 admin yourpasword
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) toml 5533
 ```
 
 ### 方法二：传统配置文件版本
@@ -53,10 +53,10 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 
 管理界面安装:
 
-> 8444 为管理界面端口，admin 为用户名，yourpasword 为密码。请务必修改用户名和密码
+> 安装过程会提醒输入用户名和密码。监听端口默认为 5533，为保证密码安全管理页面会使用自签名 TLS 证书（安装过程中使用 openssl 签发）
 
 ```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) legacy 8444 admin yourpasword
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) legacy 5533
 ```
 
 ## ⚙️ 系统准备
