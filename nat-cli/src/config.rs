@@ -11,7 +11,7 @@ use std::io;
 pub enum IpVersion {
     V4,
     V6,
-    Both, // 优先IPv4，如果IPv4不可用则使用IPv6
+    All, // 优先IPv4，如果IPv4不可用则使用IPv6
 }
 
 impl From<String> for IpVersion {
@@ -19,8 +19,8 @@ impl From<String> for IpVersion {
         match version.to_lowercase().as_str() {
             "ipv4" | "v4" | "4" => IpVersion::V4,
             "ipv6" | "v6" | "6" => IpVersion::V6,
-            "both" | "all" => IpVersion::Both,
-            _ => IpVersion::Both,
+            "both" | "all" => IpVersion::All,
+            _ => IpVersion::All,
         }
     }
 }
@@ -28,9 +28,9 @@ impl From<String> for IpVersion {
 impl Display for IpVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IpVersion::V4 => write!(f, "IPv4"),
-            IpVersion::V6 => write!(f, "IPv6"),
-            IpVersion::Both => write!(f, "Both"),
+            IpVersion::V4 => write!(f, "ipv4"),
+            IpVersion::V6 => write!(f, "ipv6"),
+            IpVersion::All => write!(f, "all"),
         }
     }
 }
@@ -71,13 +71,9 @@ impl From<Protocol> for String {
 
 impl From<String> for Protocol {
     fn from(protocol: String) -> Self {
-        match protocol {
-            protocol if protocol == "udp" => Protocol::Udp,
-            protocol if protocol == "Udp" => Protocol::Udp,
-            protocol if protocol == "UDP" => Protocol::Udp,
-            protocol if protocol == "tcp" => Protocol::Tcp,
-            protocol if protocol == "Tcp" => Protocol::Tcp,
-            protocol if protocol == "TCP" => Protocol::Tcp,
+        match protocol.to_lowercase().as_str() {
+            "udp" => Protocol::Udp,
+            "tcp" => Protocol::Tcp,
             _ => Protocol::All,
         }
     }
@@ -100,7 +96,7 @@ pub enum NatCell {
         ip_version: IpVersion,
     },
     Redirect {
-        src_port_start: i32,
+        src_port: i32,
         src_port_end: Option<i32>, // None for single port, Some for range
         dst_port: i32,
         protocol: Protocol,
@@ -135,7 +131,7 @@ impl Display for NatCell {
                 "RANGE,{port_start},{port_end},{dst_domain},{protocol:?},{ip_version}"
             ),
             NatCell::Redirect {
-                src_port_start,
+                src_port,
                 src_port_end,
                 dst_port,
                 protocol,
@@ -144,12 +140,12 @@ impl Display for NatCell {
                 if let Some(end) = src_port_end {
                     write!(
                         f,
-                        "REDIRECT,{src_port_start}-{end},{dst_port},{protocol:?},{ip_version}"
+                        "REDIRECT,{src_port}-{end},{dst_port},{protocol:?},{ip_version}"
                     )
                 } else {
                     write!(
                         f,
-                        "REDIRECT,{src_port_start},{dst_port},{protocol:?},{ip_version}"
+                        "REDIRECT,{src_port},{dst_port},{protocol:?},{ip_version}"
                     )
                 }
             }
@@ -205,7 +201,7 @@ impl NatCell {
                 }
                 result += &self.build_ipv6_rules(&dst_ip)?;
             }
-            IpVersion::Both => {
+            IpVersion::All => {
                 if is_ipv6_target {
                     result += &self.build_ipv6_rules(&dst_ip)?;
                 } else {
@@ -393,7 +389,7 @@ impl NatCell {
             IpVersion::V6 => {
                 result += &self.build_ipv6_redirect_rules()?;
             }
-            IpVersion::Both => {
+            IpVersion::All => {
                 result += &self.build_ipv4_redirect_rules()?;
                 result += &self.build_ipv6_redirect_rules()?;
             }
@@ -405,7 +401,7 @@ impl NatCell {
     fn build_ipv4_redirect_rules(&self) -> Result<String, io::Error> {
         match &self {
             NatCell::Redirect {
-                src_port_start,
+                src_port,
                 src_port_end,
                 dst_port,
                 protocol,
@@ -414,11 +410,11 @@ impl NatCell {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
                     format!(
-                        "{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
-                        {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "{tcp_prefix}add rule ip self-nat PREROUTING tcp dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
-                        src_port_start = src_port_start,
+                        src_port = src_port,
                         src_port_end = end,
                         dst_port = dst_port,
                         tcp_prefix = protocol.tcp_prefix(),
@@ -431,7 +427,7 @@ impl NatCell {
                         {udp_prefix}add rule ip self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
-                        src_port = src_port_start,
+                        src_port = src_port,
                         dst_port = dst_port,
                         tcp_prefix = protocol.tcp_prefix(),
                         udp_prefix = protocol.udp_prefix()
@@ -449,7 +445,7 @@ impl NatCell {
     fn build_ipv6_redirect_rules(&self) -> Result<String, io::Error> {
         match &self {
             NatCell::Redirect {
-                src_port_start,
+                src_port,
                 src_port_end,
                 dst_port,
                 protocol,
@@ -458,11 +454,11 @@ impl NatCell {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
                     format!(
-                        "{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
-                        {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port_start}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "{tcp_prefix}add rule ip6 self-nat PREROUTING tcp dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\
+                        {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
-                        src_port_start = src_port_start,
+                        src_port = src_port,
                         src_port_end = end,
                         dst_port = dst_port,
                         tcp_prefix = protocol.tcp_prefix(),
@@ -475,7 +471,7 @@ impl NatCell {
                         {udp_prefix}add rule ip6 self-nat PREROUTING udp dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
-                        src_port = src_port_start,
+                        src_port = src_port,
                         dst_port = dst_port,
                         tcp_prefix = protocol.tcp_prefix(),
                         udp_prefix = protocol.udp_prefix()
@@ -605,7 +601,7 @@ impl NatCell {
             "REDIRECT" => {
                 // 解析第二个字段：可能是单个端口或端口范围（格式：8000 或 8000-9000）
                 let port_field = cells[1].trim();
-                let (src_port_start, src_port_end) = if port_field.contains('-') {
+                let (src_port, src_port_end) = if port_field.contains('-') {
                     // 端口范围
                     let parts: Vec<&str> = port_field.split('-').collect();
                     if parts.len() != 2 {
@@ -635,7 +631,7 @@ impl NatCell {
                 })?;
 
                 Ok(Some(NatCell::Redirect {
-                    src_port_start,
+                    src_port,
                     src_port_end,
                     dst_port,
                     protocol,
@@ -660,7 +656,7 @@ pub(crate) fn example(conf: &str) {
                     REDIRECT,8000-9000,3128,tcp,both\n\
                     # 格式: TYPE,port(s),port/domain,protocol,ip_version\n\
                     # TYPE: SINGLE, RANGE, 或 REDIRECT\n\
-                    # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port_start-src_port_end,dst_port\n\
+                    # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port-src_port_end,dst_port\n\
                     # protocol: tcp, udp, all\n\
                     # ip_version: ipv4, ipv6, both"
     )
@@ -754,7 +750,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
                 }
 
                 nat_cells.push(NatCell::Redirect {
-                    src_port_start: src_port as i32,
+                    src_port: src_port as i32,
                     src_port_end: src_port_end.map(|p| p as i32),
                     dst_port: dst_port as i32,
                     protocol: protocol.into(),
@@ -829,12 +825,12 @@ mod redirect_parse_tests {
         assert!(result.is_some());
         match result.unwrap() {
             NatCell::Redirect {
-                src_port_start,
+                src_port,
                 src_port_end,
                 dst_port,
                 ..
             } => {
-                assert_eq!(src_port_start, 8000);
+                assert_eq!(src_port, 8000);
                 assert_eq!(src_port_end, None);
                 assert_eq!(dst_port, 3128);
             }
@@ -849,12 +845,12 @@ mod redirect_parse_tests {
         assert!(result.is_some());
         match result.unwrap() {
             NatCell::Redirect {
-                src_port_start,
+                src_port,
                 src_port_end,
                 dst_port,
                 ..
             } => {
-                assert_eq!(src_port_start, 30001);
+                assert_eq!(src_port, 30001);
                 assert_eq!(src_port_end, Some(39999));
                 assert_eq!(dst_port, 45678);
             }
@@ -869,11 +865,9 @@ mod redirect_parse_tests {
         assert!(result.is_some());
         match result.unwrap() {
             NatCell::Redirect {
-                src_port_start,
-                dst_port,
-                ..
+                src_port, dst_port, ..
             } => {
-                assert_eq!(src_port_start, 9000);
+                assert_eq!(src_port, 9000);
                 assert_eq!(dst_port, 8080);
             }
             other => panic!("Expected Redirect variant, got {:?}", other),
@@ -909,7 +903,7 @@ mod redirect_build_tests {
     #[test]
     fn test_build_redirect_single_ipv4() {
         let cell = NatCell::Redirect {
-            src_port_start: 8000,
+            src_port: 8000,
             src_port_end: None,
             dst_port: 3128,
             protocol: Protocol::All,
@@ -925,7 +919,7 @@ mod redirect_build_tests {
     #[test]
     fn test_build_redirect_range_ipv4() {
         let cell = NatCell::Redirect {
-            src_port_start: 30001,
+            src_port: 30001,
             src_port_end: Some(39999),
             dst_port: 45678,
             protocol: Protocol::Tcp,
@@ -943,11 +937,11 @@ mod redirect_build_tests {
     #[test]
     fn test_build_redirect_both_ipv() {
         let cell = NatCell::Redirect {
-            src_port_start: 5000,
+            src_port: 5000,
             src_port_end: None,
             dst_port: 4000,
             protocol: Protocol::All,
-            ip_version: IpVersion::Both,
+            ip_version: IpVersion::All,
         };
 
         let result = cell.build().unwrap();
