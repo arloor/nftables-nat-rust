@@ -164,7 +164,7 @@ fn validate_protocol(protocol: &str) -> Result<(), String> {
 
 fn validate_ip_version(ip_version: &str) -> Result<(), String> {
     match ip_version.to_lowercase().as_str() {
-        "ipv4" | "v4" | "4" | "ipv6" | "v6" | "6" | "both" | "all" => Ok(()),
+        "ipv4" | "ipv6" | "all" => Ok(()),
         _ => Err(format!(
             "无效的IP版本: {}, 必须是 ipv4, ipv6 或 all",
             ip_version

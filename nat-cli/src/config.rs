@@ -17,9 +17,9 @@ pub enum IpVersion {
 impl From<String> for IpVersion {
     fn from(version: String) -> Self {
         match version.to_lowercase().as_str() {
-            "ipv4" | "v4" | "4" => IpVersion::V4,
-            "ipv6" | "v6" | "6" => IpVersion::V6,
-            "both" | "all" => IpVersion::All,
+            "ipv4" => IpVersion::V4,
+            "ipv6" => IpVersion::V6,
+            "all" => IpVersion::All,
             _ => IpVersion::All,
         }
     }
