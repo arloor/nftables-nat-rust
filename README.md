@@ -18,46 +18,6 @@
 - 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
 - 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则
 
-## 🆕 WebUI 管理界面
-
-本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
-
-### WebUI 特性
-
-- 🔐 基于 JWT 的安全认证
-- 🔒 支持 HTTPS/TLS 加密传输
-- 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
-- 📋 实时查看 nftables 规则
-- 🎨 现代化的用户界面
-
-### 快速启动 WebUI
-
-```bash
-# 编译 WebUI
-cargo build --release --package webui
-
-# HTTP 模式（开发环境）
-./target/release/webui \
-  --port 8080 \
-  --username admin \
-  --password your_password \
-  --toml-config /etc/nat.toml
-
-# HTTPS 模式（生产环境，推荐）
-./target/release/webui \
-  --port 8443 \
-  --username admin \
-  --password your_password \
-  --toml-config /etc/nat.toml \
-  --cert /path/to/cert.pem \
-  --key /path/to/key.pem
-```
-
-详细文档请查看 [webui/README.md](webui/README.md)
-
-![alt text](image.png)
-![alt text](image-1.png)
-
 ## 🖥️ 系统要求
 
 适用于以下 Linux 发行版：
@@ -71,13 +31,29 @@ cargo build --release --package webui
 ### 方法一：TOML 配置文件版本（推荐）
 
 ```bash
-bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_toml_version.sh)
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) toml
+```
+
+管理界面安装:
+
+> 8444 为管理界面端口，admin 为用户名，yourpasword 为密码。请务必修改用户名和密码
+
+```bash
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) toml 8444 admin yourpasword
 ```
 
 ### 方法二：传统配置文件版本
 
 ```bash
-bash <(curl -sSLf https://raw.githubusercontent.com/arloor/nftables-nat-rust/master/setup_legacy_version.sh)
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy
+```
+
+管理界面安装:
+
+> 8444 为管理界面端口，admin 为用户名，yourpasword 为密码。请务必修改用户名和密码
+
+```bash
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) legacy 8444 admin yourpasword
 ```
 
 ## ⚙️ 系统准备
@@ -329,6 +305,46 @@ install /tmp/nat /usr/local/bin/nat
 # 重启服务
 systemctl restart nat
 ```
+
+## 🆕 WebUI 管理界面
+
+本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
+
+### WebUI 特性
+
+- 🔐 基于 JWT 的安全认证
+- 🔒 支持 HTTPS/TLS 加密传输
+- 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
+- 📋 实时查看 nftables 规则
+- 🎨 现代化的用户界面
+
+### 快速启动 WebUI
+
+```bash
+# 编译 WebUI
+cargo build --release --package webui
+
+# HTTP 模式（开发环境）
+./target/release/webui \
+  --port 8080 \
+  --username admin \
+  --password your_password \
+  --toml-config /etc/nat.toml
+
+# HTTPS 模式（生产环境，推荐）
+./target/release/webui \
+  --port 8443 \
+  --username admin \
+  --password your_password \
+  --toml-config /etc/nat.toml \
+  --cert /path/to/cert.pem \
+  --key /path/to/key.pem
+```
+
+详细文档请查看 [webui/README.md](webui/README.md)
+
+![alt text](image.png)
+![alt text](image-1.png)
 
 ## 🐋 Docker 兼容性
 

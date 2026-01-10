@@ -45,11 +45,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version='1.0.0'
+          version=$(grep -E ^version Cargo.toml|awk -F "[\"]" '{print $2}')
+          version="v${version}"
           if $(gh release delete v${version} -y --cleanup-tag); 
             then echo "delete old release"; 
             else echo "no old release";
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create v${version} target/release/nat target/release/nat-console webui/static/index.html webui/static/login.html setup_legacy_version.sh setup_toml_version.sh -n "$version" -t "$version" --latest
+          gh release create v${version} target/release/nat target/release/nat-console webui/static/index.html webui/static/login.html setup.sh setup-console.sh -n "$version" -t "$version" --latest

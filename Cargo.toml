@@ -1,11 +1,11 @@
 [workspace]
-members = ["nat-cli", "webui", "nat-common"]
+members = ["nat-cli", "nat-console", "nat-common"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "2.0.0"
 authors = ["arloor <admin@arloor.com>"]
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
 # 共享依赖
