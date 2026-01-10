@@ -30,7 +30,7 @@ jobs:
         id: build_musl
         uses: arloor/rust_musl_action@latest
         with:
-          args: "-p nat-cli"
+          args: ""
           use_musl: true
       - name: mv_musl_bin
         run: |
@@ -39,6 +39,7 @@ jobs:
             mkdir -p target/release/
           fi
           cp ${{ steps.build_musl.outputs.release_dir }}nat target/release/nat;
+          cp ${{ steps.build_musl.outputs.release_dir }}nat-console target/release/nat-console;
       - name: gihub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' 
         env:
@@ -51,4 +52,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create v${version} target/release/nat setup_legacy_version.sh setup_toml_version.sh -n "$version" -t "$version" --latest
+          gh release create v${version} target/release/nat target/release/nat-console webui/static/index.html webui/static/login.html setup_legacy_version.sh setup_toml_version.sh -n "$version" -t "$version" --latest
