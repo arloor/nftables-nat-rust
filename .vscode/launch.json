@@ -41,7 +41,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "env": {
-                // "RUST_LOG": "debug,webui=trace"
+                // "RUST_LOG": "debug,nat-console=trace"
             }
         },
         {
