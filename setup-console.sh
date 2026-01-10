@@ -64,41 +64,6 @@ if [ "$CONFIG_TYPE" != "legacy" ] && [ "$CONFIG_TYPE" != "toml" ]; then
     usage
 fi
 
-# 交互式读取用户名和密码
-echo ""
-echo "========================================="
-echo "NAT Console WebUI 配置"
-echo "========================================="
-
-# 读取用户名
-read -p "请输入登录用户名 [默认: admin]: " USERNAME
-USERNAME="${USERNAME:-admin}"
-
-# 读取密码（隐藏输入）
-while true; do
-    read -s -p "请输入登录密码: " PASSWORD
-    echo ""
-    if [ -z "$PASSWORD" ]; then
-        echo "错误: 密码不能为空，请重新输入"
-        continue
-    fi
-    read -s -p "请再次输入密码确认: " PASSWORD_CONFIRM
-    echo ""
-    if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
-        echo "错误: 两次输入的密码不一致，请重新输入"
-        continue
-    fi
-    break
-done
-
-echo ""
-echo "配置信息:"
-echo "  配置格式: $CONFIG_TYPE"
-echo "  WebUI 端口: $PORT"
-echo "  登录用户名: $USERNAME"
-echo "========================================="
-echo ""
-
 # 下载 nat-console
 echo "下载 nat-console..."
 DOWNLOAD_URL="https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/nat-console"
@@ -190,6 +155,42 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+
+# 交互式读取用户名和密码
+echo ""
+echo "========================================="
+echo "NAT Console WebUI 配置"
+echo "========================================="
+
+# 读取用户名
+read -p "请输入登录用户名 [默认: admin]: " USERNAME
+USERNAME="${USERNAME:-admin}"
+
+# 读取密码（隐藏输入）
+while true; do
+    read -s -p "请输入登录密码: " PASSWORD
+    echo ""
+    if [ -z "$PASSWORD" ]; then
+        echo "错误: 密码不能为空，请重新输入"
+        continue
+    fi
+    read -s -p "请再次输入密码确认: " PASSWORD_CONFIRM
+    echo ""
+    if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
+        echo "错误: 两次输入的密码不一致，请重新输入"
+        continue
+    fi
+    break
+done
+
+echo ""
+echo "配置信息:"
+echo "  配置格式: $CONFIG_TYPE"
+echo "  WebUI 端口: $PORT"
+echo "  登录用户名: $USERNAME"
+echo "========================================="
+echo ""
+
 systemctl enable nat-console
 systemctl restart nat-console
 
