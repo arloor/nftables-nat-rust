@@ -71,6 +71,29 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy
 ```
 
+## 🆕 WebUI 管理界面
+
+本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
+
+- 🔐 基于 JWT 的安全认证
+- 🔒 支持 HTTPS/TLS 加密传输
+- 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
+- 📋 实时查看 nftables 规则
+- 🎨 现代化的用户界面
+
+### 安装管理界面 WebUI
+
+```bash
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
+```
+
+1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
+2. 监听端口默认为 5533（可通过第一个参数修改）。
+3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
+4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
+
+安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [webui/README.md](webui/README.md)
+
 ## 📝 配置说明
 
 ### TOML 配置文件（推荐）
@@ -241,40 +264,6 @@ echo "nat_local_ip=10.10.10.10" > /opt/nat/env
 # 重启服务
 systemctl restart nat
 ```
-
-### IPv6 支持
-
-本工具完整支持 IPv6 NAT 转发，详细说明请参考 [IPv6_SUPPORT.md](IPv6_SUPPORT.md)
-
-主要特性：
-
-- 自动启用 IPv6 转发内核参数
-- 支持 IPv6 域名解析
-- 支持 IPv4/IPv6 双栈转发
-- 灵活的 IP 版本控制
-
-## 🆕 WebUI 管理界面
-
-本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
-
-- 🔐 基于 JWT 的安全认证
-- 🔒 支持 HTTPS/TLS 加密传输
-- 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
-- 📋 实时查看 nftables 规则
-- 🎨 现代化的用户界面
-
-### 安装管理界面 WebUI
-
-```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
-```
-
-1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
-2. 监听端口默认为 5533（可通过第一个参数修改）。
-3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
-4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
-
-安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [webui/README.md](webui/README.md)
 
 ## 🐋 Docker 兼容性
 
