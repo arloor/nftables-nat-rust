@@ -13,7 +13,7 @@ port_start = 20000
 port_end = 20010
 domain = "google.com"
 protocol = "tcp"
-ip_version = "both"
+ip_version = "all"
 comment = "测试规则 - 端口范围"
 
 [[rules]]

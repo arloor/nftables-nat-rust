@@ -229,7 +229,7 @@ mod tests {
             port_end: 2000,
             domain: "example.com".to_string(),
             protocol: "tcp".to_string(),
-            ip_version: "both".to_string(),
+            ip_version: "all".to_string(),
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -265,7 +265,7 @@ port_start = 1000
 port_end = 2000
 domain = "example.com"
 protocol = "all"
-ip_version = "both"
+ip_version = "all"
 "#;
         let result = TomlConfig::from_toml_str(toml_str);
         assert!(result.is_ok());

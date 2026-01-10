@@ -773,7 +773,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 src_port_end: Some(39999),
                 dst_port: 45678,
                 protocol: "tcp".to_string(),
-                ip_version: "both".to_string(),
+                ip_version: "all".to_string(),
                 comment: Some("端口范围重定向到本机示例".to_string()),
             },
         ],
