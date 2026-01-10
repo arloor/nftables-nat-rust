@@ -3,16 +3,24 @@
 
 # 使用说明
 usage() {
-    echo "用法: $0 [PORT]"
-    echo "  PORT - WebUI 端口 (默认: 5533)"
+    echo "用法: $0 [选项]"
+    echo ""
+    echo "选项:"
+    echo "  -p, --port PORT          WebUI 端口 (默认: 5533)"
+    echo "  -c, --cert CERT_FILE     TLS 证书文件路径"
+    echo "  -k, --key KEY_FILE       TLS 私钥文件路径"
+    echo "  -h, --help               显示此帮助信息"
     echo ""
     echo "示例:"
-    echo "  $0 5533"
-    echo "  $0 8444"
+    echo "  $0                                    # 使用默认端口和自签发证书"
+    echo "  $0 -p 8444                            # 指定端口，使用自签发证书"
+    echo "  $0 -p 5533 -c /path/cert.pem -k /path/key.pem  # 使用自定义证书"
     echo ""
     echo "注意:"
     echo "  - 配置格式将自动从现有 NAT 服务配置中检测"
     echo "  - 用户名和密码将在安装过程中交互式输入"
+    echo "  - 如果未提供证书和私钥，将自动生成自签发证书"
+    echo "  - 证书和私钥必须同时提供"
     exit 1
 }
 
@@ -77,8 +85,53 @@ fi
 echo "依赖检查完成"
 echo ""
 
-# 从命令行参数获取端口
-PORT="${1:-5533}"
+# 解析命令行参数
+PORT="5533"
+USER_CERT_FILE=""
+USER_KEY_FILE=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -p|--port)
+            PORT="$2"
+            shift 2
+            ;;
+        -c|--cert)
+            USER_CERT_FILE="$2"
+            shift 2
+            ;;
+        -k|--key)
+            USER_KEY_FILE="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "错误: 未知选项 $1"
+            usage
+            ;;
+    esac
+done
+
+# 验证证书和私钥参数
+if [ -n "$USER_CERT_FILE" ] || [ -n "$USER_KEY_FILE" ]; then
+    if [ -z "$USER_CERT_FILE" ] || [ -z "$USER_KEY_FILE" ]; then
+        echo "错误: 证书和私钥必须同时提供"
+        echo "使用 -c 指定证书，-k 指定私钥"
+        exit 1
+    fi
+    
+    if [ ! -f "$USER_CERT_FILE" ]; then
+        echo "错误: 证书文件不存在: $USER_CERT_FILE"
+        exit 1
+    fi
+    
+    if [ ! -f "$USER_KEY_FILE" ]; then
+        echo "错误: 私钥文件不存在: $USER_KEY_FILE"
+        exit 1
+    fi
+fi
 
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
 
@@ -94,20 +147,33 @@ else
     CONFIG_ARG="--toml-config $CONFIG_FILE"
 fi
 
-# TLS 证书（如果使用 HTTPS）
-CERT_FILE="/etc/ssl/nat-webui.crt"
-KEY_FILE="/etc/ssl/nat-webui.key"
-mkdir -p /etc/ssl
-
-# 如果证书不存在，生成自签名证书（仅用于测试）
-if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-    echo "生成自签名 TLS 证书..."
-    openssl req -x509 -newkey rsa:4096 -nodes \
-        -keyout "$KEY_FILE" \
-        -out "$CERT_FILE" \
-        -days 365 \
-        -subj "/CN=localhost"
-    chmod 600 "$KEY_FILE"
+# TLS 证书配置
+if [ -n "$USER_CERT_FILE" ] && [ -n "$USER_KEY_FILE" ]; then
+    # 用户提供了证书和私钥
+    CERT_FILE="$USER_CERT_FILE"
+    KEY_FILE="$USER_KEY_FILE"
+    echo "使用用户提供的 TLS 证书:"
+    echo "  证书: $CERT_FILE"
+    echo "  私钥: $KEY_FILE"
+else
+    # 生成自签发证书
+    CERT_FILE="/etc/ssl/nat-webui.crt"
+    KEY_FILE="/etc/ssl/nat-webui.key"
+    mkdir -p /etc/ssl
+    
+    # 如果证书不存在，生成自签名证书（仅用于测试）
+    if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
+        echo "生成自签名 TLS 证书..."
+        openssl req -x509 -newkey rsa:4096 -nodes \
+            -keyout "$KEY_FILE" \
+            -out "$CERT_FILE" \
+            -days 365 \
+            -subj "/CN=localhost"
+        chmod 600 "$KEY_FILE"
+        echo "已生成自签发证书 (仅用于测试环境)"
+    else
+        echo "使用现有的自签发证书"
+    fi
 fi
 
 
