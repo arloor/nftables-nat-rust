@@ -133,6 +133,7 @@ if [ -n "$USER_CERT_FILE" ] || [ -n "$USER_KEY_FILE" ]; then
     fi
 fi
 
+# 执行并保存变量
 . <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
 echo $INSTALL_PATH
 echo $WORK_DIR
