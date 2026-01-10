@@ -97,13 +97,8 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 ### 升级 WebUI
 
 ```bash
-DOWNLOAD_URL="https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/nat-console"
-TMP_FILE="/tmp/nat-console"
-INSTALL_PATH="/usr/local/bin/nat-console"
-curl -L "$DOWNLOAD_URL" -o "$TMP_FILE"
-echo "安装 nat-console 到 $INSTALL_PATH..."
-install -m 755 "$TMP_FILE" "$INSTALL_PATH"
-echo "nat-console 安装成功"
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
+systemctl restart nat-console
 ```
 
 
