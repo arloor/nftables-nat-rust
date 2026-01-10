@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug WebUI (HTTPS)",
+            "name": "nat-console",
             "cargo": {
                 "args": [
                     "build",
@@ -47,7 +47,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug NAT CLI (Legacy)",
+            "name": "nat-cli",
             "cargo": {
                 "args": [
                     "build",
