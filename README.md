@@ -18,6 +18,9 @@
 - 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
 - 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则
 
+![alt text](image.png)
+![alt text](image-1.png)
+
 ## 🖥️ 系统要求
 
 适用于以下 Linux 发行版：
@@ -86,36 +89,7 @@ systemctl disable --now iptables
 
 ### TOML 配置文件（推荐）
 
-配置文件位置：`/etc/nat.toml` 或自定义路径
-
-```
-# 单端口转发：本机端口 -> 目标地址:端口
-SINGLE,49999,59999,example.com
-
-# 端口段转发：本机端口段 -> 目标地址:端口段
-RANGE,50000,50010,example.com
-
-# 端口重定向：外部端口 -> 本机端口
-REDIRECT,8000,3128
-
-# 端口段重定向：外部端口段 -> 本机端口
-REDIRECT,30001-39999,45678
-
-# 仅转发 TCP 流量
-SINGLE,10000,443,example.com,tcp
-
-# 仅转发 UDP 流量
-SINGLE,10001,53,dns.example.com,udp
-
-# 以 # 开头的行为注释
-# SINGLE,3000,3000,disabled.example.com
-```
-
-**配置格式说明：**
-
-- `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]`
-- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]`
-- `REDIRECT,源端口,目标端口[,协议][,IP版本]`
+配置文件位置：`/etc/nat.toml`
 
 **优势**：
 
@@ -132,7 +106,7 @@ sport = 10000          # 本机端口
 dport = 443            # 目标端口
 domain = "example.com" # 目标域名或 IP
 protocol = "all"       # all, tcp 或 udp
-ip_version = "ipv4"    # ipv4, ipv6 或 both
+ip_version = "ipv4"    # ipv4, ipv6 或 all
 comment = "HTTPS 转发"
 
 # 端口段转发示例
@@ -142,7 +116,7 @@ port_start = 20000      # 起始端口
 port_end = 20100        # 结束端口
 domain = "example.com"
 protocol = "tcp"
-ip_version = "both"    # 同时支持 IPv4 和 IPv6
+ip_version = "all"    # 同时支持 IPv4 和 IPv6
 comment = "端口段转发"
 
 # 单端口重定向示例
@@ -161,7 +135,7 @@ sport = 30001        # 起始端口
 sport_end = 39999     # 结束端口
 dport = 45678        # 目标端口
 protocol = "tcp"
-ip_version = "both"
+ip_version = "all"
 comment = "端口段重定向到本机"
 
 # 强制 IPv6 转发
@@ -342,9 +316,6 @@ cargo build --release --package webui
 ```
 
 详细文档请查看 [webui/README.md](webui/README.md)
-
-![alt text](image.png)
-![alt text](image-1.png)
 
 ## 🐋 Docker 兼容性
 

@@ -84,8 +84,20 @@ if [ "$CONFIG_TYPE" = "legacy" ]; then
     
     # 生成示例配置文件
     cat > "$EXAMPLE_FILE" <<EOF
-SINGLE,49999,59999,baidu.com
-RANGE,50000,50010,baidu.com
+# 单端口转发：本机端口 -> 目标地址:端口
+SINGLE,49999,59999,example.com
+# 端口段转发：本机端口段 -> 目标地址:端口段
+RANGE,50000,50010,example.com
+# 端口重定向：外部端口 -> 本机端口
+REDIRECT,8000,3128
+# 端口段重定向：外部端口段 -> 本机端口
+REDIRECT,30001-39999,45678
+# 仅转发 TCP 流量
+SINGLE,10000,443,example.com,tcp
+# 仅转发 UDP 流量
+SINGLE,10001,53,dns.example.com,udp
+# 以 # 开头的行为注释
+# SINGLE,3000,3000,disabled.example.com
 EOF
 else
     echo "创建 TOML 格式配置文件..."
@@ -97,27 +109,54 @@ else
     
     # 生成示例配置文件
     cat > "$EXAMPLE_FILE" <<EOF
+# 单端口转发示例
 [[rules]]
 type = "single"
-sport = 10000
-dport = 443
-domain = "baidu.com"
-protocol = "all"
-comment = "This is a comment"
+sport = 10000          # 本机端口
+dport = 443            # 目标端口
+domain = "example.com" # 目标域名或 IP
+protocol = "all"       # all, tcp 或 udp
+ip_version = "ipv4"    # ipv4, ipv6 或 all
+comment = "HTTPS 转发"
 
-[[rules]]
-type = "single"
-sport = 10000
-dport = 443
-domain = "localhost"
-protocol = "all"
-
+# 端口段转发示例
 [[rules]]
 type = "range"
-port_start = 1000
-port_end = 2000
-domain = "baidu.com"
+port_start = 20000      # 起始端口
+port_end = 20100        # 结束端口
+domain = "example.com"
 protocol = "tcp"
+ip_version = "all"    # 同时支持 IPv4 和 IPv6
+comment = "端口段转发"
+
+# 单端口重定向示例
+[[rules]]
+type = "redirect"
+sport = 8080         # 源端口
+dport = 3128         # 目标端口
+protocol = "all"
+ip_version = "ipv4"
+comment = "单端口重定向到本机"
+
+# 端口段重定向示例
+[[rules]]
+type = "redirect"
+sport = 30001        # 起始端口
+sport_end = 39999     # 结束端口
+dport = 45678        # 目标端口
+protocol = "tcp"
+ip_version = "all"
+comment = "端口段重定向到本机"
+
+# 强制 IPv6 转发
+[[rules]]
+type = "single"
+sport = 9001
+dport = 9090
+domain = "ipv6.example.com"
+protocol = "all"
+ip_version = "ipv6"    # 仅使用 IPv6
+comment = "IPv6 专用转发"
 EOF
 fi
 
