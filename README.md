@@ -31,32 +31,18 @@
 
 ## 📦 快速安装
 
+> 升级也使用相同的安装命令
+
 ### 方法一：TOML 配置文件版本（推荐）
 
 ```bash
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) toml
 ```
 
-管理界面安装:
-
-> 安装过程会提醒输入用户名和密码。监听端口默认为 5533，为保证密码安全管理页面会使用自签名 TLS 证书（安装过程中使用 openssl 签发）
-
-```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) toml 5533
-```
-
 ### 方法二：传统配置文件版本
 
 ```bash
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy
-```
-
-管理界面安装:
-
-> 安装过程会提醒输入用户名和密码。监听端口默认为 5533，为保证密码安全管理页面会使用自签名 TLS 证书（安装过程中使用 openssl 签发）
-
-```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) legacy 5533
 ```
 
 ## ⚙️ 系统准备
@@ -267,19 +253,6 @@ systemctl restart nat
 - 支持 IPv4/IPv6 双栈转发
 - 灵活的 IP 版本控制
 
-## 🔄 更新升级
-
-```bash
-# 下载最新版本
-curl -sSLf https://github.com/arloor/nftables-nat-rust/releases/latest/download/nat -o /tmp/nat
-
-# 安装
-install /tmp/nat /usr/local/bin/nat
-
-# 重启服务
-systemctl restart nat
-```
-
 ## 🆕 WebUI 管理界面
 
 本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
@@ -292,28 +265,18 @@ systemctl restart nat
 - 📋 实时查看 nftables 规则
 - 🎨 现代化的用户界面
 
-### 快速启动 WebUI
+### 管理界面 WebUI 安装
+
+> 1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
+> 2. 监听端口默认为 5533（可通过第一个参数修改）。
+> 3. 为保证密码安全，安装过程中使用 openssl 自动签发自签名 TLS 证书。
+> 4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
 
 ```bash
-# 编译 WebUI
-cargo build --release --package webui
-
-# HTTP 模式（开发环境）
-./target/release/webui \
-  --port 8080 \
-  --username admin \
-  --password your_password \
-  --toml-config /etc/nat.toml
-
-# HTTPS 模式（生产环境，推荐）
-./target/release/webui \
-  --port 8443 \
-  --username admin \
-  --password your_password \
-  --toml-config /etc/nat.toml \
-  --cert /path/to/cert.pem \
-  --key /path/to/key.pem
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
 ```
+
+安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。
 
 详细文档请查看 [webui/README.md](webui/README.md)
 

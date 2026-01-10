@@ -3,15 +3,16 @@
 
 # 使用说明
 usage() {
-    echo "用法: $0 [CONFIG_TYPE] [PORT]"
-    echo "  CONFIG_TYPE - 配置格式: legacy 或 toml (默认: toml)"
-    echo "  PORT        - WebUI 端口 (默认: 8444)"
+    echo "用法: $0 [PORT]"
+    echo "  PORT - WebUI 端口 (默认: 5533)"
     echo ""
     echo "示例:"
-    echo "  $0 toml 8444"
-    echo "  $0 legacy 8444"
+    echo "  $0 5533"
+    echo "  $0 8444"
     echo ""
-    echo "注意: 用户名和密码将在安装过程中交互式输入"
+    echo "注意:"
+    echo "  - 配置格式将自动从现有 NAT 服务配置中检测"
+    echo "  - 用户名和密码将在安装过程中交互式输入"
     exit 1
 }
 
@@ -20,6 +21,28 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "Please run as root"
     exit 1
 fi
+
+# 检查 NAT 服务是否已安装
+NAT_SERVICE_FILE="/lib/systemd/system/nat.service"
+if [ ! -f "$NAT_SERVICE_FILE" ]; then
+    echo "错误: 未检测到 NAT 服务"
+    echo "请先安装 NAT 服务："
+    echo "  TOML 格式: bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) toml"
+    echo "  传统格式: bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy"
+    exit 1
+fi
+
+# 从 NAT 服务配置中检测配置格式
+echo "检测 NAT 服务配置格式..."
+if grep -q "ExecStart.*--toml" "$NAT_SERVICE_FILE"; then
+    CONFIG_TYPE="toml"
+    echo "检测到 TOML 配置格式"
+else
+    CONFIG_TYPE="legacy"
+    echo "检测到传统配置格式"
+fi
+
+echo ""
 
 # 检测系统并安装依赖
 echo "检测系统并安装依赖..."
@@ -54,15 +77,8 @@ fi
 echo "依赖检查完成"
 echo ""
 
-# 从命令行参数获取配置
-CONFIG_TYPE="${1:-toml}"
-PORT="${2:-8444}"
-
-# 验证配置类型
-if [ "$CONFIG_TYPE" != "legacy" ] && [ "$CONFIG_TYPE" != "toml" ]; then
-    echo "错误: 无效的配置格式 '$CONFIG_TYPE'"
-    usage
-fi
+# 从命令行参数获取端口
+PORT="${1:-5533}"
 
 # 下载 nat-console
 echo "下载 nat-console..."
