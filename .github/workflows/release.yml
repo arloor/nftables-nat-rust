@@ -47,10 +47,10 @@ jobs:
         run: |
           version=$(grep -E ^version Cargo.toml|awk -F "[\"]" '{print $2}')
           version="v${version}"
-          if $(gh release delete v${version} -y --cleanup-tag); 
+          if $(gh release delete ${version} -y --cleanup-tag); 
             then echo "delete old release"; 
             else echo "no old release";
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create v${version} target/release/nat target/release/nat-console static/index.html static/login.html setup.sh setup-console.sh -n "$version" -t "$version" --latest
+          gh release create ${version} target/release/nat target/release/nat-console static/index.html static/login.html setup.sh setup-console.sh -n "$version" -t "$version" --latest
