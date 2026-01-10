@@ -162,8 +162,8 @@ comment = "HTTPS 转发"
 # 端口段转发示例
 [[rules]]
 type = "range"
-portStart = 20000      # 起始端口
-portEnd = 20100        # 结束端口
+port_start = 20000      # 起始端口
+port_end = 20100        # 结束端口
 domain = "example.com"
 protocol = "tcp"
 ip_version = "both"    # 同时支持 IPv4 和 IPv6
@@ -172,8 +172,8 @@ comment = "端口段转发"
 # 单端口重定向示例
 [[rules]]
 type = "redirect"
-srcPort = 8080         # 源端口
-dstPort = 3128         # 目标端口
+sport = 8080         # 源端口
+dport = 3128         # 目标端口
 protocol = "all"
 ip_version = "ipv4"
 comment = "单端口重定向到本机"
@@ -181,9 +181,9 @@ comment = "单端口重定向到本机"
 # 端口段重定向示例
 [[rules]]
 type = "redirect"
-srcPort = 30001        # 起始端口
-srcPortEnd = 39999     # 结束端口
-dstPort = 45678        # 目标端口
+sport = 30001        # 起始端口
+sport_end = 39999     # 结束端口
+dport = 45678        # 目标端口
 protocol = "tcp"
 ip_version = "both"
 comment = "端口段重定向到本机"

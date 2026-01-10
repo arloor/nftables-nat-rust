@@ -26,9 +26,9 @@ pub enum Rule {
     },
     #[serde(rename = "range")]
     Range {
-        #[serde(rename = "portStart")]
+        #[serde(rename = "port_start")]
         port_start: u16,
-        #[serde(rename = "portEnd")]
+        #[serde(rename = "port_end")]
         port_end: u16,
         #[serde(rename = "domain")]
         domain: String,
@@ -41,11 +41,11 @@ pub enum Rule {
     },
     #[serde(rename = "redirect")]
     Redirect {
-        #[serde(rename = "srcPort")]
+        #[serde(rename = "sport")]
         src_port: u16,
-        #[serde(rename = "srcPortEnd", skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "sport_end", skip_serializing_if = "Option::is_none")]
         src_port_end: Option<u16>,
-        #[serde(rename = "dstPort")]
+        #[serde(rename = "dport")]
         dst_port: u16,
         #[serde(default = "default_protocol")]
         protocol: String,
@@ -259,8 +259,8 @@ ip_version = "ipv4"
 
 [[rules]]
 type = "range"
-portStart = 1000
-portEnd = 2000
+port_start = 1000
+port_end = 2000
 domain = "example.com"
 protocol = "all"
 ip_version = "both"

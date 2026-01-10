@@ -9,8 +9,8 @@ comment = "测试规则 - 百度HTTPS"
 
 [[rules]]
 type = "range"
-portStart = 20000
-portEnd = 20010
+port_start = 20000
+port_end = 20010
 domain = "google.com"
 protocol = "tcp"
 ip_version = "both"
@@ -18,8 +18,8 @@ comment = "测试规则 - 端口范围"
 
 [[rules]]
 type = "redirect"
-srcPort = 8080
-dstPort = 3128
+sport = 8080
+dport = 3128
 protocol = "all"
 ip_version = "ipv4"
 comment = "测试规则 - 端口重定向"

@@ -79,8 +79,8 @@ comment = "百度HTTPS服务转发"
 
 [[rules]]
 type = "range"
-portStart = 20000
-portEnd = 20100
+port_start = 20000
+port_end = 20100
 domain = "google.com"
 protocol = "tcp"
 ip_version = "both"
@@ -88,9 +88,9 @@ comment = "端口范围转发"
 
 [[rules]]
 type = "redirect"
-srcPort = 8080
-srcPortEnd = 8090  # 可选，用于端口范围重定向
-dstPort = 3128
+sport = 8080
+sport_end = 8090  # 可选，用于端口范围重定向
+dport = 3128
 protocol = "all"
 ip_version = "ipv4"
 comment = "端口重定向"

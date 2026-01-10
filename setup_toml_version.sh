@@ -58,8 +58,8 @@ protocol = "all"
 
 [[rules]]
 type = "range"
-portStart = 1000
-portEnd = 2000
+port_start = 1000
+port_end = 2000
 domain = "baidu.com"
 protocol = "tcp"
 EOF

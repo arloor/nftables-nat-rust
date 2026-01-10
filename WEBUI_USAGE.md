@@ -62,8 +62,8 @@ https://your-server-ip:8443
     },
     {
       "type": "range",
-      "portStart": 20000,
-      "portEnd": 20100,
+      "port_start": 20000,
+      "port_end": 20100,
       "domain": "example.com",
       "protocol": "tcp",
       "ip_version": "ipv4"
