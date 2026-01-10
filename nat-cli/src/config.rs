@@ -42,6 +42,16 @@ pub enum Protocol {
     Udp,
 }
 
+impl Display for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Protocol::All => write!(f, "all"),
+            Protocol::Tcp => write!(f, "tcp"),
+            Protocol::Udp => write!(f, "udp"),
+        }
+    }
+}
+
 impl Protocol {
     fn tcp_prefix(&self) -> String {
         match &self {
@@ -118,7 +128,7 @@ impl Display for NatCell {
                 ip_version,
             } => write!(
                 f,
-                "SINGLE,{src_port},{dst_port},{dst_domain},{protocol:?},{ip_version}"
+                "SINGLE,{src_port},{dst_port},{dst_domain},{protocol},{ip_version}"
             ),
             NatCell::Range {
                 port_start,
@@ -128,7 +138,7 @@ impl Display for NatCell {
                 ip_version,
             } => write!(
                 f,
-                "RANGE,{port_start},{port_end},{dst_domain},{protocol:?},{ip_version}"
+                "RANGE,{port_start},{port_end},{dst_domain},{protocol},{ip_version}"
             ),
             NatCell::Redirect {
                 src_port,
@@ -140,13 +150,10 @@ impl Display for NatCell {
                 if let Some(end) = src_port_end {
                     write!(
                         f,
-                        "REDIRECT,{src_port}-{end},{dst_port},{protocol:?},{ip_version}"
+                        "REDIRECT,{src_port}-{end},{dst_port},{protocol},{ip_version}"
                     )
                 } else {
-                    write!(
-                        f,
-                        "REDIRECT,{src_port},{dst_port},{protocol:?},{ip_version}"
-                    )
+                    write!(f, "REDIRECT,{src_port},{dst_port},{protocol},{ip_version}")
                 }
             }
             NatCell::Comment { content } => write!(f, "{content}"),
@@ -911,8 +918,12 @@ mod redirect_build_tests {
         };
 
         let result = cell.build().unwrap();
-        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128"));
-        assert!(result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128"));
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING tcp dport 8000 redirect to :3128")
+        );
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING udp dport 8000 redirect to :3128")
+        );
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -927,10 +938,16 @@ mod redirect_build_tests {
         };
 
         let result = cell.build().unwrap();
-        assert!(result
-            .contains("add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"));
-        assert!(result
-            .contains("#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678")); // UDP commented out
+        assert!(
+            result.contains(
+                "add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"
+            )
+        );
+        assert!(
+            result.contains(
+                "#add rule ip self-nat PREROUTING udp dport 30001-39999 redirect to :45678"
+            )
+        ); // UDP commented out
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -946,7 +963,9 @@ mod redirect_build_tests {
 
         let result = cell.build().unwrap();
         // Should have both IPv4 and IPv6 rules
-        assert!(result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000"));
+        assert!(
+            result.contains("add rule ip self-nat PREROUTING tcp dport 5000 redirect to :4000")
+        );
         assert!(
             result.contains("add rule ip6 self-nat PREROUTING tcp dport 5000 redirect to :4000")
         );
