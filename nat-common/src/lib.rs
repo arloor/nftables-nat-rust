@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub mod logger;
+
 // TOML配置结构定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TomlConfig {

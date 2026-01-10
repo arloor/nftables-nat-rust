@@ -47,7 +47,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), DynError> {
-    env_logger::init();
+    nat_common::logger::init(env!("CARGO_CRATE_NAME"));
     let args = Args::parse();
 
     info!("Starting WebUI server on port {}", args.port);

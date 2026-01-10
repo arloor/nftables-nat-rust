@@ -3,11 +3,11 @@
 #![deny(clippy::expect_used)]
 mod config;
 mod ip;
-mod logger;
 mod prepare;
 
 use clap::Parser;
 use log::{error, info};
+use nat_common::logger;
 use std::fs::File;
 use std::io::{self, Write};
 use std::process::Command;
@@ -85,7 +85,9 @@ fn global_prepare() -> Result<(), io::Error> {
             info!("kernel ip_forward config enabled!\n")
         }
         Err(e) => {
-            info!("enable ip_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n");
+            info!(
+                "enable ip_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv4/ip_forward` manually\n"
+            );
             return Err(e);
         }
     };
@@ -96,7 +98,9 @@ fn global_prepare() -> Result<(), io::Error> {
             info!("kernel ipv6_forward config enabled!\n")
         }
         Err(e) => {
-            info!("enable ipv6_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv6/conf/all/forwarding` manually\n");
+            info!(
+                "enable ipv6_forward FAILED! cause: {e:?}\nPlease excute `echo 1 > /proc/sys/net/ipv6/conf/all/forwarding` manually\n"
+            );
             // IPv6转发失败不作为致命错误，因为可能系统不支持IPv6
             info!("IPv6 forwarding setup failed, continuing with IPv4 only...");
         }

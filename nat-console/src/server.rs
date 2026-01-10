@@ -1,15 +1,15 @@
-use crate::auth::{jwt_auth_middleware, JwtConfig};
+use crate::Args;
+use crate::auth::{JwtConfig, jwt_auth_middleware};
 use crate::config::ConfigFormat;
 use crate::handlers::{
-    get_config, get_current_user, get_rules, get_rules_json, login_handler, logout_handler,
-    save_config, AppState,
+    AppState, get_config, get_current_user, get_rules, get_rules_json, login_handler,
+    logout_handler, save_config,
 };
-use crate::Args;
 use axum::{
+    Router,
     http::StatusCode,
     middleware,
     routing::{get, post},
-    Router,
 };
 use axum_bootstrap::TlsParam;
 use log::info;
@@ -64,7 +64,7 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
         .route("/api/logout", post(logout_handler))
         .route("/health", get(|| async { (StatusCode::OK, "OK") }))
         .merge(protected_routes)
-        .fallback_service(ServeDir::new("webui/static"))
+        .fallback_service(ServeDir::new("static"))
         .layer((
             tower_http::trace::TraceLayer::new_for_http()
                 .make_span_with(|req: &axum::extract::Request| {
