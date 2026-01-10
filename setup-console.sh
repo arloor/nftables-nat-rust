@@ -104,7 +104,7 @@ echo "nat-console 安装成功"
 
 # 工作目录
 WORK_DIR="/opt/nat-console"
-sudo mkdir -p "$WORK_DIR" "$WORK_DIR/static"
+mkdir -p "$WORK_DIR" "$WORK_DIR/static"
 
 # 下载静态文件
 echo "下载 WebUI 静态文件..."
@@ -136,17 +136,17 @@ fi
 # TLS 证书（如果使用 HTTPS）
 CERT_FILE="/etc/ssl/nat-webui.crt"
 KEY_FILE="/etc/ssl/nat-webui.key"
-sudo mkdir -p /etc/ssl
+mkdir -p /etc/ssl
 
 # 如果证书不存在，生成自签名证书（仅用于测试）
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "生成自签名 TLS 证书..."
-    sudo openssl req -x509 -newkey rsa:4096 -nodes \
+    openssl req -x509 -newkey rsa:4096 -nodes \
         -keyout "$KEY_FILE" \
         -out "$CERT_FILE" \
         -days 365 \
         -subj "/CN=localhost"
-    sudo chmod 600 "$KEY_FILE"
+    chmod 600 "$KEY_FILE"
 fi
 
 
@@ -188,7 +188,7 @@ echo ""
 # 创建 systemd service 文件
 echo "创建 systemd service..."
 SERVICE_FILE="/lib/systemd/system/nat-console.service"
-sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=NAT Console WebUI Service
 After=network.target
@@ -219,11 +219,11 @@ echo "配置文件: $CONFIG_FILE"
 echo "服务文件: $SERVICE_FILE"
 echo ""
 echo "使用以下命令管理服务:"
-echo "  启动服务: sudo systemctl start nat-console"
-echo "  停止服务: sudo systemctl stop nat-console"
-echo "  查看状态: sudo systemctl status nat-console"
-echo "  开机自启: sudo systemctl enable nat-console"
-echo "  查看日志: sudo journalctl -u nat-console -f"
+echo "  启动服务: systemctl start nat-console"
+echo "  停止服务: systemctl stop nat-console"
+echo "  查看状态: systemctl status nat-console"
+echo "  开机自启: systemctl enable nat-console"
+echo "  查看日志: journalctl -u nat-console -f"
 echo ""
 echo "WebUI 配置:"
 echo "  访问地址: https://localhost:$PORT"
