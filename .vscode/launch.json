@@ -11,14 +11,14 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--package=webui",
-                    "--bin=webui"
+                    "--package=nat-console",
+                    "--bin=nat-console"
                 ],
                 "problemMatcher": [
                     "$rustc"
                 ],
                 "filter": {
-                    "name": "webui",
+                    "name": "nat-console",
                     "kind": "bin"
                 }
             },

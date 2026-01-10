@@ -53,4 +53,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create v${version} target/release/nat target/release/nat-console webui/static/index.html webui/static/login.html setup.sh setup-console.sh -n "$version" -t "$version" --latest
+          gh release create v${version} target/release/nat target/release/nat-console nat-console/static/index.html nat-console/static/login.html setup.sh setup-console.sh -n "$version" -t "$version" --latest

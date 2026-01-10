@@ -995,6 +995,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "nat-console"
+version = "2.0.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-bootstrap",
+ "axum-extra",
+ "bcrypt",
+ "chrono",
+ "clap",
+ "env_logger",
+ "jsonwebtoken",
+ "log",
+ "nat-common",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "toml",
+ "tower",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1873,33 +1900,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbc538057e648b67f72a982e708d485b2efa771e1ac05fec311f9f63e5800db4"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "webui"
-version = "2.0.0"
-dependencies = [
- "anyhow",
- "axum",
- "axum-bootstrap",
- "axum-extra",
- "bcrypt",
- "chrono",
- "clap",
- "env_logger",
- "jsonwebtoken",
- "log",
- "nat-common",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "time",
- "tokio",
- "toml",
- "tower",
- "tower-http",
- "tracing",
 ]
 
 [[package]]
