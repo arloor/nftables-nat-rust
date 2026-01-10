@@ -133,7 +133,9 @@ if [ -n "$USER_CERT_FILE" ] || [ -n "$USER_KEY_FILE" ]; then
     fi
 fi
 
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
+. <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
+echo $INSTALL_PATH
+echo $WORK_DIR
 
 # 配置项
 JWT_SECRET=$(openssl rand -base64 32)
