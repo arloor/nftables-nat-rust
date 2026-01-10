@@ -29,22 +29,6 @@
 - Debian 10+ / Ubuntu 18.04+
 - 其他支持 nftables 的现代 Linux 发行版
 
-## 📦 快速安装
-
-> 升级也使用相同的安装命令
-
-### 方法一：TOML 配置文件版本（推荐）
-
-```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) toml
-```
-
-### 方法二：传统配置文件版本
-
-```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy
-```
-
 ## ⚙️ 系统准备
 
 ### CentOS / RHEL / Fedora
@@ -69,6 +53,22 @@ apt update && apt install -y nftables
 
 # 禁用 iptables（可选）
 systemctl disable --now iptables
+```
+
+## 📦 快速安装
+
+> 升级也使用相同的安装命令
+
+### 方法一：TOML 配置文件版本（推荐）
+
+```bash
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) toml
+```
+
+### 方法二：传统配置文件版本
+
+```bash
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup.sh) legacy
 ```
 
 ## 📝 配置说明
@@ -257,15 +257,13 @@ systemctl restart nat
 
 本项目现已支持 Web 管理界面，可以通过浏览器方便地管理 NAT 配置。
 
-### WebUI 特性
-
 - 🔐 基于 JWT 的安全认证
 - 🔒 支持 HTTPS/TLS 加密传输
 - 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
 - 📋 实时查看 nftables 规则
 - 🎨 现代化的用户界面
 
-### 管理界面 WebUI 安装
+### 安装管理界面 WebUI
 
 > 1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
 > 2. 监听端口默认为 5533（可通过第一个参数修改）。
@@ -276,9 +274,7 @@ systemctl restart nat
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) 5533
 ```
 
-安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。
-
-详细文档请查看 [webui/README.md](webui/README.md)
+安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [webui/README.md](webui/README.md)
 
 ## 🐋 Docker 兼容性
 
