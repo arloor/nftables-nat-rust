@@ -70,7 +70,7 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
                 .make_span_with(|req: &axum::extract::Request| {
                     let method = req.method();
                     let path = req.uri().path();
-                    tracing::debug_span!("request", %method, %path)
+                    tracing::info_span!("request", %method, %path)
                 })
                 .on_failure(()),
             tower_http::cors::CorsLayer::permissive(),
