@@ -1,5 +1,6 @@
 use nat_common::TomlConfig;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::fs;
 use std::io;
 
@@ -34,21 +35,24 @@ impl ConfigFormat {
         Ok(ConfigFormat::Legacy(lines))
     }
 
-    pub fn to_string(&self) -> String {
-        match self {
-            ConfigFormat::Toml(content) => content.clone(),
-            ConfigFormat::Legacy(lines) => lines
-                .iter()
-                .map(|l| l.line.clone())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        }
-    }
-
     pub fn save_to_file(&self, path: &str) -> Result<(), io::Error> {
         let content = self.to_string();
         fs::write(path, content)?;
         Ok(())
+    }
+}
+
+impl Display for ConfigFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigFormat::Toml(content) => write!(f, "{}", content),
+            ConfigFormat::Legacy(lines) => {
+                for line in lines {
+                    writeln!(f, "{}", line.line)?;
+                }
+                Ok(())
+            }
+        }
     }
 }
 
