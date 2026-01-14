@@ -234,8 +234,6 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-mkdir -p /opt/nat-console
-
 systemctl daemon-reload
 systemctl enable nat-console
 systemctl restart nat-console
