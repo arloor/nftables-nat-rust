@@ -1,5 +1,4 @@
 use crate::Args;
-use crate::auth::{JwtConfig, jwt_auth_middleware};
 use crate::config::ConfigFormat;
 use crate::handlers::{
     AppState, get_config, get_current_user, get_rules, get_rules_json, login_handler,
@@ -13,6 +12,7 @@ use axum::{
     routing::{get, post},
 };
 use axum_bootstrap::TlsParam;
+use axum_bootstrap::jwt::{JwtConfig, jwt_auth_middleware};
 use log::info;
 use std::sync::Arc;
 use std::time::Duration;

@@ -1,8 +1,9 @@
-use crate::auth::{create_jwt, AuthUser, JwtConfig};
-use crate::config::{get_nftables_rules, ConfigFormat, LegacyConfigLine};
-use axum::{extract::State, http::StatusCode, response::Html, Json};
-use axum_extra::extract::cookie::{Cookie, SameSite};
+use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
+use axum::{Json, extract::State, http::StatusCode, response::Html};
+use axum_bootstrap::jwt::AuthUser;
+use axum_bootstrap::jwt::JwtConfig;
 use axum_extra::extract::CookieJar;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{error, info};
 use nat_common::TomlConfig;
 use serde::{Deserialize, Serialize};
@@ -64,7 +65,9 @@ pub async fn login_handler(
     }
 
     // 生成JWT token
-    let token = create_jwt(&req.username, &state.jwt_config)
+    let jwt_config = &state.jwt_config;
+    let token = jwt_config
+        .create_jwt(&req.username)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // 创建cookie

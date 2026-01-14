@@ -19,7 +19,7 @@ toml = "0.9"
 
 # WebUI 相关依赖
 axum = "0.8"
-axum-bootstrap = "0.1"
+axum-bootstrap = { version = "0.1", features = ["jwt"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = [

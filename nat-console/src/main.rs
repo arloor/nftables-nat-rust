@@ -1,7 +1,5 @@
 use clap::Parser;
 use log::info;
-
-mod auth;
 mod config;
 mod handlers;
 mod server;
