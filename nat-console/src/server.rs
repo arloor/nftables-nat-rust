@@ -9,6 +9,7 @@ use axum::{
     Router,
     http::StatusCode,
     middleware,
+    response::{Html, IntoResponse},
     routing::{get, post},
 };
 use axum_bootstrap::TlsParam;
@@ -17,6 +18,19 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
+
+// 嵌入 HTML 文件
+const INDEX_HTML: &str = include_str!("../../static/index.html");
+const LOGIN_HTML: &str = include_str!("../../static/login.html");
+
+// 路由处理器
+async fn serve_index() -> impl IntoResponse {
+    Html(INDEX_HTML)
+}
+
+async fn serve_login() -> impl IntoResponse {
+    Html(LOGIN_HTML)
+}
 
 pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 读取配置文件
@@ -60,6 +74,9 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
 
     // 构建应用
     let app = Router::new()
+        .route("/", get(serve_index))
+        .route("/index.html", get(serve_index))
+        .route("/login.html", get(serve_login))
         .route("/api/login", post(login_handler))
         .route("/api/logout", post(logout_handler))
         .route("/health", get(|| async { (StatusCode::OK, "OK") }))

@@ -135,8 +135,7 @@ fi
 
 # 执行并保存变量
 . <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
-echo $INSTALL_PATH
-echo $WORK_DIR
+echo INSTALL_PATH: $INSTALL_PATH
 
 # 配置项
 JWT_SECRET=$(openssl rand -base64 32)
@@ -225,7 +224,6 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=$WORK_DIR
 ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET $CONFIG_ARG --cert $CERT_FILE --key $KEY_FILE
 Restart=on-failure
 RestartSec=5
