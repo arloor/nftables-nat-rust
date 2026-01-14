@@ -172,7 +172,7 @@
                 if (response.ok && data.success) {
                     showAlert('登录成功！正在跳转...', false);
                     setTimeout(() => {
-                        window.location.href = '/index.html';
+                        window.location.href = '/';
                     }, 1000);
                 } else {
                     showAlert(data.message || '登录失败，请重试', true);
@@ -197,7 +197,7 @@
                 if (response.ok) {
                     showAlert('您已登录，正在跳转...', false);
                     setTimeout(() => {
-                        window.location.href = '/index.html';
+                        window.location.href = '/';
                     }, 1000);
                 }
             } catch (e) {
