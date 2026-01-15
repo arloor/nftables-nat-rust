@@ -1,6 +1,6 @@
 use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
 use axum::{Json, extract::State, http::StatusCode, response::Html};
-use axum_bootstrap::jwt::{Claims, JwtConfig};
+use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig};
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{error, info};
@@ -65,9 +65,11 @@ pub async fn login_handler(
 
     // 生成JWT token
     let jwt_config = &state.jwt_config;
-    let token = Claims::new(&req.username)
-        .encode(jwt_config)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let token = Claims::new(ClaimsPayload {
+        username: req.username,
+    })
+    .encode(jwt_config)
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // 创建cookie
     let cookie = Cookie::build(("token", token))
