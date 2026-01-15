@@ -1,7 +1,6 @@
 use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
 use axum::{Json, extract::State, http::StatusCode, response::Html};
-use axum_bootstrap::jwt::AuthUser;
-use axum_bootstrap::jwt::JwtConfig;
+use axum_bootstrap::jwt::{Claims, JwtConfig};
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{error, info};
@@ -66,8 +65,8 @@ pub async fn login_handler(
 
     // 生成JWT token
     let jwt_config = &state.jwt_config;
-    let token = jwt_config
-        .create_jwt(&req.username)
+    let token = Claims::new(&req.username)
+        .encode(jwt_config)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // 创建cookie
@@ -116,9 +115,11 @@ pub struct UserInfo {
 }
 
 pub async fn get_current_user(
-    AuthUser { username }: AuthUser,
+    Claims { payload, .. }: Claims,
 ) -> Result<Json<UserInfo>, StatusCode> {
-    Ok(Json(UserInfo { username }))
+    Ok(Json(UserInfo {
+        username: payload.username,
+    }))
 }
 
 #[derive(Serialize)]
@@ -128,7 +129,7 @@ pub struct ConfigResponse {
 }
 
 pub async fn get_config(
-    _user: AuthUser,
+    _user: Claims,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ConfigResponse>, StatusCode> {
     let config = state.config_format.read().await;
@@ -149,7 +150,7 @@ pub struct SaveConfigRequest {
 }
 
 pub async fn save_config(
-    _user: AuthUser,
+    _user: Claims,
     State(state): State<Arc<AppState>>,
     Json(req): Json<SaveConfigRequest>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
@@ -194,7 +195,7 @@ pub async fn save_config(
     Ok((StatusCode::OK, "配置已保存".to_string()))
 }
 
-pub async fn get_rules(_user: AuthUser) -> Result<Html<String>, (StatusCode, String)> {
+pub async fn get_rules(_user: Claims) -> Result<Html<String>, (StatusCode, String)> {
     let rules = get_nftables_rules().map_err(|e| {
         error!("Failed to get nftables rules: {:?}", e);
         (
@@ -211,7 +212,7 @@ pub struct RulesResponse {
     rules: String,
 }
 
-pub async fn get_rules_json(_user: AuthUser) -> Result<Json<RulesResponse>, (StatusCode, String)> {
+pub async fn get_rules_json(_user: Claims) -> Result<Json<RulesResponse>, (StatusCode, String)> {
     let rules = get_nftables_rules().map_err(|e| {
         error!("Failed to get nftables rules: {:?}", e);
         (

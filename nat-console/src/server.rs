@@ -12,7 +12,7 @@ use axum::{
     routing::{get, post},
 };
 use axum_bootstrap::TlsParam;
-use axum_bootstrap::jwt::{JwtConfig, jwt_auth_middleware};
+use axum_bootstrap::jwt::{ClaimsPayload, JwtConfig, jwt_auth_middleware};
 use log::info;
 use std::sync::Arc;
 use std::time::Duration;
@@ -69,7 +69,7 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
         .route("/rules", get(get_rules))
         .layer(middleware::from_fn_with_state(
             Arc::new(jwt_config.clone()),
-            jwt_auth_middleware,
+            jwt_auth_middleware::<ClaimsPayload>,
         ));
 
     // 构建应用
