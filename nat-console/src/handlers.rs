@@ -1,8 +1,7 @@
 use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
 use axum::{Json, extract::State, http::StatusCode, response::Html};
-use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig};
+use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig, LOGOUT_COOKIE};
 use axum_extra::extract::CookieJar;
-use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{error, info};
 use nat_common::TomlConfig;
 use serde::{Deserialize, Serialize};
@@ -64,20 +63,14 @@ pub async fn login_handler(
     }
 
     // 生成JWT token
-    let jwt_config = &state.jwt_config;
-    let token = Claims::new(ClaimsPayload {
+    let cookie = Claims::new(ClaimsPayload {
         username: req.username,
     })
-    .encode(jwt_config)
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // 创建cookie
-    let cookie = Cookie::build(("token", token))
-        .path("/")
-        .max_age(time::Duration::days(7))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .build();
+    .to_cookie(&state.jwt_config)
+    .map_err(|e| {
+        error!("生成JWT token失败: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let jar = CookieJar::new().add(cookie);
 
@@ -92,14 +85,7 @@ pub async fn login_handler(
 }
 
 pub async fn logout_handler() -> Result<(StatusCode, CookieJar, Json<LoginResponse>), StatusCode> {
-    let cookie = Cookie::build(("token", ""))
-        .path("/")
-        .max_age(time::Duration::seconds(-1))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .build();
-
-    let jar = CookieJar::new().add(cookie);
+    let jar = CookieJar::new().add(LOGOUT_COOKIE.clone());
 
     Ok((
         StatusCode::OK,
