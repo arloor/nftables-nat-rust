@@ -38,8 +38,8 @@ jobs:
           if [ ! -d "target/release/" ]; then
             mkdir -p target/release/
           fi
-          cp ${{ steps.build_musl.outputs.release_dir }}nat target/release/nat;
-          cp ${{ steps.build_musl.outputs.release_dir }}nat-console target/release/nat-console;
+          cp ${{ steps.build_musl.outputs.release_dir }}/nat target/release/nat;
+          cp ${{ steps.build_musl.outputs.release_dir }}/nat-console target/release/nat-console;
       - name: gihub release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release/'))
         env:
