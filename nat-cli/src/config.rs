@@ -234,8 +234,8 @@ impl NatCell {
             } => {
                 let proto = protocol.nft_proto();
                 let res = format!(
-                    "add rule ip self-nat PREROUTING {proto} dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
-                    add rule ip self-nat POSTROUTING ip daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    "add rule ip self-nat PREROUTING ct state new {proto} dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    add rule ip self-nat POSTROUTING ct state new ip daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
                     ",
                     cell = self,
                     portStart = port_start,
@@ -256,7 +256,7 @@ impl NatCell {
                     "localhost" | "127.0.0.1" => {
                         // 重定向到本机
                         let res = format!(
-                            "add rule ip self-nat PREROUTING {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
+                            "add rule ip self-nat PREROUTING ct state new {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
                             ",
                             cell = self,
                             localPort = src_port,
@@ -267,8 +267,8 @@ impl NatCell {
                     _ => {
                         // 转发到其他机器
                         let res = format!(
-                            "add rule ip self-nat PREROUTING {proto} dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
-                            add rule ip self-nat POSTROUTING ip daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
+                            "add rule ip self-nat PREROUTING ct state new {proto} dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
+                            add rule ip self-nat POSTROUTING ct state new ip daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
                             ",
                             cell = self,
                             localPort = src_port,
@@ -308,8 +308,8 @@ impl NatCell {
             } => {
                 let proto = protocol.nft_proto();
                 let res = format!(
-                    "add rule ip6 self-nat PREROUTING {proto} dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
-                    add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    "add rule ip6 self-nat PREROUTING ct state new {proto} dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
+                    add rule ip6 self-nat POSTROUTING ct state new ip6 daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
                     ",
                     cell = self,
                     portStart = port_start,
@@ -330,7 +330,7 @@ impl NatCell {
                     "localhost" | "::1" => {
                         // 重定向到本机IPv6
                         let res = format!(
-                            "add rule ip6 self-nat PREROUTING {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
+                            "add rule ip6 self-nat PREROUTING ct state new {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
                             ",
                             cell = self,
                             localPort = src_port,
@@ -341,8 +341,8 @@ impl NatCell {
                     _ => {
                         // 转发到其他机器
                         let res = format!(
-                            "add rule ip6 self-nat PREROUTING {proto} dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
-                            add rule ip6 self-nat POSTROUTING ip6 daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
+                            "add rule ip6 self-nat PREROUTING ct state new {proto} dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
+                            add rule ip6 self-nat POSTROUTING ct state new ip6 daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
                             ",
                             cell = self,
                             localPort = src_port,
@@ -396,7 +396,7 @@ impl NatCell {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
                     format!(
-                        "add rule ip self-nat PREROUTING {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule ip self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -406,7 +406,7 @@ impl NatCell {
                 } else {
                     // Single port redirect
                     format!(
-                        "add rule ip self-nat PREROUTING {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule ip self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -435,7 +435,7 @@ impl NatCell {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
                     format!(
-                        "add rule ip6 self-nat PREROUTING {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule ip6 self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -445,7 +445,7 @@ impl NatCell {
                 } else {
                     // Single port redirect
                     format!(
-                        "add rule ip6 self-nat PREROUTING {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule ip6 self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -887,7 +887,7 @@ mod redirect_build_tests {
 
         let result = cell.build().unwrap();
         // all协议使用th dport匹配所有传输层协议
-        assert!(result.contains("add rule ip self-nat PREROUTING meta l4proto { tcp, udp } th dport 8000 redirect to :3128"));
+        assert!(result.contains("add rule ip self-nat PREROUTING ct state new meta l4proto { tcp, udp } th dport 8000 redirect to :3128"));
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
 
@@ -905,7 +905,7 @@ mod redirect_build_tests {
         // tcp协议只生成tcp规则
         assert!(
             result.contains(
-                "add rule ip self-nat PREROUTING tcp dport 30001-39999 redirect to :45678"
+                "add rule ip self-nat PREROUTING ct state new tcp dport 30001-39999 redirect to :45678"
             )
         );
         assert!(!result.contains("udp")); // tcp协议不应该包含udp规则
@@ -924,9 +924,9 @@ mod redirect_build_tests {
 
         let result = cell.build().unwrap();
         // all协议应该使用th dport，同时包含IPv4和IPv6
-        assert!(result.contains("add rule ip self-nat PREROUTING meta l4proto { tcp, udp } th dport 5000 redirect to :4000"));
+        assert!(result.contains("add rule ip self-nat PREROUTING ct state new meta l4proto { tcp, udp } th dport 5000 redirect to :4000"));
         assert!(
-            result.contains("add rule ip6 self-nat PREROUTING meta l4proto { tcp, udp } th dport 5000 redirect to :4000")
+            result.contains("add rule ip6 self-nat PREROUTING ct state new meta l4proto { tcp, udp } th dport 5000 redirect to :4000")
         );
     }
 }
