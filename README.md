@@ -18,9 +18,6 @@
 - 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
 - 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则，并且支持切换后端地址
 
-![alt text](image.png)
-![alt text](image-1.png)
-
 ## 🖥️ 系统要求
 
 适用于以下 Linux 发行版：
@@ -105,6 +102,14 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console-assets.sh)
 systemctl restart nat-console
 ```
+
+### WebUI 页面
+
+![alt text](image.png)
+
+![alt text](image1.png)
+
+![alt text](image2.png)
 
 ## 📝 配置说明
 
