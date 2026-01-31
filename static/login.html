@@ -119,6 +119,11 @@
 
         <form id="loginForm">
             <div class="form-group">
+                <label for="apiBaseUrl">🌐 后端地址</label>
+                <input type="text" id="apiBaseUrl" placeholder="留空使用当前服务器，或输入如: http://localhost:8080">
+            </div>
+
+            <div class="form-group">
                 <label for="username">👤 用户名</label>
                 <input type="text" id="username" name="username" required>
             </div>
@@ -147,9 +152,19 @@
             alertDiv.style.display = 'none';
         }
 
+        // 页面加载时读取保存的后端地址
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+            document.getElementById('apiBaseUrl').value = savedApiBaseUrl;
+        });
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideAlert();
+
+            // 保存后端地址到 localStorage
+            const apiBaseUrl = document.getElementById('apiBaseUrl').value.trim();
+            localStorage.setItem('apiBaseUrl', apiBaseUrl);
 
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -158,18 +173,21 @@
             submitBtn.textContent = '登录中...';
 
             try {
-                const response = await fetch('/api/login', {
+                const response = await fetch(`${apiBaseUrl}/api/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password }),
-                    credentials: 'include'
+                    body: JSON.stringify({ username, password })
                 });
 
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    // 保存 JWT token 到 localStorage
+                    if (data.token) {
+                        localStorage.setItem('jwtToken', data.token);
+                    }
                     showAlert('登录成功！正在跳转...', false);
                     setTimeout(() => {
                         window.location.href = '/';
@@ -180,7 +198,7 @@
                     submitBtn.textContent = '登录';
                 }
             } catch (error) {
-                showAlert('网络错误，请检查连接', true);
+                showAlert('网络错误: ' + error.message, true);
                 submitBtn.disabled = false;
                 submitBtn.textContent = '登录';
             }
@@ -189,11 +207,22 @@
         // 检查是否已登录
         window.addEventListener('load', async () => {
             try {
-                const response = await fetch('/api/me', {
+                const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+                const token = localStorage.getItem('jwtToken');
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await fetch(`${apiBaseUrl}/api/me`, {
                     method: 'GET',
-                    credentials: 'include'
+                    headers: headers
                 });
-                
+
                 if (response.ok) {
                     showAlert('您已登录，正在跳转...', false);
                     setTimeout(() => {

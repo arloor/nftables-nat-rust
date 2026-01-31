@@ -245,6 +245,7 @@
         <div class="tabs">
             <div class="tab active" onclick="switchTab('config')">📝 配置管理</div>
             <div class="tab" onclick="switchTab('rules')">📋 规则查看</div>
+            <div class="tab" onclick="switchTab('backend')">🌐 后端设置</div>
         </div>
 
         <div id="configTab" class="tab-content active">
@@ -276,17 +277,66 @@
                 点击"刷新规则"查看当前 nftables 规则
             </div>
         </div>
+
+        <div id="backendTab" class="tab-content">
+            <h2 style="margin-bottom: 20px; color: #333;">后端服务器管理</h2>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">当前后端地址</label>
+                    <input type="text" id="currentBackendUrl" readonly style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #e9ecef; color: #495057; font-size: 14px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">修改后端地址</label>
+                    <input type="text" id="newBackendUrl" placeholder="http://localhost:8080" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                </div>
+
+                <div class="actions" style="margin-top: 0;">
+                    <button class="btn btn-primary" onclick="changeBackend()">🔄 切换后端</button>
+                </div>
+            </div>
+
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <h3 style="margin-bottom: 15px; color: #333;">后端列表</h3>
+                <ul id="backendListUl" style="list-style: none; padding: 0; margin-bottom: 15px;">
+                    <li style="padding: 10px; color: #999;">暂无保存的后端地址</li>
+                </ul>
+                <button class="btn btn-secondary" onclick="addBackend()">➕ 添加当前地址到列表</button>
+            </div>
+        </div>
     </div>
 
     <script>
         let currentConfig = null;
         let currentFormat = null;
 
+        // 统一的 API 请求函数
+        async function apiRequest(endpoint, options = {}) {
+            const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+            const token = localStorage.getItem('jwtToken');
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            };
+
+            // 优先使用 Authorization header
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const url = `${apiBaseUrl}${endpoint}`;
+
+            return fetch(url, {
+                ...options,
+                headers,
+            });
+        }
+
         async function checkAuth() {
             try {
-                const response = await fetch('/api/me', {
-                    credentials: 'include'
-                });
+                const response = await apiRequest('/api/me');
 
                 if (!response.ok) {
                     window.location.href = '/login.html';
@@ -315,9 +365,7 @@
 
         async function loadConfig() {
             try {
-                const response = await fetch('/api/config', {
-                    credentials: 'include'
-                });
+                const response = await apiRequest('/api/config');
 
                 if (!response.ok) {
                     throw new Error('加载配置失败');
@@ -327,7 +375,7 @@
                 currentConfig = data.content;
                 currentFormat = data.format;
 
-                document.getElementById('configFormat').textContent = 
+                document.getElementById('configFormat').textContent =
                     data.format === 'toml' ? 'TOML' : '传统格式';
 
                 const editor = document.getElementById('configEditor');
@@ -344,12 +392,8 @@
                 // 直接发送编辑器中的内容（字符串）
                 const content = editor.value;
 
-                const response = await fetch('/api/config', {
+                const response = await apiRequest('/api/config', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
                     body: JSON.stringify({
                         format: currentFormat,
                         content: content
@@ -374,9 +418,7 @@
             rulesContent.textContent = '加载中...';
 
             try {
-                const response = await fetch('/api/rules', {
-                    credentials: 'include'
-                });
+                const response = await apiRequest('/api/rules');
 
                 if (!response.ok) {
                     throw new Error('加载规则失败');
@@ -401,24 +443,100 @@
             if (tab === 'config') {
                 tabs[0].classList.add('active');
                 document.getElementById('configTab').classList.add('active');
-            } else {
+            } else if (tab === 'rules') {
                 tabs[1].classList.add('active');
                 document.getElementById('rulesTab').classList.add('active');
                 // 切换到规则页面时自动加载规则
                 loadRules();
+            } else if (tab === 'backend') {
+                tabs[2].classList.add('active');
+                document.getElementById('backendTab').classList.add('active');
+                // 切换到后端设置页面时加载设置
+                loadBackendSettings();
             }
         }
 
         async function logout() {
             try {
-                await fetch('/api/logout', {
-                    method: 'POST',
-                    credentials: 'include'
+                await apiRequest('/api/logout', {
+                    method: 'POST'
                 });
+                // 清除本地存储的 token
+                localStorage.removeItem('jwtToken');
                 window.location.href = '/login.html';
             } catch (e) {
                 alert('退出登录失败');
             }
+        }
+
+        // 后端管理功能
+        function loadBackendSettings() {
+            const current = localStorage.getItem('apiBaseUrl') || '(当前服务器)';
+            document.getElementById('currentBackendUrl').value = current;
+            document.getElementById('newBackendUrl').value = current;
+
+            // 加载后端列表
+            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
+            const ul = document.getElementById('backendListUl');
+
+            if (list.length === 0) {
+                ul.innerHTML = '<li style="padding: 10px; color: #999;">暂无保存的后端地址</li>';
+            } else {
+                ul.innerHTML = list.map(url => `
+                    <li style="padding: 12px; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #333; font-family: monospace;">${url || '(当前服务器)'}</span>
+                        <div>
+                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 8px;" onclick="switchToBackend('${url}')">切换</button>
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="removeBackend('${url}')">删除</button>
+                        </div>
+                    </li>
+                `).join('');
+            }
+        }
+
+        function changeBackend() {
+            const url = document.getElementById('newBackendUrl').value.trim();
+            localStorage.setItem('apiBaseUrl', url);
+            showAlert('后端已切换，请重新登录', false);
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
+        }
+
+        function addBackend() {
+            const url = localStorage.getItem('apiBaseUrl') || '';
+
+            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
+            if (!list.includes(url)) {
+                list.push(url);
+                localStorage.setItem('backendList', JSON.stringify(list));
+                loadBackendSettings();
+                showAlert('后端地址已添加到列表', false);
+            } else {
+                showAlert('该后端地址已存在于列表中', true);
+            }
+        }
+
+        function removeBackend(url) {
+            if (!confirm('确定要删除此后端地址吗？')) {
+                return;
+            }
+
+            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
+            const filtered = list.filter(u => u !== url);
+            localStorage.setItem('backendList', JSON.stringify(filtered));
+            loadBackendSettings();
+            showAlert('后端地址已删除', false);
+        }
+
+        function switchToBackend(url) {
+            localStorage.setItem('apiBaseUrl', url);
+            document.getElementById('currentBackendUrl').value = url || '(当前服务器)';
+            document.getElementById('newBackendUrl').value = url;
+            showAlert('后端已切换，请重新登录', false);
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
         }
 
         window.addEventListener('load', async () => {

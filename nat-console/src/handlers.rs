@@ -1,5 +1,5 @@
 use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
-use axum::{Json, extract::State, http::StatusCode, response::Html};
+use axum::{Json, extract::{State, Request}, http::StatusCode, response::{Html, Response}, middleware::Next};
 use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig, LOGOUT_COOKIE};
 use axum_extra::extract::CookieJar;
 use log::{error, info};
@@ -27,6 +27,8 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     success: bool,
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    token: Option<String>,
 }
 
 pub async fn login_handler(
@@ -41,6 +43,7 @@ pub async fn login_handler(
             Json(LoginResponse {
                 success: false,
                 message: "用户名或密码错误".to_string(),
+                token: None,
             }),
         ));
     }
@@ -58,19 +61,24 @@ pub async fn login_handler(
             Json(LoginResponse {
                 success: false,
                 message: "用户名或密码错误".to_string(),
+                token: None,
             }),
         ));
     }
 
     // 生成JWT token
-    let cookie = Claims::new(ClaimsPayload {
-        username: req.username,
-    })
-    .to_cookie(&state.jwt_config)
-    .map_err(|e| {
-        error!("生成JWT token失败: {:?}", e);
+    let claims = Claims::new(ClaimsPayload {
+        username: req.username.clone(),
+    });
+
+    // 生成 Cookie（保持向后兼容）
+    let cookie = claims.to_cookie(&state.jwt_config).map_err(|e| {
+        error!("生成JWT cookie失败: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    // 从 Cookie 中提取 token 字符串（用于 Authorization header）
+    let token_string = cookie.value().to_string();
 
     let jar = CookieJar::new().add(cookie);
 
@@ -80,6 +88,7 @@ pub async fn login_handler(
         Json(LoginResponse {
             success: true,
             message: "登录成功".to_string(),
+            token: Some(token_string),
         }),
     ))
 }
@@ -93,6 +102,7 @@ pub async fn logout_handler() -> Result<(StatusCode, CookieJar, Json<LoginRespon
         Json(LoginResponse {
             success: true,
             message: "已退出登录".to_string(),
+            token: None,
         }),
     ))
 }
@@ -210,4 +220,50 @@ pub async fn get_rules_json(_user: Claims) -> Result<Json<RulesResponse>, (Statu
     })?;
 
     Ok(Json(RulesResponse { rules }))
+}
+
+/// 自定义认证中间件：支持 Authorization header (Bearer token) 和 Cookie 两种方式
+pub async fn hybrid_auth_middleware(
+    State(jwt_config): State<Arc<JwtConfig>>,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    // 1. 优先检查 Authorization header
+    if let Some(auth_header) = request.headers().get(axum::http::header::AUTHORIZATION) {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if let Some(token) = auth_str.strip_prefix("Bearer ") {
+                // 验证 token
+                match Claims::<ClaimsPayload>::decode(token, &jwt_config) {
+                    Ok(claims) => {
+                        // 将 Claims 存入 request extensions，供后续 handler 使用
+                        request.extensions_mut().insert(claims);
+                        return Ok(next.run(request).await);
+                    }
+                    Err(e) => {
+                        error!("Invalid Bearer token: {:?}", e);
+                        return Err(StatusCode::UNAUTHORIZED);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Fallback: 检查 Cookie
+    let jar = CookieJar::from_headers(request.headers());
+    if let Some(cookie) = jar.get("token") {
+        let token = cookie.value();
+        match Claims::<ClaimsPayload>::decode(token, &jwt_config) {
+            Ok(claims) => {
+                request.extensions_mut().insert(claims);
+                return Ok(next.run(request).await);
+            }
+            Err(e) => {
+                error!("Invalid cookie token: {:?}", e);
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        }
+    }
+
+    // 3. 没有找到有效的认证信息
+    Err(StatusCode::UNAUTHORIZED)
 }

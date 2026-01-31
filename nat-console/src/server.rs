@@ -2,17 +2,17 @@ use crate::Args;
 use crate::config::ConfigFormat;
 use crate::handlers::{
     AppState, get_config, get_current_user, get_rules, get_rules_json, login_handler,
-    logout_handler, save_config,
+    logout_handler, save_config, hybrid_auth_middleware,
 };
 use axum::{
     Router,
-    http::StatusCode,
+    http::{StatusCode, Method, header},
     middleware,
     response::{Html, IntoResponse},
     routing::{get, post},
 };
 use axum_bootstrap::TlsParam;
-use axum_bootstrap::jwt::{ClaimsPayload, JwtConfig, jwt_auth_middleware};
+use axum_bootstrap::jwt::JwtConfig;
 use log::info;
 use std::sync::Arc;
 use std::time::Duration;
@@ -69,7 +69,7 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
         .route("/rules", get(get_rules))
         .layer(middleware::from_fn_with_state(
             Arc::new(jwt_config.clone()),
-            jwt_auth_middleware::<ClaimsPayload>,
+            hybrid_auth_middleware,
         ));
 
     // 构建应用
@@ -90,7 +90,13 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
                     tracing::info_span!("request", %method, %path)
                 })
                 .on_failure(()),
-            tower_http::cors::CorsLayer::permissive(),
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers([
+                    header::AUTHORIZATION,
+                    header::CONTENT_TYPE,
+                ]),
             tower_http::timeout::TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
                 Duration::from_secs(30),
