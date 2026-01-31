@@ -61,6 +61,15 @@
             font-weight: 500;
         }
 
+        .backend-info {
+            color: #666;
+            font-weight: 500;
+            font-size: 13px;
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
         .btn {
             padding: 10px 20px;
             border: none;
@@ -237,6 +246,7 @@
         <div class="header">
             <h1>🔧 NAT 管理系统</h1>
             <div class="user-info">
+                <span class="backend-info">🌐 <span id="headerBackendUrl">-</span></span>
                 <span class="username">👤 <span id="currentUsername">-</span></span>
                 <button class="btn btn-secondary" onclick="logout()">退出登录</button>
             </div>
@@ -289,11 +299,12 @@
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">修改后端地址</label>
-                    <input type="text" id="newBackendUrl" placeholder="http://localhost:8080" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <input type="text" id="newBackendUrl" placeholder="留空使用当前服务器，或输入如: http://localhost:8080" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
                 </div>
 
                 <div class="actions" style="margin-top: 0;">
                     <button class="btn btn-primary" onclick="changeBackend()">🔄 切换后端</button>
+                    <button class="btn btn-secondary" onclick="useCurrentServer()">🏠 使用当前服务器</button>
                 </div>
             </div>
 
@@ -471,9 +482,11 @@
 
         // 后端管理功能
         function loadBackendSettings() {
-            const current = localStorage.getItem('apiBaseUrl') || '(当前服务器)';
+            const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+            const current = apiBaseUrl || '(当前服务器)';
             document.getElementById('currentBackendUrl').value = current;
-            document.getElementById('newBackendUrl').value = current;
+            // 不设置 newBackendUrl 的值，让它显示 placeholder
+            document.getElementById('newBackendUrl').value = '';
 
             // 加载后端列表
             const list = JSON.parse(localStorage.getItem('backendList') || '[]');
@@ -498,6 +511,16 @@
             const url = document.getElementById('newBackendUrl').value.trim();
             localStorage.setItem('apiBaseUrl', url);
             showAlert('后端已切换，请重新登录', false);
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
+        }
+
+        function useCurrentServer() {
+            localStorage.setItem('apiBaseUrl', '');
+            document.getElementById('currentBackendUrl').value = '(当前服务器)';
+            document.getElementById('newBackendUrl').value = '';
+            showAlert('已切换到当前服务器，请重新登录', false);
             setTimeout(() => {
                 window.location.href = '/login.html';
             }, 1500);
@@ -539,7 +562,14 @@
             }, 1500);
         }
 
+        function updateHeaderBackend() {
+            const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+            const backendDisplay = apiBaseUrl || '(当前服务器)';
+            document.getElementById('headerBackendUrl').textContent = backendDisplay;
+        }
+
         window.addEventListener('load', async () => {
+            updateHeaderBackend();
             if (await checkAuth()) {
                 await loadConfig();
             }
