@@ -109,8 +109,6 @@ systemctl restart nat-console
 
 ![alt text](image1.png)
 
-![alt text](image2.png)
-
 ## 📝 配置说明
 
 ### TOML 配置文件（推荐）
