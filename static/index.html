@@ -239,6 +239,405 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+
+        /* 后端设置模态框样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.2s;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .modal-section {
+            margin-bottom: 20px;
+        }
+
+        .modal-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .saved-list {
+            margin-top: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .saved-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .saved-item:last-child {
+            border-bottom: none;
+        }
+
+        .saved-item:hover {
+            background: #f8f9fa;
+            padding-left: 18px;
+        }
+
+        .saved-item.active {
+            background: linear-gradient(90deg, #e7f3ff 0%, #f0f8ff 100%);
+            border-left: 4px solid #007bff;
+            padding-left: 14px;
+            font-weight: 600;
+        }
+
+        .saved-item-text {
+            flex: 1;
+            font-size: 14px;
+            color: #2c3e50;
+            font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-weight: 500;
+            line-height: 1.6;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+        }
+
+        .saved-item-delete {
+            padding: 4px 8px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+
+        .saved-item-delete:hover {
+            background: #c82333;
+        }
+
+        .empty-list {
+            padding: 30px 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .save-current-button {
+            flex: 1;
+            padding: 8px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .save-current-button:hover {
+            background: #218838;
+        }
+
+        .save-current-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .use-current-button {
+            flex: 1;
+            padding: 8px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .use-current-button:hover {
+            background: #138496;
+        }
+
+        .current-url {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1a1a1a;
+            word-break: break-all;
+            font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-weight: 600;
+            line-height: 1.7;
+            letter-spacing: 0.5px;
+            border: 1px solid #dee2e6;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        .modal-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .modal-button-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .modal-button-primary:hover {
+            background: #0056b3;
+        }
+
+        .modal-button-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .modal-button-secondary:hover {
+            background: #5a6268;
+        }
+
+        .import-export-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .export-button {
+            flex: 1;
+            padding: 8px;
+            background: #6f42c1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .export-button:hover {
+            background: #5a32a3;
+        }
+
+        .export-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .import-button {
+            flex: 1;
+            padding: 8px;
+            background: #fd7e14;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .import-button:hover {
+            background: #e96b02;
+        }
+
+        .import-preview {
+            margin-top: 12px;
+            padding: 12px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+        }
+
+        .import-preview-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+
+        .import-preview-textarea {
+            width: 100%;
+            height: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .import-preview-warning {
+            margin-top: 8px;
+            padding: 8px;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            color: #721c24;
+            font-size: 12px;
+        }
+
+        .import-preview-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .import-confirm-button {
+            flex: 1;
+            padding: 8px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .import-confirm-button:hover {
+            background: #218838;
+        }
+
+        .import-confirm-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .import-cancel-button {
+            flex: 1;
+            padding: 8px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .import-cancel-button:hover {
+            background: #5a6268;
+        }
+
+        .import-status {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .import-status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .import-status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -248,6 +647,7 @@
             <div class="user-info">
                 <span class="backend-info">🌐 <span id="headerBackendUrl">-</span></span>
                 <span class="username">👤 <span id="currentUsername">-</span></span>
+                <button class="btn btn-secondary" onclick="openBackendModal()">⚙️ 切换后端</button>
                 <button class="btn btn-secondary" onclick="logout()">退出登录</button>
             </div>
         </div>
@@ -255,7 +655,6 @@
         <div class="tabs">
             <div class="tab active" onclick="switchTab('config')">📝 配置管理</div>
             <div class="tab" onclick="switchTab('rules')">📋 规则查看</div>
-            <div class="tab" onclick="switchTab('backend')">🌐 后端设置</div>
         </div>
 
         <div id="configTab" class="tab-content active">
@@ -288,32 +687,62 @@
             </div>
         </div>
 
-        <div id="backendTab" class="tab-content">
-            <h2 style="margin-bottom: 20px; color: #333;">后端服务器管理</h2>
+    </div>
 
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">当前后端地址</label>
-                    <input type="text" id="currentBackendUrl" readonly style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #e9ecef; color: #495057; font-size: 14px;">
-                </div>
+    <!-- 后端设置模态框 -->
+    <div id="backendModal" class="modal-overlay">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                后端地址设置
+            </div>
 
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600;">修改后端地址</label>
-                    <input type="text" id="newBackendUrl" placeholder="留空使用当前服务器，或输入如: http://localhost:8080" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
-                </div>
-
-                <div class="actions" style="margin-top: 0;">
-                    <button class="btn btn-primary" onclick="changeBackend()">🔄 切换后端</button>
-                    <button class="btn btn-secondary" onclick="useCurrentServer()">🏠 使用当前服务器</button>
+            <div class="modal-section">
+                <label class="modal-label">后端地址</label>
+                <input
+                    class="modal-input"
+                    type="text"
+                    id="tempBackendUrl"
+                    placeholder="留空使用当前域名，或输入如: https://example.com"
+                />
+                <div class="button-group">
+                    <button class="save-current-button" id="saveToListBtn" onclick="handleSaveToList()">
+                        💾 保存此地址到列表
+                    </button>
+                    <button class="use-current-button" onclick="handleUseCurrent()">
+                        🏠 使用当前服务器
+                    </button>
                 </div>
             </div>
 
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
-                <h3 style="margin-bottom: 15px; color: #333;">后端列表</h3>
-                <ul id="backendListUl" style="list-style: none; padding: 0; margin-bottom: 15px;">
-                    <li style="padding: 10px; color: #999;">暂无保存的后端地址</li>
-                </ul>
-                <button class="btn btn-secondary" onclick="addBackend()">➕ 添加当前地址到列表</button>
+            <div class="modal-section">
+                <label class="modal-label">已保存的后端地址</label>
+                <div class="saved-list" id="savedBackendList">
+                    <div class="empty-list">暂无保存的地址</div>
+                </div>
+                <div class="import-export-group">
+                    <button class="export-button" id="exportBtn" onclick="handleExport()">
+                        📤 导出到剪贴板
+                    </button>
+                    <button class="import-button" onclick="handleImport()">
+                        📥 从剪贴板导入
+                    </button>
+                </div>
+                <div id="importStatusDiv"></div>
+                <div id="importPreviewDiv"></div>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">当前请求 URL</label>
+                <div class="current-url" id="currentUrlDisplay">-</div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-button modal-button-secondary" onclick="handleCloseModal()">
+                    取消
+                </button>
+                <button class="modal-button modal-button-primary" onclick="handleSaveBackend()">
+                    应用
+                </button>
             </div>
         </div>
     </div>
@@ -459,11 +888,6 @@
                 document.getElementById('rulesTab').classList.add('active');
                 // 切换到规则页面时自动加载规则
                 loadRules();
-            } else if (tab === 'backend') {
-                tabs[2].classList.add('active');
-                document.getElementById('backendTab').classList.add('active');
-                // 切换到后端设置页面时加载设置
-                loadBackendSettings();
             }
         }
 
@@ -481,86 +905,278 @@
         }
 
         // 后端管理功能
-        function loadBackendSettings() {
+        const SAVED_BACKENDS_KEY = 'backendList';
+        const API_PATH = '/api/config'; // 示例 API 路径
+        let importPreviewData = null;
+
+        function loadSavedBackends() {
+            try {
+                const saved = localStorage.getItem(SAVED_BACKENDS_KEY);
+                return saved ? JSON.parse(saved) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveSavedBackends(backends) {
+            localStorage.setItem(SAVED_BACKENDS_KEY, JSON.stringify(backends));
+        }
+
+        function openBackendModal() {
             const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
-            const current = apiBaseUrl || '(当前服务器)';
-            document.getElementById('currentBackendUrl').value = current;
-            // 不设置 newBackendUrl 的值，让它显示 placeholder
-            document.getElementById('newBackendUrl').value = '';
+            document.getElementById('tempBackendUrl').value = apiBaseUrl;
+            updateCurrentUrlDisplay();
+            renderSavedBackendList();
+            updateSaveButtonState();
+            document.getElementById('backendModal').classList.add('active');
+        }
 
-            // 加载后端列表
-            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
-            const ul = document.getElementById('backendListUl');
+        function handleCloseModal() {
+            document.getElementById('backendModal').classList.remove('active');
+            clearImportPreview();
+        }
 
-            if (list.length === 0) {
-                ul.innerHTML = '<li style="padding: 10px; color: #999;">暂无保存的后端地址</li>';
+        function updateCurrentUrlDisplay() {
+            const tempUrl = document.getElementById('tempBackendUrl').value.trim();
+            if (tempUrl) {
+                const cleanBackend = tempUrl.replace(/\/+$/, '');
+                document.getElementById('currentUrlDisplay').textContent = cleanBackend + API_PATH;
             } else {
-                ul.innerHTML = list.map(url => `
-                    <li style="padding: 12px; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #333; font-family: monospace;">${url || '(当前服务器)'}</span>
-                        <div>
-                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 8px;" onclick="switchToBackend('${url}')">切换</button>
-                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="removeBackend('${url}')">删除</button>
+                // 使用当前服务器时，只显示 API_PATH
+                document.getElementById('currentUrlDisplay').textContent = API_PATH;
+            }
+        }
+
+        function updateSaveButtonState() {
+            const tempUrl = document.getElementById('tempBackendUrl').value.trim();
+            const savedBackends = loadSavedBackends();
+            const saveBtn = document.getElementById('saveToListBtn');
+            const isExisting = savedBackends.includes(tempUrl);
+            saveBtn.disabled = !tempUrl || isExisting;
+        }
+
+        function handleUseCurrent() {
+            document.getElementById('tempBackendUrl').value = '';
+            updateCurrentUrlDisplay();
+            updateSaveButtonState();
+        }
+
+        function handleSaveToList() {
+            const tempUrl = document.getElementById('tempBackendUrl').value.trim();
+            if (!tempUrl) {
+                showImportStatus('请输入后端地址', 'error');
+                return;
+            }
+            const savedBackends = loadSavedBackends();
+            if (savedBackends.includes(tempUrl)) {
+                showImportStatus('该地址已存在', 'error');
+                return;
+            }
+            savedBackends.push(tempUrl);
+            saveSavedBackends(savedBackends);
+            renderSavedBackendList();
+            updateSaveButtonState();
+            showImportStatus('已添加到列表', 'success');
+        }
+
+        function renderSavedBackendList() {
+            const savedBackends = loadSavedBackends();
+            const container = document.getElementById('savedBackendList');
+            const tempUrl = document.getElementById('tempBackendUrl').value.trim();
+            const exportBtn = document.getElementById('exportBtn');
+
+            exportBtn.disabled = savedBackends.length === 0;
+
+            if (savedBackends.length === 0) {
+                container.innerHTML = '<div class="empty-list">暂无保存的地址</div>';
+            } else {
+                container.innerHTML = savedBackends.map(url => `
+                    <div class="saved-item ${url === tempUrl ? 'active' : ''}" onclick="handleSelectSaved('${escapeHtml(url)}')">
+                        <div class="saved-item-text" title="${escapeHtml(url)}">
+                            ${escapeHtml(url) || '当前域名'}
                         </div>
-                    </li>
+                        <button class="saved-item-delete" onclick="event.stopPropagation(); handleDeleteSaved('${escapeHtml(url)}')">
+                            删除
+                        </button>
+                    </div>
                 `).join('');
             }
         }
 
-        function changeBackend() {
-            const url = document.getElementById('newBackendUrl').value.trim();
-            localStorage.setItem('apiBaseUrl', url);
-            showAlert('后端已切换，请重新登录', false);
-            setTimeout(() => {
-                window.location.href = '/login.html';
-            }, 1500);
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
-        function useCurrentServer() {
-            localStorage.setItem('apiBaseUrl', '');
-            document.getElementById('currentBackendUrl').value = '(当前服务器)';
-            document.getElementById('newBackendUrl').value = '';
-            showAlert('已切换到当前服务器，请重新登录', false);
-            setTimeout(() => {
-                window.location.href = '/login.html';
-            }, 1500);
+        function handleSelectSaved(url) {
+            document.getElementById('tempBackendUrl').value = url;
+            updateCurrentUrlDisplay();
+            updateSaveButtonState();
+            renderSavedBackendList();
         }
 
-        function addBackend() {
-            const url = localStorage.getItem('apiBaseUrl') || '';
+        function handleDeleteSaved(url) {
+            const savedBackends = loadSavedBackends();
+            const filtered = savedBackends.filter(b => b !== url);
+            saveSavedBackends(filtered);
+            renderSavedBackendList();
+            showImportStatus('已删除', 'success');
+        }
 
-            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
-            if (!list.includes(url)) {
-                list.push(url);
-                localStorage.setItem('backendList', JSON.stringify(list));
-                loadBackendSettings();
-                showAlert('后端地址已添加到列表', false);
-            } else {
-                showAlert('该后端地址已存在于列表中', true);
+        async function handleExport() {
+            try {
+                const savedBackends = loadSavedBackends();
+                const jsonStr = JSON.stringify(savedBackends, null, 2);
+                await navigator.clipboard.writeText(jsonStr);
+                showImportStatus('已导出到剪贴板！', 'success');
+            } catch (err) {
+                showImportStatus('导出失败: ' + err.message, 'error');
             }
         }
 
-        function removeBackend(url) {
-            if (!confirm('确定要删除此后端地址吗？')) {
+        async function handleImport() {
+            try {
+                const text = await navigator.clipboard.readText();
+                let parsed = null;
+                let error = null;
+                try {
+                    const data = JSON.parse(text);
+                    if (Array.isArray(data) && data.every(item => typeof item === 'string')) {
+                        parsed = data;
+                    } else {
+                        error = '格式错误：需要字符串数组';
+                    }
+                } catch (e) {
+                    error = '解析失败：不是有效的 JSON 格式';
+                }
+                importPreviewData = { text, parsed, error };
+                renderImportPreview();
+                clearImportStatus();
+            } catch (err) {
+                importPreviewData = { text: '', parsed: null, error: '读取剪贴板失败: ' + err.message };
+                renderImportPreview();
+            }
+        }
+
+        function renderImportPreview() {
+            if (!importPreviewData) {
+                document.getElementById('importPreviewDiv').innerHTML = '';
                 return;
             }
 
-            const list = JSON.parse(localStorage.getItem('backendList') || '[]');
-            const filtered = list.filter(u => u !== url);
-            localStorage.setItem('backendList', JSON.stringify(filtered));
-            loadBackendSettings();
-            showAlert('后端地址已删除', false);
+            const { text, parsed, error } = importPreviewData;
+
+            let statusHtml = '';
+            if (error) {
+                statusHtml = `<div class="import-status error">${escapeHtml(error)}</div>`;
+            } else if (parsed) {
+                statusHtml = `<div class="import-status success">解析成功：共 ${parsed.length} 个地址</div>`;
+            }
+
+            document.getElementById('importPreviewDiv').innerHTML = `
+                <div class="import-preview">
+                    <div class="import-preview-label">导入预览</div>
+                    <textarea class="import-preview-textarea" id="importTextarea" placeholder="JSON 格式的后端地址数组">${escapeHtml(text)}</textarea>
+                    ${statusHtml}
+                    <div class="import-preview-warning">
+                        ⚠️ 确认导入将会覆盖当前已保存的所有后端地址！
+                    </div>
+                    <div class="import-preview-actions">
+                        <button class="import-confirm-button" onclick="handleImportConfirm()" ${!parsed ? 'disabled' : ''}>
+                            ✅ 确认导入
+                        </button>
+                        <button class="import-cancel-button" onclick="handleImportCancel()">
+                            ❌ 取消
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 添加实时编辑功能
+            const textarea = document.getElementById('importTextarea');
+            if (textarea) {
+                textarea.addEventListener('input', handleImportTextChange);
+            }
         }
 
-        function switchToBackend(url) {
+        function handleImportTextChange(e) {
+            const text = e.target.value;
+            let parsed = null;
+            let error = null;
+            try {
+                const data = JSON.parse(text);
+                if (Array.isArray(data) && data.every(item => typeof item === 'string')) {
+                    parsed = data;
+                } else {
+                    error = '格式错误：需要字符串数组';
+                }
+            } catch (e) {
+                error = '解析失败：不是有效的 JSON 格式';
+            }
+            importPreviewData = { text, parsed, error };
+            renderImportPreview();
+        }
+
+        function handleImportConfirm() {
+            if (importPreviewData && importPreviewData.parsed) {
+                saveSavedBackends(importPreviewData.parsed);
+                renderSavedBackendList();
+                showImportStatus('导入成功！已覆盖原有列表。', 'success');
+                clearImportPreview();
+            }
+        }
+
+        function handleImportCancel() {
+            clearImportPreview();
+        }
+
+        function clearImportPreview() {
+            importPreviewData = null;
+            document.getElementById('importPreviewDiv').innerHTML = '';
+        }
+
+        function showImportStatus(message, type) {
+            const statusDiv = document.getElementById('importStatusDiv');
+            statusDiv.innerHTML = `<div class="import-status ${type}">${escapeHtml(message)}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        function clearImportStatus() {
+            document.getElementById('importStatusDiv').innerHTML = '';
+        }
+
+        function handleSaveBackend() {
+            const url = document.getElementById('tempBackendUrl').value.trim();
             localStorage.setItem('apiBaseUrl', url);
-            document.getElementById('currentBackendUrl').value = url || '(当前服务器)';
-            document.getElementById('newBackendUrl').value = url;
             showAlert('后端已切换，请重新登录', false);
             setTimeout(() => {
                 window.location.href = '/login.html';
             }, 1500);
         }
+
+        // 输入框变化时更新 URL 显示和保存按钮状态
+        document.addEventListener('DOMContentLoaded', function() {
+            const tempUrlInput = document.getElementById('tempBackendUrl');
+            if (tempUrlInput) {
+                tempUrlInput.addEventListener('input', function() {
+                    updateCurrentUrlDisplay();
+                    updateSaveButtonState();
+                });
+            }
+
+            // 点击模态框背景关闭
+            const modal = document.getElementById('backendModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        handleCloseModal();
+                    }
+                });
+            }
+        });
 
         function updateHeaderBackend() {
             const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
