@@ -16,7 +16,7 @@
 - ⚡ **高性能轻量**：基于 Rust 编写，仅依赖标准库和少量核心库
 - 🚀 **开机自启**：支持 systemd 服务管理，开机自动启动
 - 🔍 **域名解析**：支持域名和 IP 地址，自动 DNS 解析和缓存
-- 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则
+- 🖥️ **Web 管理界面**：提供可视化的 WebUI 管理配置和查看规则，并且支持切换后端地址
 
 ![alt text](image.png)
 ![alt text](image-1.png)
@@ -79,6 +79,7 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 - 🔒 支持 HTTPS/TLS 加密传输
 - 📝 可视化编辑配置文件（支持传统格式和 TOML 格式）
 - 📋 实时查看 nftables 规则
+- 🌐 支持多后端地址切换，可管理多台服务器
 - 🎨 现代化的用户界面
 
 ### 安装管理界面 WebUI
@@ -92,7 +93,11 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 3. 通过 `-c` 和 `-k` 参数可以指定自定义 TLS 证书和私钥文件路径，如果未提供，将自动生成自签名证书。
 4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
 
-安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。详细文档请查看 [nat-console/README.md](nat-console/README.md)
+安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。
+
+**多后端管理**：登录页面可配置后端 API 地址，支持跨域访问不同服务器。在"后端设置"标签页可添加、切换多个后端地址，方便管理多台服务器。留空后端地址则使用当前服务器。
+
+详细文档请查看 [nat-console/README.md](nat-console/README.md)
 
 ### 升级 WebUI
 

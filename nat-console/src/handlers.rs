@@ -1,5 +1,11 @@
 use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
-use axum::{Json, extract::{State, Request}, http::StatusCode, response::{Html, Response}, middleware::Next};
+use axum::{
+    Json,
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::Next,
+    response::{Html, Response},
+};
 use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig, LOGOUT_COOKIE};
 use axum_extra::extract::CookieJar;
 use log::{error, info};
@@ -229,21 +235,20 @@ pub async fn hybrid_auth_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     // 1. 优先检查 Authorization header
-    if let Some(auth_header) = request.headers().get(axum::http::header::AUTHORIZATION) {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                // 验证 token
-                match Claims::<ClaimsPayload>::decode(token, &jwt_config) {
-                    Ok(claims) => {
-                        // 将 Claims 存入 request extensions，供后续 handler 使用
-                        request.extensions_mut().insert(claims);
-                        return Ok(next.run(request).await);
-                    }
-                    Err(e) => {
-                        error!("Invalid Bearer token: {:?}", e);
-                        return Err(StatusCode::UNAUTHORIZED);
-                    }
-                }
+    if let Some(auth_header) = request.headers().get(axum::http::header::AUTHORIZATION)
+        && let Ok(auth_str) = auth_header.to_str()
+        && let Some(token) = auth_str.strip_prefix("Bearer ")
+    {
+        // 验证 token
+        match Claims::<ClaimsPayload>::decode(token, &jwt_config) {
+            Ok(claims) => {
+                // 将 Claims 存入 request extensions，供后续 handler 使用
+                request.extensions_mut().insert(claims);
+                return Ok(next.run(request).await);
+            }
+            Err(e) => {
+                error!("Invalid Bearer token: {:?}", e);
+                return Err(StatusCode::UNAUTHORIZED);
             }
         }
     }
