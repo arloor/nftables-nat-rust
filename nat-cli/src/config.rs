@@ -193,7 +193,7 @@ impl NatCell {
                         "IPv6 target address resolved but rule is configured for IPv4 only",
                     ));
                 }
-                result += &self.build_ipv4_rules(&dst_ip)?;
+                result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V4)?;
             }
             IpVersion::V6 => {
                 if !is_ipv6_target {
@@ -202,13 +202,13 @@ impl NatCell {
                         "IPv4 target address resolved but rule is configured for IPv6 only",
                     ));
                 }
-                result += &self.build_ipv6_rules(&dst_ip)?;
+                result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V6)?;
             }
             IpVersion::All => {
                 if is_ipv6_target {
-                    result += &self.build_ipv6_rules(&dst_ip)?;
+                    result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V6)?;
                 } else {
-                    result += &self.build_ipv4_rules(&dst_ip)?;
+                    result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V4)?;
                 }
             }
         }
@@ -216,10 +216,17 @@ impl NatCell {
         Ok(result)
     }
 
-    fn build_ipv4_rules(&self, dst_ip: &str) -> Result<String, io::Error> {
-        // 从环境变量读取本机ip或自动探测
-        let local_ip = env::var("nat_local_ip");
-        let snat_to_part = match local_ip {
+    fn build_rules_for_ip_version(&self, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
+        let (family, ip_daddr, env_var, localhost_addr, fmt_ip) = match ip_version {
+            IpVersion::V4 => ("ip", "ip daddr", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
+            IpVersion::V6 => ("ip6", "ip6 daddr", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
+            IpVersion::All => return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "IpVersion::All should be handled at caller level",
+            )),
+        };
+
+        let snat_to_part = match env::var(env_var) {
             Ok(ip) => "snat to ".to_owned() + &ip,
             Err(_) => "masquerade".to_owned(),
         };
@@ -234,13 +241,10 @@ impl NatCell {
             } => {
                 let proto = protocol.nft_proto();
                 let res = format!(
-                    "add rule ip self-nat PREROUTING ct state new {proto} dport {portStart}-{portEnd} counter dnat to {dstIp}:{portStart}-{portEnd} comment \"{cell}\"\n\
-                    add rule ip self-nat POSTROUTING ct state new ip daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{port_start}-{port_end} comment \"{cell}\"\n\
+                    add rule {family} self-nat POSTROUTING ct state new {ip_daddr} {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
                     ",
                     cell = self,
-                    portStart = port_start,
-                    portEnd = port_end,
-                    dstIp = dst_ip,
                 );
                 Ok(res)
             }
@@ -252,105 +256,24 @@ impl NatCell {
                 ip_version: _,
             } => {
                 let proto = protocol.nft_proto();
-                match dst_domain.as_str() {
-                    "localhost" | "127.0.0.1" => {
-                        // 重定向到本机
-                        let res = format!(
-                            "add rule ip self-nat PREROUTING ct state new {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
-                            ",
-                            cell = self,
-                            localPort = src_port,
-                            remotePort = dst_port,
-                        );
-                        Ok(res)
-                    }
-                    _ => {
-                        // 转发到其他机器
-                        let res = format!(
-                            "add rule ip self-nat PREROUTING ct state new {proto} dport {localPort} counter dnat to {dstIp}:{dstPort}  comment \"{cell}\"\n\
-                            add rule ip self-nat POSTROUTING ct state new ip daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
-                            ",
-                            cell = self,
-                            localPort = src_port,
-                            dstPort = dst_port,
-                            dstIp = dst_ip,
-                        );
-                        Ok(res)
-                    }
-                }
-            }
-            NatCell::Comment { .. } => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Comment cell cannot be built",
-            )),
-            NatCell::Redirect { .. } => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Redirect cell should be built via build_redirect_rules",
-            )),
-        }
-    }
-
-    fn build_ipv6_rules(&self, dst_ip: &str) -> Result<String, io::Error> {
-        // 从环境变量读取本机IPv6或自动探测
-        let local_ipv6 = env::var("nat_local_ipv6");
-        let snat_to_part = match local_ipv6 {
-            Ok(ip) => "snat to ".to_owned() + &ip,
-            Err(_) => "masquerade".to_owned(),
-        };
-
-        match &self {
-            NatCell::Range {
-                port_start,
-                port_end,
-                dst_domain: _,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
-                let res = format!(
-                    "add rule ip6 self-nat PREROUTING ct state new {proto} dport {portStart}-{portEnd} counter dnat to [{dstIp}]:{portStart}-{portEnd} comment \"{cell}\"\n\
-                    add rule ip6 self-nat POSTROUTING ct state new ip6 daddr {dstIp} {proto} dport {portStart}-{portEnd} counter {snat_to_part} comment \"{cell}\"\n\n\
-                    ",
-                    cell = self,
-                    portStart = port_start,
-                    portEnd = port_end,
-                    dstIp = dst_ip,
-                );
-                Ok(res)
-            }
-            NatCell::Single {
-                src_port,
-                dst_port,
-                dst_domain,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
-                match dst_domain.as_str() {
-                    "localhost" | "::1" => {
-                        // 重定向到本机IPv6
-                        let res = format!(
-                            "add rule ip6 self-nat PREROUTING ct state new {proto} dport {localPort} redirect to :{remotePort}  comment \"{cell}\"\n\n\
-                            ",
-                            cell = self,
-                            localPort = src_port,
-                            remotePort = dst_port,
-                        );
-                        Ok(res)
-                    }
-                    _ => {
-                        // 转发到其他机器
-                        let res = format!(
-                            "add rule ip6 self-nat PREROUTING ct state new {proto} dport {localPort} counter dnat to [{dstIp}]:{dstPort}  comment \"{cell}\"\n\
-                            add rule ip6 self-nat POSTROUTING ct state new ip6 daddr {dstIp} {proto} dport {dstPort} counter {snat_to_part} comment \"{cell}\"\n\n\
-                            ",
-                            cell = self,
-                            localPort = src_port,
-                            dstPort = dst_port,
-                            dstIp = dst_ip,
-                        );
-                        Ok(res)
-                    }
+                let is_localhost = dst_domain == "localhost" || dst_domain == localhost_addr;
+                if is_localhost {
+                    // 重定向到本机
+                    let res = format!(
+                        "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port}  comment \"{cell}\"\n\n\
+                        ",
+                        cell = self,
+                    );
+                    Ok(res)
+                } else {
+                    // 转发到其他机器
+                    let res = format!(
+                        "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} counter dnat to {fmt_ip}:{dst_port}  comment \"{cell}\"\n\
+                        add rule {family} self-nat POSTROUTING ct state new {ip_daddr} {dst_ip} {proto} dport {dst_port} counter {snat_to_part} comment \"{cell}\"\n\n\
+                        ",
+                        cell = self,
+                    );
+                    Ok(res)
                 }
             }
             NatCell::Comment { .. } => Err(io::Error::new(
