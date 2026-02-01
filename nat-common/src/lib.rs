@@ -44,17 +44,14 @@ impl From<ParseIntError> for ParseError {
 
 // IP版本枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum IpVersion {
     V4,
     V6,
+    #[default]
     All, // 优先IPv4，如果IPv4不可用则使用IPv6
 }
 
-impl Default for IpVersion {
-    fn default() -> Self {
-        IpVersion::All
-    }
-}
 
 impl Display for IpVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -108,17 +105,12 @@ impl<'de> Deserialize<'de> for IpVersion {
 }
 
 // 协议枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Protocol {
+    #[default]
     All,
     Tcp,
     Udp,
-}
-
-impl Default for Protocol {
-    fn default() -> Self {
-        Protocol::All
-    }
 }
 
 impl Display for Protocol {
