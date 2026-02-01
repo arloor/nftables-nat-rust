@@ -31,8 +31,8 @@
                 "your_strong_password_here",
                 "--jwt-secret",
                 "dev-secret-key-do-not-use-in-production",
-                "--toml-config=${workspaceFolder}/nat.toml",
-                // "--compatible-config=${workspaceFolder}/nat.conf",
+                // "--toml-config=${workspaceFolder}/nat.toml",
+                "--compatible-config=${workspaceFolder}/nat.conf",
                 "--cert",
                 "${workspaceFolder}/cert.pem",
                 "--key",
@@ -63,8 +63,8 @@
                 }
             },
             "args": [
-                // "${workspaceFolder}/nat.conf",
-                "--toml=${workspaceFolder}/nat.toml"
+                "${workspaceFolder}/nat.conf",
+                // "--toml=${workspaceFolder}/nat.toml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

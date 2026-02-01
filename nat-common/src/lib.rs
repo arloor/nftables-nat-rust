@@ -440,8 +440,8 @@ impl TryFrom<&str> for NftCell {
             let mut protocol = Protocol::All;
 
             // 解析key=value对和其他参数
-            for i in 2..cells.len() {
-                let cell = cells[i].trim();
+            for cell in cells.iter().skip(2) {
+                let cell = cell.trim();
 
                 // 检查是否是协议
                 if cell == "tcp" || cell == "udp" || cell == "all" {
@@ -486,7 +486,9 @@ impl TryFrom<&str> for NftCell {
                             }
                         }
                         _ => {
-                            return Err(ParseError::InvalidFormat(format!("未知的过滤参数: {key}")));
+                            return Err(ParseError::InvalidFormat(format!(
+                                "未知的过滤参数: {key}"
+                            )));
                         }
                     }
                 }
