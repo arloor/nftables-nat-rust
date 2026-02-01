@@ -8,7 +8,7 @@ use std::fs;
 use std::io;
 
 #[derive(Debug)]
-pub enum NatCell {
+pub enum NftCell {
     Single {
         src_port: i32,
         dst_port: i32,
@@ -35,10 +35,10 @@ pub enum NatCell {
     },
 }
 
-impl Display for NatCell {
+impl Display for NftCell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NatCell::Single {
+            NftCell::Single {
                 src_port,
                 dst_port,
                 dst_domain,
@@ -48,7 +48,7 @@ impl Display for NatCell {
                 f,
                 "SINGLE,{src_port},{dst_port},{dst_domain},{protocol},{ip_version}"
             ),
-            NatCell::Range {
+            NftCell::Range {
                 port_start,
                 port_end,
                 dst_domain,
@@ -58,7 +58,7 @@ impl Display for NatCell {
                 f,
                 "RANGE,{port_start},{port_end},{dst_domain},{protocol},{ip_version}"
             ),
-            NatCell::Redirect {
+            NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
@@ -74,29 +74,29 @@ impl Display for NatCell {
                     write!(f, "REDIRECT,{src_port},{dst_port},{protocol},{ip_version}")
                 }
             }
-            NatCell::Comment { content } => write!(f, "{content}"),
+            NftCell::Comment { content } => write!(f, "{content}"),
         }
     }
 }
 
-impl NatCell {
+impl NftCell {
     pub fn build(&self) -> Result<String, io::Error> {
         let (dst_domain, ip_version) = match &self {
-            NatCell::Single {
+            NftCell::Single {
                 dst_domain,
                 ip_version,
                 ..
             } => (dst_domain, ip_version),
-            NatCell::Range {
+            NftCell::Range {
                 dst_domain,
                 ip_version,
                 ..
             } => (dst_domain, ip_version),
-            NatCell::Redirect { ip_version, .. } => {
+            NftCell::Redirect { ip_version, .. } => {
                 // Redirect doesn't need domain resolution
                 return self.build_redirect_rules(ip_version);
             }
-            NatCell::Comment { content } => return Ok(content.clone() + "\n"),
+            NftCell::Comment { content } => return Ok(content.clone() + "\n"),
         };
 
         // 根据配置的IP版本解析目标IP
@@ -156,7 +156,7 @@ impl NatCell {
         };
 
         match &self {
-            NatCell::Range {
+            NftCell::Range {
                 port_start,
                 port_end,
                 dst_domain: _,
@@ -172,7 +172,7 @@ impl NatCell {
                 );
                 Ok(res)
             }
-            NatCell::Single {
+            NftCell::Single {
                 src_port,
                 dst_port,
                 dst_domain,
@@ -200,11 +200,11 @@ impl NatCell {
                     Ok(res)
                 }
             }
-            NatCell::Comment { .. } => Err(io::Error::new(
+            NftCell::Comment { .. } => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Comment cell cannot be built",
             )),
-            NatCell::Redirect { .. } => Err(io::Error::new(
+            NftCell::Redirect { .. } => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Redirect cell should be built via build_redirect_rules",
             )),
@@ -239,7 +239,7 @@ impl NatCell {
             }
         };
         match &self {
-            NatCell::Redirect {
+            NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
@@ -277,12 +277,12 @@ impl NatCell {
     }
 
     /// 解析一行配置，返回NatCell或错误
-    pub fn parse(line: &str) -> Result<Option<NatCell>, io::Error> {
+    pub fn parse(line: &str) -> Result<Option<NftCell>, io::Error> {
         let line = line.trim();
 
         // 处理注释
         if line.starts_with('#') {
-            return Ok(Some(NatCell::Comment {
+            return Ok(Some(NftCell::Comment {
                 content: line.to_string(),
             }));
         }
@@ -363,7 +363,7 @@ impl NatCell {
                     io::Error::new(io::ErrorKind::InvalidData, format!("无法解析结束端口: {e}"))
                 })?;
 
-                Ok(Some(NatCell::Range {
+                Ok(Some(NftCell::Range {
                     port_start,
                     port_end,
                     dst_domain: cells[3].trim().to_string(),
@@ -380,7 +380,7 @@ impl NatCell {
                     io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
                 })?;
 
-                Ok(Some(NatCell::Single {
+                Ok(Some(NftCell::Single {
                     src_port,
                     dst_port,
                     dst_domain: cells[3].trim().to_string(),
@@ -420,7 +420,7 @@ impl NatCell {
                     io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
                 })?;
 
-                Ok(Some(NatCell::Redirect {
+                Ok(Some(NftCell::Redirect {
                     src_port,
                     src_port_end,
                     dst_port,
@@ -530,14 +530,14 @@ pub(crate) fn example(conf: &str) {
     )
 }
 
-pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
+pub fn read_config(conf: &str) -> Result<Vec<NftCell>, io::Error> {
     let mut nat_cells = vec![];
     let mut contents = fs::read_to_string(conf)?;
     contents = contents.replace("\r\n", "\n");
 
     let strs = contents.split('\n');
     for line in strs {
-        if let Some(nat_cell) = NatCell::parse(line)? {
+        if let Some(nat_cell) = NftCell::parse(line)? {
             nat_cells.push(nat_cell);
         }
     }
@@ -545,7 +545,7 @@ pub fn read_config(conf: &str) -> Result<Vec<NatCell>, io::Error> {
 }
 
 // 读取TOML配置文件
-pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
+pub fn read_toml_config(toml_path: &str) -> Result<Vec<NftCell>, io::Error> {
     let contents = fs::read_to_string(toml_path)?;
 
     // 使用 nat-common 的解析和验证
@@ -566,12 +566,12 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
             } => {
                 // 如果有注释，先添加注释
                 if let Some(comment_text) = comment {
-                    nat_cells.push(NatCell::Comment {
+                    nat_cells.push(NftCell::Comment {
                         content: format!("# {comment_text}"),
                     });
                 }
 
-                nat_cells.push(NatCell::Single {
+                nat_cells.push(NftCell::Single {
                     src_port: sport as i32,
                     dst_port: dport as i32,
                     dst_domain: domain,
@@ -589,12 +589,12 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
             } => {
                 // 如果有注释，先添加注释
                 if let Some(comment_text) = comment {
-                    nat_cells.push(NatCell::Comment {
+                    nat_cells.push(NftCell::Comment {
                         content: format!("# {comment_text}"),
                     });
                 }
 
-                nat_cells.push(NatCell::Range {
+                nat_cells.push(NftCell::Range {
                     port_start: port_start as i32,
                     port_end: port_end as i32,
                     dst_domain: domain,
@@ -612,12 +612,12 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<NatCell>, io::Error> {
             } => {
                 // 如果有注释，先添加注释
                 if let Some(comment_text) = comment {
-                    nat_cells.push(NatCell::Comment {
+                    nat_cells.push(NftCell::Comment {
                         content: format!("# {comment_text}"),
                     });
                 }
 
-                nat_cells.push(NatCell::Redirect {
+                nat_cells.push(NftCell::Redirect {
                     src_port: src_port as i32,
                     src_port_end: src_port_end.map(|p| p as i32),
                     dst_port: dst_port as i32,
@@ -689,10 +689,10 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_single_port() {
         let line = "REDIRECT,8000,3128";
-        let result = NatCell::parse(line).unwrap();
+        let result = NftCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect {
+            NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
@@ -709,10 +709,10 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_port_range() {
         let line = "REDIRECT,30001-39999,45678";
-        let result = NatCell::parse(line).unwrap();
+        let result = NftCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect {
+            NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
@@ -729,10 +729,10 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_with_protocol() {
         let line = "REDIRECT,9000,8080,tcp";
-        let result = NatCell::parse(line).unwrap();
+        let result = NftCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Redirect {
+            NftCell::Redirect {
                 src_port, dst_port, ..
             } => {
                 assert_eq!(src_port, 9000);
@@ -745,10 +745,10 @@ mod redirect_parse_tests {
     #[test]
     fn test_backward_compatibility_localhost() {
         let line = "SINGLE,2222,22,localhost";
-        let result = NatCell::parse(line).unwrap();
+        let result = NftCell::parse(line).unwrap();
         assert!(result.is_some());
         match result.unwrap() {
-            NatCell::Single {
+            NftCell::Single {
                 src_port,
                 dst_port,
                 dst_domain,
@@ -770,7 +770,7 @@ mod redirect_build_tests {
 
     #[test]
     fn test_build_redirect_single_ipv4() {
-        let cell = NatCell::Redirect {
+        let cell = NftCell::Redirect {
             src_port: 8000,
             src_port_end: None,
             dst_port: 3128,
@@ -786,7 +786,7 @@ mod redirect_build_tests {
 
     #[test]
     fn test_build_redirect_range_ipv4() {
-        let cell = NatCell::Redirect {
+        let cell = NftCell::Redirect {
             src_port: 30001,
             src_port_end: Some(39999),
             dst_port: 45678,
@@ -805,7 +805,7 @@ mod redirect_build_tests {
 
     #[test]
     fn test_build_redirect_both_ipv() {
-        let cell = NatCell::Redirect {
+        let cell = NftCell::Redirect {
             src_port: 5000,
             src_port_end: None,
             dst_port: 4000,
