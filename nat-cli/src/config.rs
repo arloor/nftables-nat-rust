@@ -1,17 +1,18 @@
 #![deny(warnings)]
 use crate::ip;
 use log::info;
-use nat_common::{IpVersion, NftCell, ParseError, Protocol, TomlConfig};
+use nat_common::{FilterRule, IpVersion, NftCell, ParseError, Protocol, TomlConfig, Chain};
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
 
-/// 运行时Cell，包装NftCell和Comment
+/// 运行时Cell，包装NftCell、FilterRule和Comment
 /// Comment仅用于运行时表示，不进入TOML配置
 #[derive(Debug)]
 pub enum RuntimeCell {
     Rule(NftCell),
+    Filter(FilterRule),
     Comment(String),
 }
 
@@ -19,6 +20,7 @@ impl Display for RuntimeCell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RuntimeCell::Rule(cell) => write!(f, "{}", cell),
+            RuntimeCell::Filter(filter) => write!(f, "{}", filter),
             RuntimeCell::Comment(content) => write!(f, "{}", content),
         }
     }
@@ -110,9 +112,95 @@ impl RuntimeCell {
     pub fn build(&self) -> Result<String, io::Error> {
         match self {
             RuntimeCell::Rule(cell) => cell.build(),
+            RuntimeCell::Filter(filter) => build_filter_rule(filter),
             RuntimeCell::Comment(content) => Ok(content.clone() + "\n"),
         }
     }
+}
+
+/// 构建过滤规则的nftables脚本
+fn build_filter_rule(filter: &FilterRule) -> Result<String, io::Error> {
+    let mut result = String::new();
+
+    match filter.ip_version {
+        IpVersion::All => {
+            result += &build_filter_rule_for_family(filter, &IpVersion::V4)?;
+            result += &build_filter_rule_for_family(filter, &IpVersion::V6)?;
+        }
+        _ => {
+            result += &build_filter_rule_for_family(filter, &filter.ip_version)?;
+        }
+    }
+
+    Ok(result)
+}
+
+/// 为特定IP family构建过滤规则
+fn build_filter_rule_for_family(filter: &FilterRule, ip_version: &IpVersion) -> Result<String, io::Error> {
+    let (family, ip_prefix) = match ip_version {
+        IpVersion::V4 => ("ip", "ip"),
+        IpVersion::V6 => ("ip6", "ip6"),
+        IpVersion::All => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "IpVersion::All should be handled at caller level",
+            ));
+        }
+    };
+
+    let chain_name = match filter.chain {
+        Chain::Input => "INPUT",
+        Chain::Forward => "FORWARD",
+    };
+
+    let mut conditions = Vec::new();
+
+    // 添加协议条件
+    if filter.protocol != Protocol::All || filter.src_port.is_some() || filter.dst_port.is_some() {
+        let proto = filter.protocol.nft_proto();
+        conditions.push(proto.to_string());
+    }
+
+    // 添加源IP条件
+    if let Some(ref src_ip) = filter.src_ip {
+        conditions.push(format!("{} saddr {}", ip_prefix, src_ip));
+    }
+
+    // 添加目标IP条件
+    if let Some(ref dst_ip) = filter.dst_ip {
+        conditions.push(format!("{} daddr {}", ip_prefix, dst_ip));
+    }
+
+    // 添加源端口条件
+    if let Some(src_port) = filter.src_port {
+        if let Some(end) = filter.src_port_end {
+            conditions.push(format!("sport {}-{}", src_port, end));
+        } else {
+            conditions.push(format!("sport {}", src_port));
+        }
+    }
+
+    // 添加目标端口条件
+    if let Some(dst_port) = filter.dst_port {
+        if let Some(end) = filter.dst_port_end {
+            conditions.push(format!("dport {}-{}", dst_port, end));
+        } else {
+            conditions.push(format!("dport {}", dst_port));
+        }
+    }
+
+    let conditions_str = conditions.join(" ");
+    let comment_str = if let Some(ref comment) = filter.comment {
+        format!(" comment \"{}\"", comment)
+    } else {
+        format!(" comment \"{}\"", filter)
+    };
+
+    let rule = format!(
+        "add rule {family} self-filter {chain_name} {conditions_str} counter drop{comment_str}\n\n"
+    );
+
+    Ok(rule)
 }
 
 fn build_nat_rules(cell: &NftCell, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
@@ -242,7 +330,7 @@ fn build_redirect_rule(cell: &NftCell, ip_version: &IpVersion) -> Result<String,
 /// 解析一行legacy配置，返回RuntimeCell或错误
 /// 注释行返回 Some(RuntimeCell::Comment)
 /// 空行返回 None
-/// 规则行返回 Some(RuntimeCell::Rule)
+/// 规则行返回 Some(RuntimeCell::Rule) 或 Some(RuntimeCell::Filter)
 fn parse_legacy_line(line: &str) -> Option<RuntimeCell> {
     let line = line.trim();
 
@@ -251,7 +339,17 @@ fn parse_legacy_line(line: &str) -> Option<RuntimeCell> {
         return Some(RuntimeCell::Comment(line.to_string()));
     }
 
-    // 使用 nat-common 的 TryFrom 解析
+    // 先尝试解析为FilterRule
+    match FilterRule::try_from(line) {
+        Ok(filter) => return Some(RuntimeCell::Filter(filter)),
+        Err(ParseError::Skip) => {} // 不是Filter规则，继续尝试其他类型
+        Err(ParseError::InvalidFormat(msg)) => {
+            log::warn!("跳过无效的过滤规则: {}", msg);
+            return None;
+        }
+    }
+
+    // 使用 nat-common 的 TryFrom 解析NAT规则
     match NftCell::try_from(line) {
         Ok(cell) => Some(RuntimeCell::Rule(cell)),
         Err(ParseError::Skip) => None,
@@ -269,12 +367,18 @@ pub(crate) fn example(conf: &str) {
         "SINGLE,10000,443,baidu.com,all,ipv4\n\
                     RANGE,1000,2000,baidu.com,tcp,ipv6\n\
                     REDIRECT,8000,3128,all,ipv4\n\
-                    REDIRECT,8000-9000,3128,tcp,both\n\
+                    REDIRECT,8000-9000,3128,tcp,all\n\
+                    FILTER,input,src_ip=180.213.132.211,all,ipv4\n\
+                    FILTER,input,src_ip=240e:328:1301::/48,all,ipv6\n\
+                    FILTER,forward,dst_port=22,tcp,all\n\
                     # 格式: TYPE,port(s),port/domain,protocol,ip_version\n\
-                    # TYPE: SINGLE, RANGE, 或 REDIRECT\n\
+                    # TYPE: SINGLE, RANGE, REDIRECT 或 FILTER\n\
                     # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port-src_port_end,dst_port\n\
+                    # FILTER格式: FILTER,chain,key=value,...,protocol,ip_version\n\
+                    #   chain: input 或 forward\n\
+                    #   key=value: src_ip=IP, dst_ip=IP, src_port=PORT, dst_port=PORT\n\
                     # protocol: tcp, udp, all\n\
-                    # ip_version: ipv4, ipv6, both"
+                    # ip_version: ipv4, ipv6, all"
     )
 }
 
@@ -301,6 +405,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<RuntimeCell>, io::Error> 
 
     let mut cells = Vec::new();
 
+    // 处理NAT规则
     for rule in config.rules {
         // 如果有注释，先添加注释
         let comment = match &rule {
@@ -314,6 +419,15 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<RuntimeCell>, io::Error> 
         }
 
         cells.push(RuntimeCell::Rule(rule));
+    }
+
+    // 处理过滤规则
+    for filter in config.filters {
+        if let Some(ref comment_text) = filter.comment {
+            cells.push(RuntimeCell::Comment(format!("# {comment_text}")));
+        }
+
+        cells.push(RuntimeCell::Filter(filter));
     }
 
     Ok(cells)
@@ -354,6 +468,44 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 protocol: Protocol::Tcp,
                 ip_version: IpVersion::All,
                 comment: Some("端口范围重定向到本机示例".to_string()),
+            },
+        ],
+        filters: vec![
+            FilterRule {
+                chain: Chain::Input,
+                src_ip: Some("180.213.132.211".to_string()),
+                dst_ip: None,
+                src_port: None,
+                src_port_end: None,
+                dst_port: None,
+                dst_port_end: None,
+                protocol: Protocol::All,
+                ip_version: IpVersion::V4,
+                comment: Some("阻止特定IPv4地址".to_string()),
+            },
+            FilterRule {
+                chain: Chain::Input,
+                src_ip: Some("240e:328:1301::/48".to_string()),
+                dst_ip: None,
+                src_port: None,
+                src_port_end: None,
+                dst_port: None,
+                dst_port_end: None,
+                protocol: Protocol::All,
+                ip_version: IpVersion::V6,
+                comment: Some("阻止IPv6网段".to_string()),
+            },
+            FilterRule {
+                chain: Chain::Input,
+                src_ip: None,
+                dst_ip: None,
+                src_port: None,
+                src_port_end: None,
+                dst_port: Some(22),
+                dst_port_end: None,
+                protocol: Protocol::Tcp,
+                ip_version: IpVersion::All,
+                comment: Some("阻止SSH端口访问".to_string()),
             },
         ],
     };

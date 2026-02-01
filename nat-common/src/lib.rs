@@ -113,6 +113,62 @@ pub enum Protocol {
     Udp,
 }
 
+// Filter链类型枚举
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Chain {
+    #[default]
+    Input,
+    Forward,
+}
+
+impl Display for Chain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Chain::Input => write!(f, "input"),
+            Chain::Forward => write!(f, "forward"),
+        }
+    }
+}
+
+impl From<String> for Chain {
+    fn from(chain: String) -> Self {
+        match chain.to_lowercase().as_str() {
+            "input" => Chain::Input,
+            "forward" => Chain::Forward,
+            _ => Chain::Input,
+        }
+    }
+}
+
+impl From<&str> for Chain {
+    fn from(chain: &str) -> Self {
+        match chain.to_lowercase().as_str() {
+            "input" => Chain::Input,
+            "forward" => Chain::Forward,
+            _ => Chain::Input,
+        }
+    }
+}
+
+impl Serialize for Chain {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Chain {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Chain::from(s))
+    }
+}
+
 impl Display for Protocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -171,7 +227,66 @@ impl<'de> Deserialize<'de> for Protocol {
 // TOML配置结构定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TomlConfig {
+    #[serde(default)]
     pub rules: Vec<NftCell>,
+    #[serde(default)]
+    pub filters: Vec<FilterRule>,
+}
+
+// Filter规则定义
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FilterRule {
+    #[serde(default)]
+    pub chain: Chain,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub src_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dst_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub src_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub src_port_end: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dst_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dst_port_end: Option<u16>,
+    #[serde(default)]
+    pub protocol: Protocol,
+    #[serde(default)]
+    pub ip_version: IpVersion,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+impl Display for FilterRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = vec![format!("FILTER,{}", self.chain)];
+        
+        if let Some(ref ip) = self.src_ip {
+            parts.push(format!("src_ip={}", ip));
+        }
+        if let Some(ref ip) = self.dst_ip {
+            parts.push(format!("dst_ip={}", ip));
+        }
+        if let Some(port) = self.src_port {
+            if let Some(end) = self.src_port_end {
+                parts.push(format!("src_port={}-{}", port, end));
+            } else {
+                parts.push(format!("src_port={}", port));
+            }
+        }
+        if let Some(port) = self.dst_port {
+            if let Some(end) = self.dst_port_end {
+                parts.push(format!("dst_port={}-{}", port, end));
+            } else {
+                parts.push(format!("dst_port={}", port));
+            }
+        }
+        parts.push(format!("{}", self.protocol));
+        parts.push(format!("{}", self.ip_version));
+        
+        write!(f, "{}", parts.join(","))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -274,6 +389,10 @@ impl TomlConfig {
             rule.validate()
                 .map_err(|e| format!("规则 {} 验证失败: {}", idx + 1, e))?;
         }
+        for (idx, filter) in self.filters.iter().enumerate() {
+            filter.validate()
+                .map_err(|e| format!("过滤规则 {} 验证失败: {}", idx + 1, e))?;
+        }
         Ok(())
     }
 
@@ -306,6 +425,11 @@ impl TryFrom<&str> for NftCell {
 
         let cells: Vec<&str> = line.split(',').collect();
         let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
+
+        // 如果是FILTER类型，返回Skip让FilterRule处理
+        if rule_type == "FILTER" {
+            return Err(ParseError::Skip);
+        }
 
         // 验证字段数量
         match rule_type {
@@ -420,6 +544,119 @@ impl TryFrom<&str> for NftCell {
     }
 }
 
+impl TryFrom<&str> for FilterRule {
+    type Error = ParseError;
+
+    /// 从legacy格式行解析FilterRule
+    /// 格式: FILTER,chain,key=value,key=value,...,protocol,ip_version
+    /// 示例: FILTER,input,src_ip=192.168.1.1,tcp,ipv4
+    /// 示例: FILTER,forward,dst_port=80-443,src_ip=10.0.0.0/24,tcp,all
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
+        let line = line.trim();
+
+        // 处理注释和空行
+        if line.is_empty() || line.starts_with('#') {
+            return Err(ParseError::Skip);
+        }
+
+        let cells: Vec<&str> = line.split(',').collect();
+        let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
+
+        if rule_type != "FILTER" {
+            return Err(ParseError::Skip);
+        }
+
+        if cells.len() < 3 {
+            return Err(ParseError::InvalidFormat(format!(
+                "无效的过滤规则: {line}, FILTER类型至少需要3个字段"
+            )));
+        }
+
+        let chain: Chain = cells[1].trim().into();
+        
+        let mut src_ip: Option<String> = None;
+        let mut dst_ip: Option<String> = None;
+        let mut src_port: Option<u16> = None;
+        let mut src_port_end: Option<u16> = None;
+        let mut dst_port: Option<u16> = None;
+        let mut dst_port_end: Option<u16> = None;
+        let mut protocol = Protocol::All;
+        let mut ip_version = IpVersion::All;
+
+        // 解析key=value对和其他参数
+        for i in 2..cells.len() {
+            let cell = cells[i].trim();
+            
+            // 检查是否是协议
+            if cell == "tcp" || cell == "udp" || cell == "all" {
+                protocol = cell.into();
+                continue;
+            }
+            
+            // 检查是否是IP版本
+            if cell == "ipv4" || cell == "ipv6" {
+                ip_version = cell.into();
+                continue;
+            }
+            
+            // 解析key=value
+            if let Some(eq_pos) = cell.find('=') {
+                let key = &cell[..eq_pos];
+                let value = &cell[eq_pos + 1..];
+                
+                match key {
+                    "src_ip" => src_ip = Some(value.to_string()),
+                    "dst_ip" => dst_ip = Some(value.to_string()),
+                    "src_port" => {
+                        if value.contains('-') {
+                            let parts: Vec<&str> = value.split('-').collect();
+                            if parts.len() != 2 {
+                                return Err(ParseError::InvalidFormat(format!(
+                                    "无效的端口范围格式: {value}"
+                                )));
+                            }
+                            src_port = Some(parts[0].parse::<u16>()?);
+                            src_port_end = Some(parts[1].parse::<u16>()?);
+                        } else {
+                            src_port = Some(value.parse::<u16>()?);
+                        }
+                    }
+                    "dst_port" => {
+                        if value.contains('-') {
+                            let parts: Vec<&str> = value.split('-').collect();
+                            if parts.len() != 2 {
+                                return Err(ParseError::InvalidFormat(format!(
+                                    "无效的端口范围格式: {value}"
+                                )));
+                            }
+                            dst_port = Some(parts[0].parse::<u16>()?);
+                            dst_port_end = Some(parts[1].parse::<u16>()?);
+                        } else {
+                            dst_port = Some(value.parse::<u16>()?);
+                        }
+                    }
+                    _ => return Err(ParseError::InvalidFormat(format!(
+                        "未知的过滤参数: {key}"
+                    ))),
+                }
+            }
+        }
+
+        Ok(FilterRule {
+            chain,
+            src_ip,
+            dst_ip,
+            src_port,
+            src_port_end,
+            dst_port,
+            dst_port_end,
+            protocol,
+            ip_version,
+            comment: None,
+        })
+    }
+}
+
 impl NftCell {
     /// 验证单个规则是否合法
     pub fn validate(&self) -> Result<(), String> {
@@ -470,6 +707,55 @@ impl NftCell {
                 validate_port(*dst_port)?;
             }
         }
+        Ok(())
+    }
+}
+
+impl FilterRule {
+    /// 验证过滤规则是否合法
+    pub fn validate(&self) -> Result<(), String> {
+        // 至少需要指定一个过滤条件
+        if self.src_ip.is_none() 
+            && self.dst_ip.is_none() 
+            && self.src_port.is_none() 
+            && self.dst_port.is_none() {
+            return Err("至少需要指定一个过滤条件（源IP、目标IP、源端口或目标端口）".to_string());
+        }
+        
+        // 验证端口范围
+        if let Some(port) = self.src_port {
+            validate_port(port)?;
+            if let Some(end) = self.src_port_end {
+                validate_port(end)?;
+                if port >= end {
+                    return Err(format!("源端口起始 {} 必须小于结束端口 {}", port, end));
+                }
+            }
+        }
+        
+        if let Some(port) = self.dst_port {
+            validate_port(port)?;
+            if let Some(end) = self.dst_port_end {
+                validate_port(end)?;
+                if port >= end {
+                    return Err(format!("目标端口起始 {} 必须小于结束端口 {}", port, end));
+                }
+            }
+        }
+        
+        // 验证IP地址格式（基础验证）
+        if let Some(ref ip) = self.src_ip {
+            if ip.trim().is_empty() {
+                return Err("源IP不能为空".to_string());
+            }
+        }
+        
+        if let Some(ref ip) = self.dst_ip {
+            if ip.trim().is_empty() {
+                return Err("目标IP不能为空".to_string());
+            }
+        }
+        
         Ok(())
     }
 }
