@@ -167,14 +167,14 @@ fn build_new_script(nat_cells: &[config::RuntimeCell]) -> Result<String, io::Err
         add chain ip6 self-nat PREROUTING { type nat hook prerouting priority -110 ; }\n\
         add chain ip6 self-nat POSTROUTING { type nat hook postrouting priority 110 ; }\n\
         \n\
-        # IPv4 Filter table\n\
+        # IPv4 Drop table\n\
         add table ip self-filter\n\
         delete table ip self-filter\n\
         add table ip self-filter\n\
         add chain ip self-filter INPUT { type filter hook input priority filter - 1 ; }\n\
         add chain ip self-filter FORWARD { type filter hook forward priority filter - 1 ; }\n\
         \n\
-        # IPv6 Filter table\n\
+        # IPv6 Drop table\n\
         add table ip6 self-filter\n\
         delete table ip6 self-filter\n\
         add table ip6 self-filter\n\

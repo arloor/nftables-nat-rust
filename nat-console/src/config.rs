@@ -193,7 +193,7 @@ pub fn get_nftables_rules() -> Result<String, io::Error> {
         Err(_) => "# IPv6 NAT table not found or not supported".to_string(),
     };
 
-    // Get IPv4 Filter rules
+    // Get IPv4 Drop rules
     let filter_output = Command::new("/usr/sbin/nft")
         .arg("list")
         .arg("table")
@@ -206,7 +206,7 @@ pub fn get_nftables_rules() -> Result<String, io::Error> {
         Err(_) => "# IPv4 filter table not found".to_string(),
     };
 
-    // Get IPv6 Filter rules
+    // Get IPv6 Drop rules
     let filter_output6 = Command::new("/usr/sbin/nft")
         .arg("list")
         .arg("table")
@@ -222,8 +222,8 @@ pub fn get_nftables_rules() -> Result<String, io::Error> {
     Ok(format!(
         "# IPv4 NAT Rules (table ip self-nat)\n{}\n\n\
          # IPv6 NAT Rules (table ip6 self-nat)\n{}\n\n\
-         # IPv4 Filter Rules (table ip self-filter)\n{}\n\n\
-         # IPv6 Filter Rules (table ip6 self-filter)\n{}",
+         # IPv4 Drop Rules (table ip self-filter)\n{}\n\n\
+         # IPv6 Drop Rules (table ip6 self-filter)\n{}",
         ipv4_nat_rules, ipv6_nat_rules, ipv4_filter_rules, ipv6_filter_rules
     ))
 }

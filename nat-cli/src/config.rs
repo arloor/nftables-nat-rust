@@ -377,7 +377,7 @@ fn parse_legacy_line(line: &str) -> Option<RuntimeCell> {
         return Some(RuntimeCell::Comment(line.to_string()));
     }
 
-    // 使用 nat-common 的 TryFrom 解析（包括NAT规则和Filter规则）
+    // 使用 nat-common 的 TryFrom 解析（包括NAT规则和Drop规则）
     match NftCell::try_from(line) {
         Ok(cell) => Some(RuntimeCell::Rule(cell)),
         Err(ParseError::Skip) => None,
