@@ -80,7 +80,11 @@ touch /opt/nat/env
 # 根据配置类型创建配置文件
 if [ "$CONFIG_TYPE" = "legacy" ]; then
     echo "创建 legacy 格式配置文件..."
-    touch "$CONFIG_FILE"
+    if [ ! -s "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" <<EOF
+# 配置方式参考 https://github.com/arloor/nftables-nat-rust/blob/master/README.md#%E4%BC%A0%E7%BB%9F%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6
+EOF
+    fi
     
     # 生成示例配置文件
     cat > "$EXAMPLE_FILE" <<EOF
@@ -102,9 +106,11 @@ EOF
 else
     echo "创建 TOML 格式配置文件..."
     # Check if /etc/nat.toml exists, if not create it with example content
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo "rules = []" > "$CONFIG_FILE"
-        echo "Created $CONFIG_FILE with no rules. Refer to $EXAMPLE_FILE for more example rules."
+    if [ ! -s "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" <<EOF
+# 配置方式参考 https://github.com/arloor/nftables-nat-rust/blob/master/README.md#toml-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E6%8E%A8%E8%8D%90
+rules = []
+EOF
     fi
     
     # 生成示例配置文件
