@@ -368,61 +368,29 @@ impl NatCell {
         let mut result = String::new();
 
         match ip_version {
-            IpVersion::V4 => {
-                result += &self.build_ipv4_redirect_rules()?;
-            }
-            IpVersion::V6 => {
-                result += &self.build_ipv6_redirect_rules()?;
-            }
             IpVersion::All => {
-                result += &self.build_ipv4_redirect_rules()?;
-                result += &self.build_ipv6_redirect_rules()?;
+                result += &self.build_redirect_rule(&IpVersion::V4)?;
+                result += &self.build_redirect_rule(&IpVersion::V6)?;
+            }
+            _ => {
+                result += &self.build_redirect_rule(ip_version)?;
             }
         }
 
         Ok(result)
     }
 
-    fn build_ipv4_redirect_rules(&self) -> Result<String, io::Error> {
-        match &self {
-            NatCell::Redirect {
-                src_port,
-                src_port_end,
-                dst_port,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
-                let res = if let Some(end) = src_port_end {
-                    // Range redirect
-                    format!(
-                        "add rule ip self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                        src_port = src_port,
-                        src_port_end = end,
-                        dst_port = dst_port,
-                    )
-                } else {
-                    // Single port redirect
-                    format!(
-                        "add rule ip self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                        src_port = src_port,
-                        dst_port = dst_port,
-                    )
-                };
-                Ok(res)
+    fn build_redirect_rule(&self, ip_version: &IpVersion) -> Result<String, io::Error> {
+        let ip_version = match ip_version {
+            IpVersion::V4 => "ip",
+            IpVersion::V6 => "ip6",
+            IpVersion::All => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "IP version for redirect rule cannot be All",
+                ));
             }
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Not a Redirect cell",
-            )),
-        }
-    }
-
-    fn build_ipv6_redirect_rules(&self) -> Result<String, io::Error> {
+        };
         match &self {
             NatCell::Redirect {
                 src_port,
@@ -435,7 +403,7 @@ impl NatCell {
                 let res = if let Some(end) = src_port_end {
                     // Range redirect
                     format!(
-                        "add rule ip6 self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule {ip_version} self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -445,7 +413,7 @@ impl NatCell {
                 } else {
                     // Single port redirect
                     format!(
-                        "add rule ip6 self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                        "add rule {ip_version} self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                         src_port = src_port,
@@ -903,11 +871,9 @@ mod redirect_build_tests {
 
         let result = cell.build().unwrap();
         // tcp协议只生成tcp规则
-        assert!(
-            result.contains(
-                "add rule ip self-nat PREROUTING ct state new tcp dport 30001-39999 redirect to :45678"
-            )
-        );
+        assert!(result.contains(
+            "add rule ip self-nat PREROUTING ct state new tcp dport 30001-39999 redirect to :45678"
+        ));
         assert!(!result.contains("udp")); // tcp协议不应该包含udp规则
         assert!(!result.contains("ip6")); // Should not have IPv6 rules
     }
