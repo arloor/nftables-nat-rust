@@ -989,6 +989,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "ipnetwork",
  "log",
  "nat-common",
  "serde",

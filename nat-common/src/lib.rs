@@ -44,15 +44,13 @@ impl From<ParseIntError> for ParseError {
 }
 
 // IP版本枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IpVersion {
     V4,
     V6,
     #[default]
     All, // 优先IPv4，如果IPv4不可用则使用IPv6
 }
-
 
 impl Display for IpVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -298,8 +296,6 @@ pub enum NftCell {
         dst_port_end: Option<u16>,
         #[serde(default)]
         protocol: Protocol,
-        #[serde(default)]
-        ip_version: IpVersion,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         comment: Option<String>,
     },
@@ -353,11 +349,10 @@ impl Display for NftCell {
                 dst_port,
                 dst_port_end,
                 protocol,
-                ip_version,
                 ..
             } => {
                 let mut parts = vec![format!("DROP,{}", chain)];
-                
+
                 if let Some(ip) = src_ip {
                     parts.push(format!("src_ip={}", ip));
                 }
@@ -379,8 +374,7 @@ impl Display for NftCell {
                     }
                 }
                 parts.push(format!("{}", protocol));
-                parts.push(format!("{}", ip_version));
-                
+
                 write!(f, "{}", parts.join(","))
             }
         }
@@ -436,7 +430,7 @@ impl TryFrom<&str> for NftCell {
             }
 
             let chain: Chain = cells[1].trim().into();
-            
+
             let mut src_ip: Option<String> = None;
             let mut dst_ip: Option<String> = None;
             let mut src_port: Option<u16> = None;
@@ -444,29 +438,22 @@ impl TryFrom<&str> for NftCell {
             let mut dst_port: Option<u16> = None;
             let mut dst_port_end: Option<u16> = None;
             let mut protocol = Protocol::All;
-            let mut ip_version = IpVersion::All;
 
             // 解析key=value对和其他参数
             for i in 2..cells.len() {
                 let cell = cells[i].trim();
-                
+
                 // 检查是否是协议
                 if cell == "tcp" || cell == "udp" || cell == "all" {
                     protocol = cell.into();
                     continue;
                 }
-                
-                // 检查是否是IP版本
-                if cell == "ipv4" || cell == "ipv6" {
-                    ip_version = cell.into();
-                    continue;
-                }
-                
+
                 // 解析key=value
                 if let Some(eq_pos) = cell.find('=') {
                     let key = &cell[..eq_pos];
                     let value = &cell[eq_pos + 1..];
-                    
+
                     match key {
                         "src_ip" => src_ip = Some(value.to_string()),
                         "dst_ip" => dst_ip = Some(value.to_string()),
@@ -498,9 +485,9 @@ impl TryFrom<&str> for NftCell {
                                 dst_port = Some(value.parse::<u16>()?);
                             }
                         }
-                        _ => return Err(ParseError::InvalidFormat(format!(
-                            "未知的过滤参数: {key}"
-                        ))),
+                        _ => {
+                            return Err(ParseError::InvalidFormat(format!("未知的过滤参数: {key}")));
+                        }
                     }
                 }
             }
@@ -514,7 +501,6 @@ impl TryFrom<&str> for NftCell {
                 dst_port,
                 dst_port_end,
                 protocol,
-                ip_version,
                 comment: None,
             });
         }
@@ -688,17 +674,16 @@ impl NftCell {
                 src_port_end,
                 dst_port,
                 dst_port_end,
-                ip_version,
                 ..
             } => {
                 // 至少需要指定一个过滤条件
-                if src_ip.is_none() 
-                    && dst_ip.is_none() 
-                    && src_port.is_none() 
-                    && dst_port.is_none() {
-                    return Err("至少需要指定一个过滤条件（源IP、目标IP、源端口或目标端口）".to_string());
+                if src_ip.is_none() && dst_ip.is_none() && src_port.is_none() && dst_port.is_none()
+                {
+                    return Err(
+                        "至少需要指定一个过滤条件（源IP、目标IP、源端口或目标端口）".to_string()
+                    );
                 }
-                
+
                 // 验证端口范围
                 if let Some(port) = src_port {
                     validate_port(*port)?;
@@ -709,7 +694,7 @@ impl NftCell {
                         }
                     }
                 }
-                
+
                 if let Some(port) = dst_port {
                     validate_port(*port)?;
                     if let Some(end) = dst_port_end {
@@ -719,20 +704,20 @@ impl NftCell {
                         }
                     }
                 }
-                
-                // 验证IP地址格式和IP版本匹配
+
+                // 验证IP地址格式
                 if let Some(ip) = src_ip {
                     if ip.trim().is_empty() {
                         return Err("源IP不能为空".to_string());
                     }
-                    validate_ip_version_match(ip, ip_version, "源IP")?;
+                    validate_ip_address(ip, "源IP")?;
                 }
-                
+
                 if let Some(ip) = dst_ip {
                     if ip.trim().is_empty() {
                         return Err("目标IP不能为空".to_string());
                     }
-                    validate_ip_version_match(ip, ip_version, "目标IP")?;
+                    validate_ip_address(ip, "目标IP")?;
                 }
             }
         }
@@ -747,33 +732,10 @@ fn validate_port(port: u16) -> Result<(), String> {
     Ok(())
 }
 
-/// 验证IP地址与IP版本是否匹配
-fn validate_ip_version_match(ip: &str, ip_version: &IpVersion, field_name: &str) -> Result<(), String> {
+/// 验证IP地址格式
+fn validate_ip_address(ip: &str, field_name: &str) -> Result<(), String> {
     // 尝试解析为 IpNetwork（支持 CIDR 表示法）
-    if let Ok(network) = ipnetwork::IpNetwork::from_str(ip) {
-        let is_ipv6 = network.is_ipv6();
-        
-        match ip_version {
-            IpVersion::V4 => {
-                if is_ipv6 {
-                    return Err(format!(
-                        "{}地址 '{}' 是IPv6格式，但IP版本设置为ipv4",
-                        field_name, ip
-                    ));
-                }
-            }
-            IpVersion::V6 => {
-                if !is_ipv6 {
-                    return Err(format!(
-                        "{}地址 '{}' 是IPv4格式，但IP版本设置为ipv6",
-                        field_name, ip
-                    ));
-                }
-            }
-            IpVersion::All => {
-                // All版本允许任何IP格式
-            }
-        }
+    if ipnetwork::IpNetwork::from_str(ip).is_ok() {
         Ok(())
     } else {
         Err(format!("{}地址 '{}' 格式无效", field_name, ip))
@@ -1003,14 +965,13 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V4,
             comment: None,
         };
         assert!(rule.validate().is_ok());
     }
 
     #[test]
-    fn test_drop_ipv6_with_ipv6_address() {
+    fn test_drop_with_ipv6_address() {
         let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("2001:db8::1".to_string()),
@@ -1020,7 +981,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V6,
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -1037,7 +997,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V4,
             comment: None,
         };
         let result = rule.validate();
@@ -1058,7 +1017,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V6,
             comment: None,
         };
         let result = rule.validate();
@@ -1079,7 +1037,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::All,
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -1096,7 +1053,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::All,
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -1113,7 +1069,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V4,
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -1130,7 +1085,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V6,
             comment: None,
         };
         assert!(rule.validate().is_ok());
@@ -1147,7 +1101,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V4,
             comment: None,
         };
         let result = rule.validate();
@@ -1167,7 +1120,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V4,
             comment: None,
         };
         let result = rule.validate();
@@ -1187,7 +1139,6 @@ ip_version = "all"
             dst_port: None,
             dst_port_end: None,
             protocol: Protocol::All,
-            ip_version: IpVersion::V6,
             comment: None,
         };
         assert!(rule.validate().is_ok());

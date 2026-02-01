@@ -185,7 +185,6 @@ type = "drop"
 chain = "input"                    # 链类型: input 或 forward
 src_ip = "180.213.132.211"        # 源 IP 地址
 protocol = "all"                   # 协议: all, tcp 或 udp
-ip_version = "ipv4"                # IP 版本: ipv4, ipv6 或 all
 comment = "阻止恶意 IP 访问"
 
 # 7. 阻止 IPv6 网段访问
@@ -194,7 +193,6 @@ type = "drop"
 chain = "input"
 src_ip = "240e:328:1301::/48"     # IPv6 网段
 protocol = "all"
-ip_version = "ipv6"
 comment = "阻止 IPv6 网段访问"
 
 # 8. 阻止特定端口（如 SSH）
@@ -203,7 +201,6 @@ type = "drop"
 chain = "input"
 dst_port = 22                      # 目标端口
 protocol = "tcp"
-ip_version = "all"
 comment = "阻止 SSH 端口访问"
 
 # 9. 阻止端口范围
@@ -213,7 +210,6 @@ chain = "forward"
 dst_port = 1000                    # 起始端口
 dst_port_end = 2000                # 结束端口
 protocol = "tcp"
-ip_version = "ipv4"
 comment = "阻止转发到端口范围 1000-2000"
 
 # 10. 组合过滤：特定IP访问特定端口
@@ -223,7 +219,6 @@ chain = "input"
 src_ip = "192.168.1.0/24"         # 源 IP 网段
 dst_port = 3306                    # 目标端口 (MySQL)
 protocol = "tcp"
-ip_version = "ipv4"
 comment = "阻止内网访问 MySQL"
 
 # ============ 高级场景示例 ============
@@ -259,15 +254,15 @@ comment = "双栈 Web 服务"
 - `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
 - `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
-- `DROP,链类型,过滤条件[,协议][,IP版本]` - 防火墙过滤规则
+- `DROP,链类型,过滤条件[,协议]` - 防火墙过滤规则
 
 **参数说明**：
 
 - 协议可选值：`tcp`、`udp`、`all`（默认为 `all`）
-- IP 版本可选值：`ipv4`、`ipv6`、`all`（默认为 `all`）
 - 链类型可选值：`input`、`forward`
 - 过滤条件格式：`key=value`，支持 `src_ip`、`dst_ip`、`src_port`、`dst_port`
-- 端口范围格式：`port=start-end`（如 `dst_port=1000-2000`）
+- 端口格式：支持单个端口(如 `dst_port=443`)和端口段（如 `dst_port=1000-2000`）
+- ip地址格式：支持单个 IP（如`192.168.1.0`）和IP 网段（如`192.168.1.0/24`）
 - 以 `#` 开头的行为注释
 
 **配置示例**：
@@ -311,22 +306,22 @@ SINGLE,10080,80,dual-stack.example.com,tcp,all
 # ============ 防火墙过滤规则 (Drop) ============
 
 # 阻止特定 IPv4 地址访问
-DROP,input,src_ip=180.213.132.211,all,ipv4
+DROP,input,src_ip=180.213.132.211,all
 
 # 阻止 IPv6 网段访问
-DROP,input,src_ip=240e:328:1301::/48,all,ipv6
+DROP,input,src_ip=240e:328:1301::/48,all
 
 # 阻止 SSH 端口访问（所有IP）
-DROP,input,dst_port=22,tcp,all
+DROP,input,dst_port=22,tcp
 
 # 阻止端口范围转发
-DROP,forward,dst_port=1000-2000,tcp,ipv4
+DROP,forward,dst_port=1000-2000,tcp
 
 # 组合过滤：阻止特定网段访问MySQL
-DROP,input,src_ip=192.168.1.0/24,dst_port=3306,tcp,ipv4
+DROP,input,src_ip=192.168.1.0/24,dst_port=3306,tcp
 
 # 阻止特定源端口
-DROP,forward,src_port=5000-6000,tcp,all
+DROP,forward,src_port=5000-6000,tcp
 
 # 禁用的规则（以 # 开头）
 # SINGLE,3000,3000,disabled.example.com

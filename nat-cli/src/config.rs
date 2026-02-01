@@ -1,11 +1,13 @@
 #![deny(warnings)]
 use crate::ip;
+use ipnetwork::IpNetwork;
 use log::info;
 use nat_common::{Chain, IpVersion, NftCell, ParseError, Protocol, TomlConfig};
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
+use std::str::FromStr;
 
 /// 运行时Cell，包装NftCell和Comment
 /// Comment仅用于运行时表示，不进入TOML配置
@@ -54,14 +56,10 @@ impl NftCellBuilder for NftCell {
             _ => {
                 let (domain, ip_version) = match &self {
                     NftCell::Single {
-                        domain,
-                        ip_version,
-                        ..
+                        domain, ip_version, ..
                     } => (domain, ip_version),
                     NftCell::Range {
-                        domain,
-                        ip_version,
-                        ..
+                        domain, ip_version, ..
                     } => (domain, ip_version),
                     NftCell::Redirect { ip_version, .. } => {
                         // Redirect doesn't need domain resolution
@@ -132,9 +130,9 @@ fn build_drop_rule(cell: &NftCell) -> Result<String, io::Error> {
         dst_port,
         dst_port_end,
         protocol,
-        ip_version,
         comment,
-    } = cell else {
+    } = cell
+    else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "Expected Drop cell",
@@ -143,14 +141,44 @@ fn build_drop_rule(cell: &NftCell) -> Result<String, io::Error> {
 
     let mut result = String::new();
 
-    match ip_version {
-        IpVersion::All => {
-            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V4)?;
-            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V6)?;
+    // 判断IP版本：如果指定了src_ip或dst_ip，根据其判断family
+    // 如果没有指定IP地址，则在v4和v6中都添加规则
+    let mut ip_families = Vec::new();
+
+    if let Some(ip) = src_ip.as_ref().or(dst_ip.as_ref()) {
+        // 根据IP地址判断family
+        if let Ok(network) = IpNetwork::from_str(ip) {
+            if network.is_ipv6() {
+                ip_families.push(IpVersion::V6);
+            } else {
+                ip_families.push(IpVersion::V4);
+            }
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("无效的IP地址: {}", ip),
+            ));
         }
-        _ => {
-            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, ip_version)?;
-        }
+    } else {
+        // 没有指定IP地址，在v4和v6中都添加规则
+        ip_families.push(IpVersion::V4);
+        ip_families.push(IpVersion::V6);
+    }
+
+    for ip_version in ip_families {
+        result += &build_drop_rule_for_family(
+            cell,
+            chain,
+            src_ip,
+            dst_ip,
+            src_port,
+            src_port_end,
+            dst_port,
+            dst_port_end,
+            protocol,
+            comment,
+            &ip_version,
+        )?;
     }
 
     Ok(result)
@@ -189,13 +217,7 @@ fn build_drop_rule_for_family(
 
     let mut conditions = Vec::new();
 
-    // 添加协议条件
-    if *protocol != Protocol::All || src_port.is_some() || dst_port.is_some() {
-        let proto = protocol.nft_proto();
-        conditions.push(proto.to_string());
-    }
-
-    // 添加源IP条件
+    // 添加源IP条件（IP条件应该在协议条件之前）
     if let Some(ip) = src_ip {
         conditions.push(format!("{} saddr {}", ip_prefix, ip));
     }
@@ -203,6 +225,12 @@ fn build_drop_rule_for_family(
     // 添加目标IP条件
     if let Some(ip) = dst_ip {
         conditions.push(format!("{} daddr {}", ip_prefix, ip));
+    }
+
+    // 添加协议条件
+    if *protocol != Protocol::All || src_port.is_some() || dst_port.is_some() {
+        let proto = protocol.nft_proto();
+        conditions.push(proto.to_string());
     }
 
     // 添加源端口条件
@@ -237,7 +265,11 @@ fn build_drop_rule_for_family(
     Ok(rule)
 }
 
-fn build_nat_rules(cell: &NftCell, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
+fn build_nat_rules(
+    cell: &NftCell,
+    dst_ip: &str,
+    ip_version: &IpVersion,
+) -> Result<String, io::Error> {
     let (family, env_var, localhost_addr, fmt_ip) = match ip_version {
         IpVersion::V4 => ("ip", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
         IpVersion::V6 => ("ip6", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
@@ -486,7 +518,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 src_port_end: Some(39999),
                 dst_port: 45678,
                 protocol: Protocol::Tcp,
-                ip_version: IpVersion::All,
+                ip_version: IpVersion::V4,
                 comment: Some("端口范围重定向到本机示例".to_string()),
             },
             NftCell::Drop {
@@ -498,7 +530,6 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 dst_port: None,
                 dst_port_end: None,
                 protocol: Protocol::All,
-                ip_version: IpVersion::V4,
                 comment: Some("阻止特定IPv4地址".to_string()),
             },
             NftCell::Drop {
@@ -510,7 +541,6 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 dst_port: None,
                 dst_port_end: None,
                 protocol: Protocol::All,
-                ip_version: IpVersion::V6,
                 comment: Some("阻止IPv6网段".to_string()),
             },
             NftCell::Drop {
@@ -522,7 +552,6 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 dst_port: Some(22),
                 dst_port_end: None,
                 protocol: Protocol::Tcp,
-                ip_version: IpVersion::All,
                 comment: Some("阻止SSH端口访问".to_string()),
             },
         ],
