@@ -1,8 +1,119 @@
-use nat_common::TomlConfig;
+use nat_common::{Args, TomlConfig};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::fs;
 use std::io;
+
+const NAT_SERVICE_FILE: &str = "/lib/systemd/system/nat.service";
+
+/// 配置类型信息
+#[derive(Debug, Clone)]
+pub struct ConfigInfo {
+    pub is_toml: bool,
+    pub config_path: String,
+}
+
+/// 获取配置信息
+/// 优先使用命令行参数指定的配置文件，如果没有指定则从 NAT systemd service 检测
+pub fn get_config_info(
+    toml_config: Option<&str>,
+    compatible_config: Option<&str>,
+) -> Result<ConfigInfo, io::Error> {
+    // 优先使用命令行参数
+    if let Some(path) = toml_config {
+        return Ok(ConfigInfo {
+            is_toml: true,
+            config_path: path.to_string(),
+        });
+    }
+    if let Some(path) = compatible_config {
+        return Ok(ConfigInfo {
+            is_toml: false,
+            config_path: path.to_string(),
+        });
+    }
+
+    // 没有命令行参数，从 systemd service 检测
+    detect_config_info_from_systemd()
+}
+
+/// 从 NAT systemd service 的 ExecStart 检测配置格式和路径
+/// ExecStart 格式示例:
+/// - Legacy: ExecStart=/usr/local/bin/nat /etc/nat.conf
+/// - TOML:   ExecStart=/usr/local/bin/nat --toml /etc/nat.toml
+fn detect_config_info_from_systemd() -> Result<ConfigInfo, io::Error> {
+    let service_content = fs::read_to_string(NAT_SERVICE_FILE)?;
+
+    // 查找 ExecStart 行
+    let exec_start_line = service_content
+        .lines()
+        .find(|line| line.trim_start().starts_with("ExecStart="))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                "ExecStart not found in nat.service",
+            )
+        })?;
+
+    // 解析 ExecStart 行
+    // 格式: ExecStart=/usr/local/bin/nat [--toml] <config_path>
+    let exec_start = exec_start_line
+        .trim_start()
+        .strip_prefix("ExecStart=")
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid ExecStart format"))?
+        .trim();
+
+    // 将 ExecStart 参数解析为 Args
+    // 跳过第一个参数（二进制路径），构造命令行参数数组
+    let parts: Vec<&str> = exec_start.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Empty ExecStart command",
+        ));
+    }
+
+    // 构造 clap 解析用的参数数组（不包括二进制路径）
+    let cli_args: Vec<String> = parts.iter().skip(1).map(|s| s.to_string()).collect();
+
+    // 使用 clap::Parser trait 的方法解析参数
+    use clap::Parser;
+    let args = match Args::try_parse_from(std::iter::once("nat".to_string()).chain(cli_args)) {
+        Ok(args) => args,
+        Err(e) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Failed to parse ExecStart arguments: {}", e),
+            ));
+        }
+    };
+
+    // 从 Args 中提取配置信息
+    let (is_toml, config_path) = if let Some(toml_path) = args.toml {
+        (true, toml_path)
+    } else if let Some(legacy_path) = args.compatible_config_file {
+        (false, legacy_path)
+    } else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "No config file specified in ExecStart",
+        ));
+    };
+
+    Ok(ConfigInfo {
+        is_toml,
+        config_path,
+    })
+}
+
+/// 根据配置信息读取配置文件
+pub fn load_config(info: &ConfigInfo) -> Result<ConfigFormat, io::Error> {
+    if info.is_toml {
+        ConfigFormat::from_toml_file(&info.config_path)
+    } else {
+        ConfigFormat::from_legacy_file(&info.config_path)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegacyConfigLine {

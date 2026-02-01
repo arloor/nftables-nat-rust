@@ -1,5 +1,4 @@
 use crate::Args;
-use crate::config::ConfigFormat;
 use crate::handlers::{
     AppState, get_config, get_current_user, get_rules, get_rules_json, login_handler,
     logout_handler, save_config, hybrid_auth_middleware,
@@ -16,7 +15,6 @@ use axum_bootstrap::jwt::JwtConfig;
 use log::info;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 
 // 嵌入 HTML 文件
@@ -33,21 +31,6 @@ async fn serve_login() -> impl IntoResponse {
 }
 
 pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 读取配置文件
-    let config_format = if let Some(toml_path) = &args.toml_config {
-        ConfigFormat::from_toml_file(toml_path)?
-    } else if let Some(legacy_path) = &args.compatible_config {
-        ConfigFormat::from_legacy_file(legacy_path)?
-    } else {
-        return Err("No config file provided".into());
-    };
-
-    let config_path = args
-        .toml_config
-        .clone()
-        .or(args.compatible_config.clone())
-        .ok_or("No config file provided")?;
-
     // 生成密码哈希
     let password_hash = bcrypt::hash(&args.password, bcrypt::DEFAULT_COST)?;
 
@@ -57,8 +40,8 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
         jwt_config: jwt_config.clone(),
         username: args.username,
         password_hash,
-        config_path,
-        config_format: Arc::new(RwLock::new(config_format)),
+        toml_config: args.toml_config,
+        compatible_config: args.compatible_config,
     });
 
     // 受保护的路由

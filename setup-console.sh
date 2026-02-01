@@ -140,15 +140,6 @@ echo INSTALL_PATH: $INSTALL_PATH
 # 配置项
 JWT_SECRET=$(openssl rand -base64 32)
 
-# 根据配置类型设置配置文件路径和参数
-if [ "$CONFIG_TYPE" = "legacy" ]; then
-    CONFIG_FILE="/etc/nat.conf"
-    CONFIG_ARG="--compatible-config $CONFIG_FILE"
-else
-    CONFIG_FILE="/etc/nat.toml"
-    CONFIG_ARG="--toml-config $CONFIG_FILE"
-fi
-
 # TLS 证书配置
 if [ -n "$USER_CERT_FILE" ] && [ -n "$USER_KEY_FILE" ]; then
     # 用户提供了证书和私钥
@@ -224,7 +215,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET $CONFIG_ARG --cert $CERT_FILE --key $KEY_FILE
+ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET --cert $CERT_FILE --key $KEY_FILE
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -243,7 +234,6 @@ echo "========================================="
 echo "安装成功！systemd service 已创建"
 echo "========================================="
 echo "配置格式: $CONFIG_TYPE"
-echo "配置文件: $CONFIG_FILE"
 echo "服务文件: $SERVICE_FILE"
 echo ""
 echo "使用以下命令管理服务:"

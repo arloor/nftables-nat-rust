@@ -7,7 +7,7 @@ mod prepare;
 
 use clap::Parser;
 use log::{error, info};
-use nat_common::logger;
+use nat_common::{Args, logger};
 use std::fs::File;
 use std::io::{self, Write};
 use std::process::Command;
@@ -19,17 +19,6 @@ const FILE_NAME_SCRIPT: &str = "/etc/nftables-nat/nat-diy.nft";
 const IP_FORWARD: &str = "/proc/sys/net/ipv4/ip_forward";
 const IPV6_FORWARD: &str = "/proc/sys/net/ipv6/conf/all/forwarding";
 const CARGO_CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
-
-/// A nftables NAT management tool
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// 配置文件路径
-    #[arg(value_name = "CONFIG_FILE", help = "老版本配置文件")]
-    compatible_config_file: Option<String>,
-    #[arg(long, value_name = "TOML_CONFIG", help = "toml配置文件")]
-    toml: Option<String>,
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     logger::init(CARGO_CRATE_NAME);

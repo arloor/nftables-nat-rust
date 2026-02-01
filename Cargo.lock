@@ -992,6 +992,7 @@ name = "nat-common"
 version = "2.0.0"
 dependencies = [
  "chrono",
+ "clap",
  "env_logger",
  "serde",
  "serde_json",

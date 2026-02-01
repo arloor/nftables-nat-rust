@@ -19,3 +19,14 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "nat-console 安装成功"
+
+# 更新现有的 systemd service 文件，移除已废弃的配置文件参数
+SERVICE_FILE="/lib/systemd/system/nat-console.service"
+if [ -f "$SERVICE_FILE" ]; then
+    echo "更新 systemd service 配置..."
+    # 移除 --compatible-config 和 --toml-config 参数
+    sed -i 's/ --compatible-config [^ ]*//g' "$SERVICE_FILE"
+    sed -i 's/ --toml-config [^ ]*//g' "$SERVICE_FILE"
+    systemctl daemon-reload
+    echo "systemd service 配置已更新，配置格式将自动从 NAT 服务检测"
+fi

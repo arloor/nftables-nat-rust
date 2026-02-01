@@ -1,4 +1,6 @@
-use crate::config::{ConfigFormat, LegacyConfigLine, get_nftables_rules};
+use crate::config::{
+    ConfigFormat, LegacyConfigLine, get_config_info, get_nftables_rules, load_config,
+};
 use axum::{
     Json,
     extract::{Request, State},
@@ -9,18 +11,19 @@ use axum::{
 use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig, LOGOUT_COOKIE};
 use axum_extra::extract::CookieJar;
 use log::{error, info};
-use nat_common::{validate_legacy_config, TomlConfig};
+use nat_common::{TomlConfig, validate_legacy_config};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct AppState {
     pub jwt_config: JwtConfig,
     pub username: String,
     pub password_hash: String,
-    pub config_path: String,
-    pub config_format: Arc<RwLock<ConfigFormat>>,
+    /// 命令行指定的 TOML 配置文件路径（优先级高于 systemd 检测）
+    pub toml_config: Option<String>,
+    /// 命令行指定的传统配置文件路径（优先级高于 systemd 检测）
+    pub compatible_config: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -136,12 +139,26 @@ pub async fn get_config(
     _user: Claims,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ConfigResponse>, StatusCode> {
-    let config = state.config_format.read().await;
+    // 优先使用命令行参数，否则从 NAT systemd service 检测配置格式
+    let config_info = get_config_info(
+        state.toml_config.as_deref(),
+        state.compatible_config.as_deref(),
+    )
+    .map_err(|e| {
+        error!("Failed to get config info: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let config = load_config(&config_info).map_err(|e| {
+        error!("Failed to load config: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok(Json(ConfigResponse {
-        format: match &*config {
-            ConfigFormat::Toml(_) => "toml".to_string(),
-            ConfigFormat::Legacy(_) => "legacy".to_string(),
+        format: if config_info.is_toml {
+            "toml".to_string()
+        } else {
+            "legacy".to_string()
         },
         content: config.to_string(),
     }))
@@ -159,6 +176,35 @@ pub async fn save_config(
     Json(req): Json<SaveConfigRequest>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     info!("Saving config, format: {}", req.format);
+
+    // 优先使用命令行参数，否则从 NAT systemd service 检测配置格式
+    let config_info = get_config_info(
+        state.toml_config.as_deref(),
+        state.compatible_config.as_deref(),
+    )
+    .map_err(|e| {
+        error!("Failed to get config info: {:?}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("获取配置信息失败: {}", e),
+        )
+    })?;
+
+    // 验证请求的格式与检测到的格式一致
+    let expected_format = if config_info.is_toml {
+        "toml"
+    } else {
+        "legacy"
+    };
+    if req.format != expected_format {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!(
+                "配置格式不匹配: 期望 {}, 收到 {}",
+                expected_format, req.format
+            ),
+        ));
+    }
 
     let new_config = match req.format.as_str() {
         "toml" => {
@@ -188,17 +234,15 @@ pub async fn save_config(
     };
 
     // 保存到文件
-    new_config.save_to_file(&state.config_path).map_err(|e| {
-        error!("Failed to save config to file: {:?}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("保存配置失败: {}", e),
-        )
-    })?;
-
-    // 更新内存中的配置
-    let mut config = state.config_format.write().await;
-    *config = new_config;
+    new_config
+        .save_to_file(&config_info.config_path)
+        .map_err(|e| {
+            error!("Failed to save config to file: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("保存配置失败: {}", e),
+            )
+        })?;
 
     info!("Config saved successfully");
     Ok((StatusCode::OK, "配置已保存".to_string()))

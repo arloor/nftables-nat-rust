@@ -1,8 +1,20 @@
+use clap::Parser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Display;
 use std::num::ParseIntError;
 
 pub mod logger;
+
+/// NAT CLI 命令行参数
+#[derive(Parser, Debug, Clone)]
+#[command(author, version, about, long_about = None)]
+pub struct Args {
+    /// 配置文件路径
+    #[arg(value_name = "CONFIG_FILE", help = "老版本配置文件")]
+    pub compatible_config_file: Option<String>,
+    #[arg(long, value_name = "TOML_CONFIG", help = "toml配置文件")]
+    pub toml: Option<String>,
+}
 
 /// Legacy配置解析错误
 #[derive(Debug)]
@@ -230,10 +242,7 @@ impl Display for NftCell {
                 protocol,
                 ip_version,
                 ..
-            } => write!(
-                f,
-                "SINGLE,{sport},{dport},{domain},{protocol},{ip_version}"
-            ),
+            } => write!(f, "SINGLE,{sport},{dport},{domain},{protocol},{ip_version}"),
             NftCell::Range {
                 port_start,
                 port_end,
@@ -621,7 +630,14 @@ ip_version = "all"
         let line = "SINGLE,10000,443,example.com,tcp,ipv4";
         let cell = NftCell::try_from(line).unwrap();
         match cell {
-            NftCell::Single { sport, dport, domain, protocol, ip_version, .. } => {
+            NftCell::Single {
+                sport,
+                dport,
+                domain,
+                protocol,
+                ip_version,
+                ..
+            } => {
                 assert_eq!(sport, 10000);
                 assert_eq!(dport, 443);
                 assert_eq!(domain, "example.com");
@@ -637,7 +653,12 @@ ip_version = "all"
         let line = "REDIRECT,30001-39999,45678,tcp,ipv4";
         let cell = NftCell::try_from(line).unwrap();
         match cell {
-            NftCell::Redirect { src_port, src_port_end, dst_port, .. } => {
+            NftCell::Redirect {
+                src_port,
+                src_port_end,
+                dst_port,
+                ..
+            } => {
                 assert_eq!(src_port, 30001);
                 assert_eq!(src_port_end, Some(39999));
                 assert_eq!(dst_port, 45678);

@@ -51,11 +51,6 @@ async fn main() -> Result<(), DynError> {
     info!("Starting WebUI server on port {}", args.port);
     info!("Username: {}", args.username);
 
-    // 验证至少提供了一种配置文件
-    if args.compatible_config.is_none() && args.toml_config.is_none() {
-        return Err("请提供配置文件路径 (--compatible-config 或 --toml-config)".into());
-    }
-
     server::run_server(args).await?;
 
     Ok(())
