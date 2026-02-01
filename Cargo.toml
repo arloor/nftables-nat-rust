@@ -16,6 +16,7 @@ serde_json = "1.0"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 toml = "0.9"
+ipnetwork = "0.20"
 
 # WebUI 相关依赖
 axum = "0.8"

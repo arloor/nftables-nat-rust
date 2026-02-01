@@ -2,6 +2,7 @@ use clap::Parser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Display;
 use std::num::ParseIntError;
+use std::str::FromStr;
 
 pub mod logger;
 
@@ -687,6 +688,7 @@ impl NftCell {
                 src_port_end,
                 dst_port,
                 dst_port_end,
+                ip_version,
                 ..
             } => {
                 // 至少需要指定一个过滤条件
@@ -718,17 +720,19 @@ impl NftCell {
                     }
                 }
                 
-                // 验证IP地址格式（基础验证）
+                // 验证IP地址格式和IP版本匹配
                 if let Some(ip) = src_ip {
                     if ip.trim().is_empty() {
                         return Err("源IP不能为空".to_string());
                     }
+                    validate_ip_version_match(ip, ip_version, "源IP")?;
                 }
                 
                 if let Some(ip) = dst_ip {
                     if ip.trim().is_empty() {
                         return Err("目标IP不能为空".to_string());
                     }
+                    validate_ip_version_match(ip, ip_version, "目标IP")?;
                 }
             }
         }
@@ -741,6 +745,39 @@ fn validate_port(port: u16) -> Result<(), String> {
         return Err("端口号不能为0".to_string());
     }
     Ok(())
+}
+
+/// 验证IP地址与IP版本是否匹配
+fn validate_ip_version_match(ip: &str, ip_version: &IpVersion, field_name: &str) -> Result<(), String> {
+    // 尝试解析为 IpNetwork（支持 CIDR 表示法）
+    if let Ok(network) = ipnetwork::IpNetwork::from_str(ip) {
+        let is_ipv6 = network.is_ipv6();
+        
+        match ip_version {
+            IpVersion::V4 => {
+                if is_ipv6 {
+                    return Err(format!(
+                        "{}地址 '{}' 是IPv6格式，但IP版本设置为ipv4",
+                        field_name, ip
+                    ));
+                }
+            }
+            IpVersion::V6 => {
+                if !is_ipv6 {
+                    return Err(format!(
+                        "{}地址 '{}' 是IPv4格式，但IP版本设置为ipv6",
+                        field_name, ip
+                    ));
+                }
+            }
+            IpVersion::All => {
+                // All版本允许任何IP格式
+            }
+        }
+        Ok(())
+    } else {
+        Err(format!("{}地址 '{}' 格式无效", field_name, ip))
+    }
 }
 
 /// 验证legacy格式配置内容
@@ -953,5 +990,206 @@ ip_version = "all"
         let content = "SINGLE,10000,443,example.com\nINVALID,123";
         let result = validate_legacy_config(content);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_filter_ipv4_with_ipv4_address() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("192.168.1.1".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_ipv6_with_ipv6_address() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("2001:db8::1".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V6,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_ipv4_with_ipv6_address_fails() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("2001:db8::1".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        let result = rule.validate();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("IPv6格式"));
+        assert!(err_msg.contains("ipv4"));
+    }
+
+    #[test]
+    fn test_filter_ipv6_with_ipv4_address_fails() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: None,
+            dst_ip: Some("192.168.1.1".to_string()),
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V6,
+            comment: None,
+        };
+        let result = rule.validate();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("IPv4格式"));
+        assert!(err_msg.contains("ipv6"));
+    }
+
+    #[test]
+    fn test_filter_all_with_ipv4_address() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("10.0.0.1".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::All,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_all_with_ipv6_address() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("fe80::1".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::All,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_ipv4_cidr_notation() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("192.168.1.0/24".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_ipv6_cidr_notation() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("2001:db8::/32".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V6,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
+    }
+
+    #[test]
+    fn test_filter_invalid_ip_address() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("invalid.ip.address".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        let result = rule.validate();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("格式无效"));
+    }
+
+    #[test]
+    fn test_filter_invalid_cidr() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("192.168.1.1/99".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        let result = rule.validate();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("格式无效"));
+    }
+
+    #[test]
+    fn test_filter_valid_ipv6_full() {
+        let rule = NftCell::Filter {
+            chain: Chain::Input,
+            src_ip: Some("2001:0db8:85a3:0000:0000:8a2e:0370:7334".to_string()),
+            dst_ip: None,
+            src_port: None,
+            src_port_end: None,
+            dst_port: None,
+            dst_port_end: None,
+            protocol: Protocol::All,
+            ip_version: IpVersion::V6,
+            comment: None,
+        };
+        assert!(rule.validate().is_ok());
     }
 }
