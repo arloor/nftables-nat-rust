@@ -170,6 +170,7 @@ impl Display for ConfigFormat {
 pub fn get_nftables_rules() -> Result<String, io::Error> {
     use std::process::Command;
 
+    // Get IPv4 NAT rules
     let output = Command::new("/usr/sbin/nft")
         .arg("list")
         .arg("table")
@@ -177,8 +178,9 @@ pub fn get_nftables_rules() -> Result<String, io::Error> {
         .arg("self-nat")
         .output()?;
 
-    let ipv4_rules = String::from_utf8_lossy(&output.stdout).to_string();
+    let ipv4_nat_rules = String::from_utf8_lossy(&output.stdout).to_string();
 
+    // Get IPv6 NAT rules
     let output6 = Command::new("/usr/sbin/nft")
         .arg("list")
         .arg("table")
@@ -186,13 +188,42 @@ pub fn get_nftables_rules() -> Result<String, io::Error> {
         .arg("self-nat")
         .output();
 
-    let ipv6_rules = match output6 {
+    let ipv6_nat_rules = match output6 {
         Ok(out) => String::from_utf8_lossy(&out.stdout).to_string(),
-        Err(_) => "# IPv6 table not found or not supported".to_string(),
+        Err(_) => "# IPv6 NAT table not found or not supported".to_string(),
+    };
+
+    // Get IPv4 Filter rules
+    let filter_output = Command::new("/usr/sbin/nft")
+        .arg("list")
+        .arg("table")
+        .arg("ip")
+        .arg("self-filter")
+        .output();
+
+    let ipv4_filter_rules = match filter_output {
+        Ok(out) => String::from_utf8_lossy(&out.stdout).to_string(),
+        Err(_) => "# IPv4 filter table not found".to_string(),
+    };
+
+    // Get IPv6 Filter rules
+    let filter_output6 = Command::new("/usr/sbin/nft")
+        .arg("list")
+        .arg("table")
+        .arg("ip6")
+        .arg("self-filter")
+        .output();
+
+    let ipv6_filter_rules = match filter_output6 {
+        Ok(out) => String::from_utf8_lossy(&out.stdout).to_string(),
+        Err(_) => "# IPv6 filter table not found".to_string(),
     };
 
     Ok(format!(
-        "# IPv4 NAT Rules (table ip self-nat)\n{}\n\n# IPv6 NAT Rules (table ip6 self-nat)\n{}",
-        ipv4_rules, ipv6_rules
+        "# IPv4 NAT Rules (table ip self-nat)\n{}\n\n\
+         # IPv6 NAT Rules (table ip6 self-nat)\n{}\n\n\
+         # IPv4 Filter Rules (table ip self-filter)\n{}\n\n\
+         # IPv6 Filter Rules (table ip6 self-filter)\n{}",
+        ipv4_nat_rules, ipv6_nat_rules, ipv4_filter_rules, ipv6_filter_rules
     ))
 }
