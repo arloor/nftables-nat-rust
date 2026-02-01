@@ -7,84 +7,6 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 
-#[derive(Debug, Clone)]
-pub enum IpVersion {
-    V4,
-    V6,
-    All, // 优先IPv4，如果IPv4不可用则使用IPv6
-}
-
-impl From<String> for IpVersion {
-    fn from(version: String) -> Self {
-        match version.to_lowercase().as_str() {
-            "ipv4" => IpVersion::V4,
-            "ipv6" => IpVersion::V6,
-            "all" => IpVersion::All,
-            _ => IpVersion::All,
-        }
-    }
-}
-
-impl Display for IpVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IpVersion::V4 => write!(f, "ipv4"),
-            IpVersion::V6 => write!(f, "ipv6"),
-            IpVersion::All => write!(f, "all"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Protocol {
-    All,
-    Tcp,
-    Udp,
-}
-
-impl Display for Protocol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Protocol::All => write!(f, "all"),
-            Protocol::Tcp => write!(f, "tcp"),
-            Protocol::Udp => write!(f, "udp"),
-        }
-    }
-}
-
-impl Protocol {
-    // 返回nft规则中的协议部分
-    // all类型返回"th"(transport header)，匹配所有传输层协议
-    // tcp/udp返回对应的协议名
-    fn nft_proto(&self) -> &str {
-        match self {
-            Protocol::All => "meta l4proto { tcp, udp } th",
-            Protocol::Tcp => "tcp",
-            Protocol::Udp => "udp",
-        }
-    }
-}
-
-impl From<Protocol> for String {
-    fn from(protocol: Protocol) -> Self {
-        match protocol {
-            Protocol::Udp => "udp".into(),
-            Protocol::Tcp => "tcp".into(),
-            Protocol::All => "all".into(),
-        }
-    }
-}
-
-impl From<String> for Protocol {
-    fn from(protocol: String) -> Self {
-        match protocol.to_lowercase().as_str() {
-            "udp" => Protocol::Udp,
-            "tcp" => Protocol::Tcp,
-            _ => Protocol::All,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum NatCell {
     Single {
@@ -220,10 +142,12 @@ impl NatCell {
         let (family, env_var, localhost_addr, fmt_ip) = match ip_version {
             IpVersion::V4 => ("ip", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
             IpVersion::V6 => ("ip6", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
-            IpVersion::All => return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "IpVersion::All should be handled at caller level",
-            )),
+            IpVersion::All => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "IpVersion::All should be handled at caller level",
+                ));
+            }
         };
 
         let snat_to_part = match env::var(env_var) {
@@ -508,6 +432,84 @@ impl NatCell {
                 io::ErrorKind::InvalidData,
                 format!("无效的转发规则类型: {}", cells[0].trim()),
             )),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum IpVersion {
+    V4,
+    V6,
+    All, // 优先IPv4，如果IPv4不可用则使用IPv6
+}
+
+impl From<String> for IpVersion {
+    fn from(version: String) -> Self {
+        match version.to_lowercase().as_str() {
+            "ipv4" => IpVersion::V4,
+            "ipv6" => IpVersion::V6,
+            "all" => IpVersion::All,
+            _ => IpVersion::All,
+        }
+    }
+}
+
+impl Display for IpVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IpVersion::V4 => write!(f, "ipv4"),
+            IpVersion::V6 => write!(f, "ipv6"),
+            IpVersion::All => write!(f, "all"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Protocol {
+    All,
+    Tcp,
+    Udp,
+}
+
+impl Display for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Protocol::All => write!(f, "all"),
+            Protocol::Tcp => write!(f, "tcp"),
+            Protocol::Udp => write!(f, "udp"),
+        }
+    }
+}
+
+impl Protocol {
+    // 返回nft规则中的协议部分
+    // all类型返回"th"(transport header)，匹配所有传输层协议
+    // tcp/udp返回对应的协议名
+    fn nft_proto(&self) -> &str {
+        match self {
+            Protocol::All => "meta l4proto { tcp, udp } th",
+            Protocol::Tcp => "tcp",
+            Protocol::Udp => "udp",
+        }
+    }
+}
+
+impl From<Protocol> for String {
+    fn from(protocol: Protocol) -> Self {
+        match protocol {
+            Protocol::Udp => "udp".into(),
+            Protocol::Tcp => "tcp".into(),
+            Protocol::All => "all".into(),
+        }
+    }
+}
+
+impl From<String> for Protocol {
+    fn from(protocol: String) -> Self {
+        match protocol.to_lowercase().as_str() {
+            "udp" => Protocol::Udp,
+            "tcp" => Protocol::Tcp,
+            _ => Protocol::All,
         }
     }
 }
