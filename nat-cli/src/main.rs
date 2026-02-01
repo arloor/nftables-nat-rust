@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn parse_conf(
     args: &Args,
-) -> Result<Vec<config::NftCell>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Vec<config::RuntimeCell>, Box<dyn std::error::Error + Send + Sync>> {
     let nat_cells = if let Some(compatible_config_file) = &args.compatible_config_file {
         config::read_config(compatible_config_file).map_err(|e| {
             info!("读取配置文件失败: {e:?}");
@@ -159,7 +159,7 @@ fn handle_loop(args: &Args) -> Result<(), io::Error> {
     }
 }
 
-fn build_new_script(nat_cells: &[config::NftCell]) -> Result<String, io::Error> {
+fn build_new_script(nat_cells: &[config::RuntimeCell]) -> Result<String, io::Error> {
     //脚本的前缀 - 创建IPv4和IPv6表
     let mut script = String::from(
         "#!/usr/sbin/nft -f\n\

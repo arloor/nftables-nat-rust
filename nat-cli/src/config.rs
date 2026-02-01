@@ -1,106 +1,73 @@
 #![deny(warnings)]
 use crate::ip;
 use log::info;
-use nat_common::{Rule as CommonRule, TomlConfig};
+use nat_common::{IpVersion, NftCell, ParseError, Protocol, TomlConfig};
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
 
+/// 运行时Cell，包装NftCell和Comment
+/// Comment仅用于运行时表示，不进入TOML配置
 #[derive(Debug)]
-pub enum NftCell {
-    Single {
-        src_port: i32,
-        dst_port: i32,
-        dst_domain: String,
-        protocol: Protocol,
-        ip_version: IpVersion,
-    },
-    Range {
-        port_start: i32,
-        port_end: i32,
-        dst_domain: String,
-        protocol: Protocol,
-        ip_version: IpVersion,
-    },
-    Redirect {
-        src_port: i32,
-        src_port_end: Option<i32>, // None for single port, Some for range
-        dst_port: i32,
-        protocol: Protocol,
-        ip_version: IpVersion,
-    },
-    Comment {
-        content: String,
-    },
+pub enum RuntimeCell {
+    Rule(NftCell),
+    Comment(String),
 }
 
-impl Display for NftCell {
+impl Display for RuntimeCell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NftCell::Single {
-                src_port,
-                dst_port,
-                dst_domain,
-                protocol,
-                ip_version,
-            } => write!(
-                f,
-                "SINGLE,{src_port},{dst_port},{dst_domain},{protocol},{ip_version}"
-            ),
-            NftCell::Range {
-                port_start,
-                port_end,
-                dst_domain,
-                protocol,
-                ip_version,
-            } => write!(
-                f,
-                "RANGE,{port_start},{port_end},{dst_domain},{protocol},{ip_version}"
-            ),
-            NftCell::Redirect {
-                src_port,
-                src_port_end,
-                dst_port,
-                protocol,
-                ip_version,
-            } => {
-                if let Some(end) = src_port_end {
-                    write!(
-                        f,
-                        "REDIRECT,{src_port}-{end},{dst_port},{protocol},{ip_version}"
-                    )
-                } else {
-                    write!(f, "REDIRECT,{src_port},{dst_port},{protocol},{ip_version}")
-                }
-            }
-            NftCell::Comment { content } => write!(f, "{content}"),
+            RuntimeCell::Rule(cell) => write!(f, "{}", cell),
+            RuntimeCell::Comment(content) => write!(f, "{}", content),
         }
     }
 }
 
-impl NftCell {
-    pub fn build(&self) -> Result<String, io::Error> {
-        let (dst_domain, ip_version) = match &self {
+/// Protocol扩展trait，提供nftables专用方法
+pub trait ProtocolExt {
+    fn nft_proto(&self) -> &str;
+}
+
+impl ProtocolExt for Protocol {
+    /// 返回nft规则中的协议部分
+    /// all类型返回"meta l4proto { tcp, udp } th"，匹配所有传输层协议
+    /// tcp/udp返回对应的协议名
+    fn nft_proto(&self) -> &str {
+        match self {
+            Protocol::All => "meta l4proto { tcp, udp } th",
+            Protocol::Tcp => "tcp",
+            Protocol::Udp => "udp",
+        }
+    }
+}
+
+/// NftCell构建扩展trait，提供nftables规则构建方法
+pub trait NftCellBuilder {
+    fn build(&self) -> Result<String, io::Error>;
+}
+
+impl NftCellBuilder for NftCell {
+    fn build(&self) -> Result<String, io::Error> {
+        let (domain, ip_version) = match &self {
             NftCell::Single {
-                dst_domain,
+                domain,
                 ip_version,
                 ..
-            } => (dst_domain, ip_version),
+            } => (domain, ip_version),
             NftCell::Range {
-                dst_domain,
+                domain,
                 ip_version,
                 ..
-            } => (dst_domain, ip_version),
+            } => (domain, ip_version),
             NftCell::Redirect { ip_version, .. } => {
                 // Redirect doesn't need domain resolution
-                return self.build_redirect_rules(ip_version);
+                return build_redirect_rules(self, ip_version);
             }
-            NftCell::Comment { content } => return Ok(content.clone() + "\n"),
         };
 
         // 根据配置的IP版本解析目标IP
-        let dst_ip = ip::remote_ip(dst_domain, ip_version)?;
+        let dst_ip = ip::remote_ip(domain, ip_version)?;
 
         let mut result = String::new();
 
@@ -115,7 +82,7 @@ impl NftCell {
                         "IPv6 target address resolved but rule is configured for IPv4 only",
                     ));
                 }
-                result += &self.build_nat_rules(&dst_ip, &IpVersion::V4)?;
+                result += &build_nat_rules(self, &dst_ip, &IpVersion::V4)?;
             }
             IpVersion::V6 => {
                 if !is_ipv6_target {
@@ -124,392 +91,173 @@ impl NftCell {
                         "IPv4 target address resolved but rule is configured for IPv6 only",
                     ));
                 }
-                result += &self.build_nat_rules(&dst_ip, &IpVersion::V6)?;
+                result += &build_nat_rules(self, &dst_ip, &IpVersion::V6)?;
             }
             IpVersion::All => {
                 if is_ipv6_target {
-                    result += &self.build_nat_rules(&dst_ip, &IpVersion::V6)?;
+                    result += &build_nat_rules(self, &dst_ip, &IpVersion::V6)?;
                 } else {
-                    result += &self.build_nat_rules(&dst_ip, &IpVersion::V4)?;
+                    result += &build_nat_rules(self, &dst_ip, &IpVersion::V4)?;
                 }
             }
         }
 
         Ok(result)
     }
+}
 
-    fn build_nat_rules(&self, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
-        let (family, env_var, localhost_addr, fmt_ip) = match ip_version {
-            IpVersion::V4 => ("ip", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
-            IpVersion::V6 => ("ip6", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
-            IpVersion::All => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "IpVersion::All should be handled at caller level",
-                ));
-            }
-        };
+impl RuntimeCell {
+    pub fn build(&self) -> Result<String, io::Error> {
+        match self {
+            RuntimeCell::Rule(cell) => cell.build(),
+            RuntimeCell::Comment(content) => Ok(content.clone() + "\n"),
+        }
+    }
+}
 
-        let snat_to_part = match env::var(env_var) {
-            Ok(ip) => "snat to ".to_owned() + &ip,
-            Err(_) => "masquerade".to_owned(),
-        };
+fn build_nat_rules(cell: &NftCell, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
+    let (family, env_var, localhost_addr, fmt_ip) = match ip_version {
+        IpVersion::V4 => ("ip", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
+        IpVersion::V6 => ("ip6", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
+        IpVersion::All => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "IpVersion::All should be handled at caller level",
+            ));
+        }
+    };
 
-        match &self {
-            NftCell::Range {
-                port_start,
-                port_end,
-                dst_domain: _,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
+    let snat_to_part = match env::var(env_var) {
+        Ok(ip) => "snat to ".to_owned() + &ip,
+        Err(_) => "masquerade".to_owned(),
+    };
+
+    match cell {
+        NftCell::Range {
+            port_start,
+            port_end,
+            protocol,
+            ..
+        } => {
+            let proto = protocol.nft_proto();
+            let res = format!(
+                "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{port_start}-{port_end} comment \"{cell}\"\n\
+                add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
+                ",
+            );
+            Ok(res)
+        }
+        NftCell::Single {
+            sport,
+            dport,
+            domain,
+            protocol,
+            ..
+        } => {
+            let proto = protocol.nft_proto();
+            let is_localhost = domain == "localhost" || domain == localhost_addr;
+            if is_localhost {
+                // 重定向到本机
                 let res = format!(
-                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{port_start}-{port_end} comment \"{cell}\"\n\
-                    add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {sport} redirect to :{dport}  comment \"{cell}\"\n\n\
                     ",
-                    cell = self,
+                );
+                Ok(res)
+            } else {
+                // 转发到其他机器
+                let res = format!(
+                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {sport} counter dnat to {fmt_ip}:{dport}  comment \"{cell}\"\n\
+                    add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {dport} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    ",
                 );
                 Ok(res)
             }
-            NftCell::Single {
-                src_port,
-                dst_port,
-                dst_domain,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
-                let is_localhost = dst_domain == "localhost" || dst_domain == localhost_addr;
-                if is_localhost {
-                    // 重定向到本机
-                    let res = format!(
-                        "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port}  comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                    );
-                    Ok(res)
-                } else {
-                    // 转发到其他机器
-                    let res = format!(
-                        "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} counter dnat to {fmt_ip}:{dst_port}  comment \"{cell}\"\n\
-                        add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {dst_port} counter {snat_to_part} comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                    );
-                    Ok(res)
-                }
-            }
-            NftCell::Comment { .. } => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Comment cell cannot be built",
-            )),
-            NftCell::Redirect { .. } => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Redirect cell should be built via build_redirect_rules",
-            )),
+        }
+        NftCell::Redirect { .. } => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Redirect cell should be built via build_redirect_rules",
+        )),
+    }
+}
+
+fn build_redirect_rules(cell: &NftCell, ip_version: &IpVersion) -> Result<String, io::Error> {
+    let mut result = String::new();
+
+    match ip_version {
+        IpVersion::All => {
+            result += &build_redirect_rule(cell, &IpVersion::V4)?;
+            result += &build_redirect_rule(cell, &IpVersion::V6)?;
+        }
+        _ => {
+            result += &build_redirect_rule(cell, ip_version)?;
         }
     }
 
-    fn build_redirect_rules(&self, ip_version: &IpVersion) -> Result<String, io::Error> {
-        let mut result = String::new();
+    Ok(result)
+}
 
-        match ip_version {
-            IpVersion::All => {
-                result += &self.build_redirect_rule(&IpVersion::V4)?;
-                result += &self.build_redirect_rule(&IpVersion::V6)?;
-            }
-            _ => {
-                result += &self.build_redirect_rule(ip_version)?;
-            }
-        }
-
-        Ok(result)
-    }
-
-    fn build_redirect_rule(&self, ip_version: &IpVersion) -> Result<String, io::Error> {
-        let ip_version = match ip_version {
-            IpVersion::V4 => "ip",
-            IpVersion::V6 => "ip6",
-            IpVersion::All => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "IP version for redirect rule cannot be All",
-                ));
-            }
-        };
-        match &self {
-            NftCell::Redirect {
-                src_port,
-                src_port_end,
-                dst_port,
-                protocol,
-                ip_version: _,
-            } => {
-                let proto = protocol.nft_proto();
-                let res = if let Some(end) = src_port_end {
-                    // Range redirect
-                    format!(
-                        "add rule {ip_version} self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                        src_port = src_port,
-                        src_port_end = end,
-                        dst_port = dst_port,
-                    )
-                } else {
-                    // Single port redirect
-                    format!(
-                        "add rule {ip_version} self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
-                        ",
-                        cell = self,
-                        src_port = src_port,
-                        dst_port = dst_port,
-                    )
-                };
-                Ok(res)
-            }
-            _ => Err(io::Error::new(
+fn build_redirect_rule(cell: &NftCell, ip_version: &IpVersion) -> Result<String, io::Error> {
+    let family = match ip_version {
+        IpVersion::V4 => "ip",
+        IpVersion::V6 => "ip6",
+        IpVersion::All => {
+            return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Not a Redirect cell",
-            )),
+                "IP version for redirect rule cannot be All",
+            ));
         }
-    }
-
-    /// 解析一行配置，返回NatCell或错误
-    pub fn parse(line: &str) -> Result<Option<NftCell>, io::Error> {
-        let line = line.trim();
-
-        // 处理注释
-        if line.starts_with('#') {
-            return Ok(Some(NftCell::Comment {
-                content: line.to_string(),
-            }));
-        }
-
-        // 忽略空行
-        if line.is_empty() {
-            return Ok(None);
-        }
-
-        let cells: Vec<&str> = line.split(',').collect();
-
-        // 解析类型以确定所需的字段数量
-        let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
-
-        // 验证字段数量
-        match rule_type {
-            "REDIRECT" => {
-                // REDIRECT,port(s),dst_port[,protocol[,ip_version]]
-                // 需要3-5个字段
-                if cells.len() < 3 || cells.len() > 5 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("无效的配置行: {line}, REDIRECT类型需要3-5个字段"),
-                    ));
-                }
-            }
-            "SINGLE" | "RANGE" => {
-                // 需要4-6个字段: type,port(s),domain,protocol,ip_version
-                if cells.len() < 4 || cells.len() > 6 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("无效的配置行: {line}, 字段数量不正确（需要4-6个字段）"),
-                    ));
-                }
-            }
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("无效的转发规则类型: {}", rule_type),
-                ));
-            }
-        }
-
-        // 解析协议 - REDIRECT从第3个字段开始，SINGLE/RANGE从第4个字段开始
-        let protocol = if rule_type == "REDIRECT" {
-            if cells.len() >= 4 {
-                cells[3].trim().to_string().into()
+    };
+    match cell {
+        NftCell::Redirect {
+            src_port,
+            src_port_end,
+            dst_port,
+            protocol,
+            ..
+        } => {
+            let proto = protocol.nft_proto();
+            let res = if let Some(end) = src_port_end {
+                // Range redirect
+                format!(
+                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port}-{src_port_end} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                    ",
+                    src_port_end = end,
+                )
             } else {
-                Protocol::All
-            }
-        } else if cells.len() >= 5 {
-            cells[4].trim().to_string().into()
-        } else {
-            Protocol::All
-        };
-
-        // 解析IP版本 - REDIRECT从第4个字段开始，SINGLE/RANGE从第5个字段开始
-        let ip_version = if rule_type == "REDIRECT" {
-            if cells.len() >= 5 {
-                cells[4].trim().to_string().into()
-            } else {
-                IpVersion::V4 // 默认IPv4以保持向后兼容
-            }
-        } else if cells.len() >= 6 {
-            cells[5].trim().to_string().into()
-        } else {
-            IpVersion::V4 // 默认IPv4以保持向后兼容
-        };
-
-        // 解析类型并创建NatCell
-        match cells[0].trim() {
-            "RANGE" => {
-                let port_start = cells[1].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析起始端口: {e}"))
-                })?;
-
-                let port_end = cells[2].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析结束端口: {e}"))
-                })?;
-
-                Ok(Some(NftCell::Range {
-                    port_start,
-                    port_end,
-                    dst_domain: cells[3].trim().to_string(),
-                    protocol,
-                    ip_version,
-                }))
-            }
-            "SINGLE" => {
-                let src_port = cells[1].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {e}"))
-                })?;
-
-                let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
-                })?;
-
-                Ok(Some(NftCell::Single {
-                    src_port,
-                    dst_port,
-                    dst_domain: cells[3].trim().to_string(),
-                    protocol,
-                    ip_version,
-                }))
-            }
-            "REDIRECT" => {
-                // 解析第二个字段：可能是单个端口或端口范围（格式：8000 或 8000-9000）
-                let port_field = cells[1].trim();
-                let (src_port, src_port_end) = if port_field.contains('-') {
-                    // 端口范围
-                    let parts: Vec<&str> = port_field.split('-').collect();
-                    if parts.len() != 2 {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("无效的端口范围格式: {port_field}，应为 start-end"),
-                        ));
-                    }
-                    let start = parts[0].trim().parse::<i32>().map_err(|e| {
-                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析起始端口: {e}"))
-                    })?;
-                    let end = parts[1].trim().parse::<i32>().map_err(|e| {
-                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析结束端口: {e}"))
-                    })?;
-                    (start, Some(end))
-                } else {
-                    // 单个端口
-                    let port = port_field.parse::<i32>().map_err(|e| {
-                        io::Error::new(io::ErrorKind::InvalidData, format!("无法解析源端口: {e}"))
-                    })?;
-                    (port, None)
-                };
-
-                // 解析目标端口
-                let dst_port = cells[2].trim().parse::<i32>().map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, format!("无法解析目标端口: {e}"))
-                })?;
-
-                Ok(Some(NftCell::Redirect {
-                    src_port,
-                    src_port_end,
-                    dst_port,
-                    protocol,
-                    ip_version,
-                }))
-            }
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("无效的转发规则类型: {}", cells[0].trim()),
-            )),
+                // Single port redirect
+                format!(
+                    "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} redirect to :{dst_port} comment \"{cell}\"\n\n\
+                    ",
+                )
+            };
+            Ok(res)
         }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Not a Redirect cell",
+        )),
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum IpVersion {
-    V4,
-    V6,
-    All, // 优先IPv4，如果IPv4不可用则使用IPv6
-}
+/// 解析一行legacy配置，返回RuntimeCell或错误
+/// 注释行返回 Some(RuntimeCell::Comment)
+/// 空行返回 None
+/// 规则行返回 Some(RuntimeCell::Rule)
+fn parse_legacy_line(line: &str) -> Option<RuntimeCell> {
+    let line = line.trim();
 
-impl From<String> for IpVersion {
-    fn from(version: String) -> Self {
-        match version.to_lowercase().as_str() {
-            "ipv4" => IpVersion::V4,
-            "ipv6" => IpVersion::V6,
-            "all" => IpVersion::All,
-            _ => IpVersion::All,
-        }
+    // 处理注释
+    if line.starts_with('#') {
+        return Some(RuntimeCell::Comment(line.to_string()));
     }
-}
 
-impl Display for IpVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IpVersion::V4 => write!(f, "ipv4"),
-            IpVersion::V6 => write!(f, "ipv6"),
-            IpVersion::All => write!(f, "all"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Protocol {
-    All,
-    Tcp,
-    Udp,
-}
-
-impl Display for Protocol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Protocol::All => write!(f, "all"),
-            Protocol::Tcp => write!(f, "tcp"),
-            Protocol::Udp => write!(f, "udp"),
-        }
-    }
-}
-
-impl Protocol {
-    // 返回nft规则中的协议部分
-    // all类型返回"th"(transport header)，匹配所有传输层协议
-    // tcp/udp返回对应的协议名
-    fn nft_proto(&self) -> &str {
-        match self {
-            Protocol::All => "meta l4proto { tcp, udp } th",
-            Protocol::Tcp => "tcp",
-            Protocol::Udp => "udp",
-        }
-    }
-}
-
-impl From<Protocol> for String {
-    fn from(protocol: Protocol) -> Self {
-        match protocol {
-            Protocol::Udp => "udp".into(),
-            Protocol::Tcp => "tcp".into(),
-            Protocol::All => "all".into(),
-        }
-    }
-}
-
-impl From<String> for Protocol {
-    fn from(protocol: String) -> Self {
-        match protocol.to_lowercase().as_str() {
-            "udp" => Protocol::Udp,
-            "tcp" => Protocol::Tcp,
-            _ => Protocol::All,
+    // 使用 nat-common 的 TryFrom 解析
+    match NftCell::try_from(line) {
+        Ok(cell) => Some(RuntimeCell::Rule(cell)),
+        Err(ParseError::Skip) => None,
+        Err(ParseError::InvalidFormat(msg)) => {
+            log::warn!("跳过无效配置行: {}", msg);
+            None
         }
     }
 }
@@ -530,143 +278,81 @@ pub(crate) fn example(conf: &str) {
     )
 }
 
-pub fn read_config(conf: &str) -> Result<Vec<NftCell>, io::Error> {
-    let mut nat_cells = vec![];
+pub fn read_config(conf: &str) -> Result<Vec<RuntimeCell>, io::Error> {
+    let mut cells = vec![];
     let mut contents = fs::read_to_string(conf)?;
     contents = contents.replace("\r\n", "\n");
 
-    let strs = contents.split('\n');
-    for line in strs {
-        if let Some(nat_cell) = NftCell::parse(line)? {
-            nat_cells.push(nat_cell);
+    for line in contents.lines() {
+        if let Some(cell) = parse_legacy_line(line) {
+            cells.push(cell);
         }
     }
-    Ok(nat_cells)
+    Ok(cells)
 }
 
 // 读取TOML配置文件
-pub fn read_toml_config(toml_path: &str) -> Result<Vec<NftCell>, io::Error> {
+pub fn read_toml_config(toml_path: &str) -> Result<Vec<RuntimeCell>, io::Error> {
     let contents = fs::read_to_string(toml_path)?;
 
     // 使用 nat-common 的解析和验证
     let config = TomlConfig::from_toml_str(&contents)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-    let mut nat_cells = Vec::new();
+    let mut cells = Vec::new();
 
     for rule in config.rules {
-        match rule {
-            CommonRule::Single {
-                sport,
-                dport,
-                domain,
-                protocol,
-                ip_version,
-                comment,
-            } => {
-                // 如果有注释，先添加注释
-                if let Some(comment_text) = comment {
-                    nat_cells.push(NftCell::Comment {
-                        content: format!("# {comment_text}"),
-                    });
-                }
+        // 如果有注释，先添加注释
+        let comment = match &rule {
+            NftCell::Single { comment, .. } => comment.clone(),
+            NftCell::Range { comment, .. } => comment.clone(),
+            NftCell::Redirect { comment, .. } => comment.clone(),
+        };
 
-                nat_cells.push(NftCell::Single {
-                    src_port: sport as i32,
-                    dst_port: dport as i32,
-                    dst_domain: domain,
-                    protocol: protocol.into(),
-                    ip_version: ip_version.into(),
-                });
-            }
-            CommonRule::Range {
-                port_start,
-                port_end,
-                domain,
-                protocol,
-                ip_version,
-                comment,
-            } => {
-                // 如果有注释，先添加注释
-                if let Some(comment_text) = comment {
-                    nat_cells.push(NftCell::Comment {
-                        content: format!("# {comment_text}"),
-                    });
-                }
-
-                nat_cells.push(NftCell::Range {
-                    port_start: port_start as i32,
-                    port_end: port_end as i32,
-                    dst_domain: domain,
-                    protocol: protocol.into(),
-                    ip_version: ip_version.into(),
-                });
-            }
-            CommonRule::Redirect {
-                src_port,
-                src_port_end,
-                dst_port,
-                protocol,
-                ip_version,
-                comment,
-            } => {
-                // 如果有注释，先添加注释
-                if let Some(comment_text) = comment {
-                    nat_cells.push(NftCell::Comment {
-                        content: format!("# {comment_text}"),
-                    });
-                }
-
-                nat_cells.push(NftCell::Redirect {
-                    src_port: src_port as i32,
-                    src_port_end: src_port_end.map(|p| p as i32),
-                    dst_port: dst_port as i32,
-                    protocol: protocol.into(),
-                    ip_version: ip_version.into(),
-                });
-            }
+        if let Some(comment_text) = comment {
+            cells.push(RuntimeCell::Comment(format!("# {comment_text}")));
         }
+
+        cells.push(RuntimeCell::Rule(rule));
     }
 
-    Ok(nat_cells)
+    Ok(cells)
 }
 
 // TOML配置示例函数
 pub fn toml_example(conf: &str) -> Result<(), io::Error> {
-    use nat_common::Rule as CommonRule;
-
     let example_config = TomlConfig {
         rules: vec![
-            CommonRule::Single {
+            NftCell::Single {
                 sport: 10000,
                 dport: 443,
                 domain: "baidu.com".to_string(),
-                protocol: "all".to_string(),
-                ip_version: "ipv4".to_string(),
+                protocol: Protocol::All,
+                ip_version: IpVersion::V4,
                 comment: Some("百度HTTPS服务转发示例".to_string()),
             },
-            CommonRule::Range {
+            NftCell::Range {
                 port_start: 1000,
                 port_end: 2000,
                 domain: "baidu.com".to_string(),
-                protocol: "tcp".to_string(),
-                ip_version: "ipv4".to_string(),
+                protocol: Protocol::Tcp,
+                ip_version: IpVersion::V4,
                 comment: Some("端口范围转发示例".to_string()),
             },
-            CommonRule::Redirect {
+            NftCell::Redirect {
                 src_port: 8000,
                 src_port_end: None,
                 dst_port: 3128,
-                protocol: "all".to_string(),
-                ip_version: "ipv4".to_string(),
+                protocol: Protocol::All,
+                ip_version: IpVersion::V4,
                 comment: Some("单端口重定向到本机示例".to_string()),
             },
-            CommonRule::Redirect {
+            NftCell::Redirect {
                 src_port: 30001,
                 src_port_end: Some(39999),
                 dst_port: 45678,
-                protocol: "tcp".to_string(),
-                ip_version: "all".to_string(),
+                protocol: Protocol::Tcp,
+                ip_version: IpVersion::All,
                 comment: Some("端口范围重定向到本机示例".to_string()),
             },
         ],
@@ -689,15 +375,15 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_single_port() {
         let line = "REDIRECT,8000,3128";
-        let result = NftCell::parse(line).unwrap();
+        let result = parse_legacy_line(line);
         assert!(result.is_some());
         match result.unwrap() {
-            NftCell::Redirect {
+            RuntimeCell::Rule(NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
                 ..
-            } => {
+            }) => {
                 assert_eq!(src_port, 8000);
                 assert_eq!(src_port_end, None);
                 assert_eq!(dst_port, 3128);
@@ -709,15 +395,15 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_port_range() {
         let line = "REDIRECT,30001-39999,45678";
-        let result = NftCell::parse(line).unwrap();
+        let result = parse_legacy_line(line);
         assert!(result.is_some());
         match result.unwrap() {
-            NftCell::Redirect {
+            RuntimeCell::Rule(NftCell::Redirect {
                 src_port,
                 src_port_end,
                 dst_port,
                 ..
-            } => {
+            }) => {
                 assert_eq!(src_port, 30001);
                 assert_eq!(src_port_end, Some(39999));
                 assert_eq!(dst_port, 45678);
@@ -729,12 +415,12 @@ mod redirect_parse_tests {
     #[test]
     fn test_parse_redirect_with_protocol() {
         let line = "REDIRECT,9000,8080,tcp";
-        let result = NftCell::parse(line).unwrap();
+        let result = parse_legacy_line(line);
         assert!(result.is_some());
         match result.unwrap() {
-            NftCell::Redirect {
+            RuntimeCell::Rule(NftCell::Redirect {
                 src_port, dst_port, ..
-            } => {
+            }) => {
                 assert_eq!(src_port, 9000);
                 assert_eq!(dst_port, 8080);
             }
@@ -745,18 +431,18 @@ mod redirect_parse_tests {
     #[test]
     fn test_backward_compatibility_localhost() {
         let line = "SINGLE,2222,22,localhost";
-        let result = NftCell::parse(line).unwrap();
+        let result = parse_legacy_line(line);
         assert!(result.is_some());
         match result.unwrap() {
-            NftCell::Single {
-                src_port,
-                dst_port,
-                dst_domain,
+            RuntimeCell::Rule(NftCell::Single {
+                sport,
+                dport,
+                domain,
                 ..
-            } => {
-                assert_eq!(src_port, 2222);
-                assert_eq!(dst_port, 22);
-                assert_eq!(dst_domain, "localhost");
+            }) => {
+                assert_eq!(sport, 2222);
+                assert_eq!(dport, 22);
+                assert_eq!(domain, "localhost");
             }
             other => panic!("Expected Single variant, got {:?}", other),
         }
@@ -776,6 +462,7 @@ mod redirect_build_tests {
             dst_port: 3128,
             protocol: Protocol::All,
             ip_version: IpVersion::V4,
+            comment: None,
         };
 
         let result = cell.build().unwrap();
@@ -792,6 +479,7 @@ mod redirect_build_tests {
             dst_port: 45678,
             protocol: Protocol::Tcp,
             ip_version: IpVersion::V4,
+            comment: None,
         };
 
         let result = cell.build().unwrap();
@@ -811,6 +499,7 @@ mod redirect_build_tests {
             dst_port: 4000,
             protocol: Protocol::All,
             ip_version: IpVersion::All,
+            comment: None,
         };
 
         let result = cell.build().unwrap();

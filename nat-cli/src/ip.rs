@@ -1,4 +1,4 @@
-use crate::config::IpVersion;
+use nat_common::IpVersion;
 use std::io;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::ops::Add;
@@ -71,7 +71,7 @@ mod test {
     // }
     #[test]
     fn test_remote_ip_v4() {
-        use super::IpVersion;
+        use nat_common::IpVersion;
         use std::net::Ipv4Addr;
         let domain = "www.google.com".to_string();
         let ip = super::remote_ip(&domain, &IpVersion::V4).unwrap();
@@ -82,7 +82,7 @@ mod test {
 
     #[test]
     fn test_remote_ip_both() {
-        use super::IpVersion;
+        use nat_common::IpVersion;
         let domain = "www.google.com".to_string();
         let ip = super::remote_ip(&domain, &IpVersion::All).unwrap();
         println!("Resolved IP (Both mode) for {domain}: {ip}");
@@ -93,7 +93,7 @@ mod test {
 
     #[test]
     fn test_resolve_localhost() {
-        use super::IpVersion;
+        use nat_common::IpVersion;
         let domain = "localhost".to_string();
         let ip = super::remote_ip(&domain, &IpVersion::All).unwrap();
         println!("Resolved IP (Both mode) for {domain}: {ip}");
@@ -110,7 +110,7 @@ mod test {
 
     #[test]
     fn test_remote_ip_fail() {
-        use super::IpVersion;
+        use nat_common::IpVersion;
         let domain = "example.asddddddddddddddddddddaasdasdasdasdasdasadasads.com".to_string();
         let res = super::remote_ip(&domain, &IpVersion::V4);
         println!("Resolved IPv4 for {domain}: {res:?}");

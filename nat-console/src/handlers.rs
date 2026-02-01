@@ -9,7 +9,7 @@ use axum::{
 use axum_bootstrap::jwt::{Claims, ClaimsPayload, JwtConfig, LOGOUT_COOKIE};
 use axum_extra::extract::CookieJar;
 use log::{error, info};
-use nat_common::TomlConfig;
+use nat_common::{validate_legacy_config, TomlConfig};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -170,6 +170,11 @@ pub async fn save_config(
             ConfigFormat::Toml(req.content)
         }
         "legacy" => {
+            // 使用 nat-common 的验证功能
+            validate_legacy_config(&req.content).map_err(|e| {
+                error!("Invalid legacy config: {:?}", e);
+                (StatusCode::BAD_REQUEST, format!("配置验证失败: {}", e))
+            })?;
             let lines: Vec<LegacyConfigLine> = req
                 .content
                 .lines()
