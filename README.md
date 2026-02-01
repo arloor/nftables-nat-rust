@@ -259,11 +259,15 @@ comment = "双栈 Web 服务"
 - `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
 - `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
+- `FILTER,链类型,过滤条件[,协议][,IP版本]` - 防火墙过滤规则
 
 **参数说明**：
 
 - 协议可选值：`tcp`、`udp`、`all`（默认为 `all`）
 - IP 版本可选值：`ipv4`、`ipv6`、`all`（默认为 `all`）
+- 链类型可选值：`input`、`forward`
+- 过滤条件格式：`key=value`，支持 `src_ip`、`dst_ip`、`src_port`、`dst_port`
+- 端口范围格式：`port=start-end`（如 `dst_port=1000-2000`）
 - 以 `#` 开头的行为注释
 
 **配置示例**：
@@ -303,6 +307,26 @@ SINGLE,9001,9090,ipv6.example.com,all,ipv6
 
 # 双栈支持（根据客户端自动选择）
 SINGLE,10080,80,dual-stack.example.com,tcp,all
+
+# ============ 防火墙过滤规则 (Filter Drop) ============
+
+# 阻止特定 IPv4 地址访问
+FILTER,input,src_ip=180.213.132.211,all,ipv4
+
+# 阻止 IPv6 网段访问
+FILTER,input,src_ip=240e:328:1301::/48,all,ipv6
+
+# 阻止 SSH 端口访问（所有IP）
+FILTER,input,dst_port=22,tcp,all
+
+# 阻止端口范围转发
+FILTER,forward,dst_port=1000-2000,tcp,ipv4
+
+# 组合过滤：阻止特定网段访问MySQL
+FILTER,input,src_ip=192.168.1.0/24,dst_port=3306,tcp,ipv4
+
+# 阻止特定源端口
+FILTER,forward,src_port=5000-6000,tcp,all
 
 # 禁用的规则（以 # 开头）
 # SINGLE,3000,3000,disabled.example.com
