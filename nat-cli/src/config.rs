@@ -50,7 +50,7 @@ pub trait NftCellBuilder {
 impl NftCellBuilder for NftCell {
     fn build(&self) -> Result<String, io::Error> {
         match self {
-            NftCell::Filter { .. } => build_filter_rule(self),
+            NftCell::Drop { .. } => build_drop_rule(self),
             _ => {
                 let (domain, ip_version) = match &self {
                     NftCell::Single {
@@ -67,7 +67,7 @@ impl NftCellBuilder for NftCell {
                         // Redirect doesn't need domain resolution
                         return build_redirect_rules(self, ip_version);
                     }
-                    NftCell::Filter { .. } => unreachable!(),
+                    NftCell::Drop { .. } => unreachable!(),
                 };
 
                 // 根据配置的IP版本解析目标IP
@@ -122,8 +122,8 @@ impl RuntimeCell {
 }
 
 /// 构建过滤规则的nftables脚本
-fn build_filter_rule(cell: &NftCell) -> Result<String, io::Error> {
-    let NftCell::Filter {
+fn build_drop_rule(cell: &NftCell) -> Result<String, io::Error> {
+    let NftCell::Drop {
         chain,
         src_ip,
         dst_ip,
@@ -137,7 +137,7 @@ fn build_filter_rule(cell: &NftCell) -> Result<String, io::Error> {
     } = cell else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "Expected Filter cell",
+            "Expected Drop cell",
         ));
     };
 
@@ -145,11 +145,11 @@ fn build_filter_rule(cell: &NftCell) -> Result<String, io::Error> {
 
     match ip_version {
         IpVersion::All => {
-            result += &build_filter_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V4)?;
-            result += &build_filter_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V6)?;
+            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V4)?;
+            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, &IpVersion::V6)?;
         }
         _ => {
-            result += &build_filter_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, ip_version)?;
+            result += &build_drop_rule_for_family(cell, chain, src_ip, dst_ip, src_port, src_port_end, dst_port, dst_port_end, protocol, comment, ip_version)?;
         }
     }
 
@@ -158,7 +158,7 @@ fn build_filter_rule(cell: &NftCell) -> Result<String, io::Error> {
 
 /// 为特定IP family构建过滤规则
 #[allow(clippy::too_many_arguments)]
-fn build_filter_rule_for_family(
+fn build_drop_rule_for_family(
     cell: &NftCell,
     chain: &Chain,
     src_ip: &Option<String>,
@@ -299,9 +299,9 @@ fn build_nat_rules(cell: &NftCell, dst_ip: &str, ip_version: &IpVersion) -> Resu
             io::ErrorKind::InvalidData,
             "Redirect cell should be built via build_redirect_rules",
         )),
-        NftCell::Filter { .. } => Err(io::Error::new(
+        NftCell::Drop { .. } => Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "Filter cell should be built via build_filter_rule",
+            "Drop cell should be built via build_drop_rule",
         )),
     }
 }
@@ -396,13 +396,13 @@ pub(crate) fn example(conf: &str) {
                     RANGE,1000,2000,baidu.com,tcp,ipv6\n\
                     REDIRECT,8000,3128,all,ipv4\n\
                     REDIRECT,8000-9000,3128,tcp,all\n\
-                    FILTER,input,src_ip=180.213.132.211,all,ipv4\n\
-                    FILTER,input,src_ip=240e:328:1301::/48,all,ipv6\n\
-                    FILTER,forward,dst_port=22,tcp,all\n\
+                    DROP,input,src_ip=180.213.132.211,all,ipv4\n\
+                    DROP,input,src_ip=240e:328:1301::/48,all,ipv6\n\
+                    DROP,forward,dst_port=22,tcp,all\n\
                     # 格式: TYPE,port(s),port/domain,protocol,ip_version\n\
-                    # TYPE: SINGLE, RANGE, REDIRECT 或 FILTER\n\
+                    # TYPE: SINGLE, RANGE, REDIRECT 或 DROP\n\
                     # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port-src_port_end,dst_port\n\
-                    # FILTER格式: FILTER,chain,key=value,...,protocol,ip_version\n\
+                    # DROP格式: DROP,chain,key=value,...,protocol,ip_version\n\
                     #   chain: input 或 forward\n\
                     #   key=value: src_ip=IP, dst_ip=IP, src_port=PORT, dst_port=PORT\n\
                     # protocol: tcp, udp, all\n\
@@ -440,7 +440,7 @@ pub fn read_toml_config(toml_path: &str) -> Result<Vec<RuntimeCell>, io::Error> 
             NftCell::Single { comment, .. } => comment.clone(),
             NftCell::Range { comment, .. } => comment.clone(),
             NftCell::Redirect { comment, .. } => comment.clone(),
-            NftCell::Filter { comment, .. } => comment.clone(),
+            NftCell::Drop { comment, .. } => comment.clone(),
         };
 
         if let Some(comment_text) = comment {
@@ -489,7 +489,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 ip_version: IpVersion::All,
                 comment: Some("端口范围重定向到本机示例".to_string()),
             },
-            NftCell::Filter {
+            NftCell::Drop {
                 chain: Chain::Input,
                 src_ip: Some("180.213.132.211".to_string()),
                 dst_ip: None,
@@ -501,7 +501,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 ip_version: IpVersion::V4,
                 comment: Some("阻止特定IPv4地址".to_string()),
             },
-            NftCell::Filter {
+            NftCell::Drop {
                 chain: Chain::Input,
                 src_ip: Some("240e:328:1301::/48".to_string()),
                 dst_ip: None,
@@ -513,7 +513,7 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
                 ip_version: IpVersion::V6,
                 comment: Some("阻止IPv6网段".to_string()),
             },
-            NftCell::Filter {
+            NftCell::Drop {
                 chain: Chain::Input,
                 src_ip: None,
                 dst_ip: None,

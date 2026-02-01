@@ -114,7 +114,7 @@ pub enum Protocol {
     Udp,
 }
 
-// Filter链类型枚举
+// Drop链类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Chain {
     #[default]
@@ -280,8 +280,8 @@ pub enum NftCell {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         comment: Option<String>,
     },
-    #[serde(rename = "filter")]
-    Filter {
+    #[serde(rename = "drop")]
+    Drop {
         #[serde(default)]
         chain: Chain,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -344,7 +344,7 @@ impl Display for NftCell {
                     write!(f, "REDIRECT,{src_port},{dst_port},{protocol},{ip_version}")
                 }
             }
-            NftCell::Filter {
+            NftCell::Drop {
                 chain,
                 src_ip,
                 dst_ip,
@@ -356,7 +356,7 @@ impl Display for NftCell {
                 ip_version,
                 ..
             } => {
-                let mut parts = vec![format!("FILTER,{}", chain)];
+                let mut parts = vec![format!("DROP,{}", chain)];
                 
                 if let Some(ip) = src_ip {
                     parts.push(format!("src_ip={}", ip));
@@ -427,11 +427,11 @@ impl TryFrom<&str> for NftCell {
         let cells: Vec<&str> = line.split(',').collect();
         let rule_type = cells.first().map(|s| s.trim()).unwrap_or("");
 
-        // 处理FILTER类型
-        if rule_type == "FILTER" {
+        // 处理DROP类型
+        if rule_type == "DROP" {
             if cells.len() < 3 {
                 return Err(ParseError::InvalidFormat(format!(
-                    "无效的过滤规则: {line}, FILTER类型至少需要3个字段"
+                    "无效的过滤规则: {line}, DROP类型至少需要3个字段"
                 )));
             }
 
@@ -505,7 +505,7 @@ impl TryFrom<&str> for NftCell {
                 }
             }
 
-            return Ok(NftCell::Filter {
+            return Ok(NftCell::Drop {
                 chain,
                 src_ip,
                 dst_ip,
@@ -519,7 +519,7 @@ impl TryFrom<&str> for NftCell {
             });
         }
 
-        // 验证字段数量（对于非FILTER类型）
+        // 验证字段数量（对于非DROP类型）
         match rule_type {
             "REDIRECT" => {
                 if cells.len() < 3 || cells.len() > 5 {
@@ -681,7 +681,7 @@ impl NftCell {
                 validate_port(*src_port)?;
                 validate_port(*dst_port)?;
             }
-            NftCell::Filter {
+            NftCell::Drop {
                 src_ip,
                 dst_ip,
                 src_port,
@@ -993,8 +993,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv4_with_ipv4_address() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv4_with_ipv4_address() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("192.168.1.1".to_string()),
             dst_ip: None,
@@ -1010,8 +1010,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv6_with_ipv6_address() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv6_with_ipv6_address() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("2001:db8::1".to_string()),
             dst_ip: None,
@@ -1027,8 +1027,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv4_with_ipv6_address_fails() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv4_with_ipv6_address_fails() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("2001:db8::1".to_string()),
             dst_ip: None,
@@ -1048,8 +1048,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv6_with_ipv4_address_fails() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv6_with_ipv4_address_fails() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: None,
             dst_ip: Some("192.168.1.1".to_string()),
@@ -1069,8 +1069,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_all_with_ipv4_address() {
-        let rule = NftCell::Filter {
+    fn test_drop_all_with_ipv4_address() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("10.0.0.1".to_string()),
             dst_ip: None,
@@ -1086,8 +1086,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_all_with_ipv6_address() {
-        let rule = NftCell::Filter {
+    fn test_drop_all_with_ipv6_address() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("fe80::1".to_string()),
             dst_ip: None,
@@ -1103,8 +1103,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv4_cidr_notation() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv4_cidr_notation() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("192.168.1.0/24".to_string()),
             dst_ip: None,
@@ -1120,8 +1120,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_ipv6_cidr_notation() {
-        let rule = NftCell::Filter {
+    fn test_drop_ipv6_cidr_notation() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("2001:db8::/32".to_string()),
             dst_ip: None,
@@ -1137,8 +1137,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_invalid_ip_address() {
-        let rule = NftCell::Filter {
+    fn test_drop_invalid_ip_address() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("invalid.ip.address".to_string()),
             dst_ip: None,
@@ -1157,8 +1157,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_invalid_cidr() {
-        let rule = NftCell::Filter {
+    fn test_drop_invalid_cidr() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("192.168.1.1/99".to_string()),
             dst_ip: None,
@@ -1177,8 +1177,8 @@ ip_version = "all"
     }
 
     #[test]
-    fn test_filter_valid_ipv6_full() {
-        let rule = NftCell::Filter {
+    fn test_drop_valid_ipv6_full() {
+        let rule = NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("2001:0db8:85a3:0000:0000:8a2e:0370:7334".to_string()),
             dst_ip: None,

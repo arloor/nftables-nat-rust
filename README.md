@@ -8,7 +8,7 @@
 ## ✨ 核心特性
 
 - 🔄 **动态 NAT 转发**：自动监测配置文件和目标域名 IP 变化，实时更新转发规则
-- 🛡️ **防火墙过滤**：支持 Filter Drop 功能，实现类似防火墙的黑名单过滤（INPUT/FORWARD链）
+- 🛡️ **防火墙过滤**：支持 Drop 功能，实现类似防火墙的黑名单过滤（INPUT/FORWARD链）
 - 🌐 **IPv4/IPv6 双栈支持**：完整支持 IPv4 和 IPv6 NAT 转发和过滤
 - 📝 **灵活配置**：支持传统配置文件和 TOML 格式，满足不同使用场景
 - 🎯 **精准控制**：支持单端口、端口段、TCP/UDP 协议选择、IP地址和网段过滤
@@ -177,11 +177,11 @@ protocol = "tcp"
 ip_version = "all"
 comment = "批量端口重定向到本机"
 
-# ============ 防火墙过滤规则 (Filter Drop) ============
+# ============ 防火墙过滤规则 (Drop) ============
 
 # 6. 阻止特定 IPv4 地址访问
 [[rules]]
-type = "filter"
+type = "drop"
 chain = "input"                    # 链类型: input 或 forward
 src_ip = "180.213.132.211"        # 源 IP 地址
 protocol = "all"                   # 协议: all, tcp 或 udp
@@ -190,7 +190,7 @@ comment = "阻止恶意 IP 访问"
 
 # 7. 阻止 IPv6 网段访问
 [[rules]]
-type = "filter"
+type = "drop"
 chain = "input"
 src_ip = "240e:328:1301::/48"     # IPv6 网段
 protocol = "all"
@@ -199,7 +199,7 @@ comment = "阻止 IPv6 网段访问"
 
 # 8. 阻止特定端口（如 SSH）
 [[rules]]
-type = "filter"
+type = "drop"
 chain = "input"
 dst_port = 22                      # 目标端口
 protocol = "tcp"
@@ -208,7 +208,7 @@ comment = "阻止 SSH 端口访问"
 
 # 9. 阻止端口范围
 [[rules]]
-type = "filter"
+type = "drop"
 chain = "forward"
 dst_port = 1000                    # 起始端口
 dst_port_end = 2000                # 结束端口
@@ -218,7 +218,7 @@ comment = "阻止转发到端口范围 1000-2000"
 
 # 10. 组合过滤：特定IP访问特定端口
 [[rules]]
-type = "filter"
+type = "drop"
 chain = "input"
 src_ip = "192.168.1.0/24"         # 源 IP 网段
 dst_port = 3306                    # 目标端口 (MySQL)
@@ -259,7 +259,7 @@ comment = "双栈 Web 服务"
 - `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
 - `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
-- `FILTER,链类型,过滤条件[,协议][,IP版本]` - 防火墙过滤规则
+- `DROP,链类型,过滤条件[,协议][,IP版本]` - 防火墙过滤规则
 
 **参数说明**：
 
@@ -308,25 +308,25 @@ SINGLE,9001,9090,ipv6.example.com,all,ipv6
 # 双栈支持（根据客户端自动选择）
 SINGLE,10080,80,dual-stack.example.com,tcp,all
 
-# ============ 防火墙过滤规则 (Filter Drop) ============
+# ============ 防火墙过滤规则 (Drop) ============
 
 # 阻止特定 IPv4 地址访问
-FILTER,input,src_ip=180.213.132.211,all,ipv4
+DROP,input,src_ip=180.213.132.211,all,ipv4
 
 # 阻止 IPv6 网段访问
-FILTER,input,src_ip=240e:328:1301::/48,all,ipv6
+DROP,input,src_ip=240e:328:1301::/48,all,ipv6
 
 # 阻止 SSH 端口访问（所有IP）
-FILTER,input,dst_port=22,tcp,all
+DROP,input,dst_port=22,tcp,all
 
 # 阻止端口范围转发
-FILTER,forward,dst_port=1000-2000,tcp,ipv4
+DROP,forward,dst_port=1000-2000,tcp,ipv4
 
 # 组合过滤：阻止特定网段访问MySQL
-FILTER,input,src_ip=192.168.1.0/24,dst_port=3306,tcp,ipv4
+DROP,input,src_ip=192.168.1.0/24,dst_port=3306,tcp,ipv4
 
 # 阻止特定源端口
-FILTER,forward,src_port=5000-6000,tcp,all
+DROP,forward,src_port=5000-6000,tcp,all
 
 # 禁用的规则（以 # 开头）
 # SINGLE,3000,3000,disabled.example.com
