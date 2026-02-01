@@ -193,7 +193,7 @@ impl NatCell {
                         "IPv6 target address resolved but rule is configured for IPv4 only",
                     ));
                 }
-                result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V4)?;
+                result += &self.build_nat_rules(&dst_ip, &IpVersion::V4)?;
             }
             IpVersion::V6 => {
                 if !is_ipv6_target {
@@ -202,13 +202,13 @@ impl NatCell {
                         "IPv4 target address resolved but rule is configured for IPv6 only",
                     ));
                 }
-                result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V6)?;
+                result += &self.build_nat_rules(&dst_ip, &IpVersion::V6)?;
             }
             IpVersion::All => {
                 if is_ipv6_target {
-                    result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V6)?;
+                    result += &self.build_nat_rules(&dst_ip, &IpVersion::V6)?;
                 } else {
-                    result += &self.build_rules_for_ip_version(&dst_ip, &IpVersion::V4)?;
+                    result += &self.build_nat_rules(&dst_ip, &IpVersion::V4)?;
                 }
             }
         }
@@ -216,10 +216,10 @@ impl NatCell {
         Ok(result)
     }
 
-    fn build_rules_for_ip_version(&self, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
-        let (family, ip_daddr, env_var, localhost_addr, fmt_ip) = match ip_version {
-            IpVersion::V4 => ("ip", "ip daddr", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
-            IpVersion::V6 => ("ip6", "ip6 daddr", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
+    fn build_nat_rules(&self, dst_ip: &str, ip_version: &IpVersion) -> Result<String, io::Error> {
+        let (family, env_var, localhost_addr, fmt_ip) = match ip_version {
+            IpVersion::V4 => ("ip", "nat_local_ip", "127.0.0.1", dst_ip.to_string()),
+            IpVersion::V6 => ("ip6", "nat_local_ipv6", "::1", format!("[{}]", dst_ip)),
             IpVersion::All => return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "IpVersion::All should be handled at caller level",
@@ -242,7 +242,7 @@ impl NatCell {
                 let proto = protocol.nft_proto();
                 let res = format!(
                     "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{port_start}-{port_end} comment \"{cell}\"\n\
-                    add rule {family} self-nat POSTROUTING ct state new {ip_daddr} {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
+                    add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
                     ",
                     cell = self,
                 );
@@ -269,7 +269,7 @@ impl NatCell {
                     // 转发到其他机器
                     let res = format!(
                         "add rule {family} self-nat PREROUTING ct state new {proto} dport {src_port} counter dnat to {fmt_ip}:{dst_port}  comment \"{cell}\"\n\
-                        add rule {family} self-nat POSTROUTING ct state new {ip_daddr} {dst_ip} {proto} dport {dst_port} counter {snat_to_part} comment \"{cell}\"\n\n\
+                        add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {dst_port} counter {snat_to_part} comment \"{cell}\"\n\n\
                         ",
                         cell = self,
                     );
