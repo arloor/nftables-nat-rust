@@ -8,9 +8,10 @@
 ## ✨ 核心特性
 
 - 🔄 **动态 NAT 转发**：自动监测配置文件和目标域名 IP 变化，实时更新转发规则
-- 🌐 **IPv4/IPv6 双栈支持**：完整支持 IPv4 和 IPv6 NAT 转发
+- 🛡️ **防火墙过滤**：支持 Drop 功能，实现类似防火墙的黑名单过滤（INPUT/FORWARD链）
+- 🌐 **IPv4/IPv6 双栈支持**：完整支持 IPv4 和 IPv6 NAT 转发和过滤
 - 📝 **灵活配置**：支持传统配置文件和 TOML 格式，满足不同使用场景
-- 🎯 **精准控制**：支持单端口、端口段、TCP/UDP 协议选择
+- 🎯 **精准控制**：支持单端口、端口段、TCP/UDP 协议选择、IP地址和网段过滤
 - 🔌 **本地重定向**：支持端口重定向到本机其他端口
 - 🐋 **Docker 兼容**：与 Docker 网络完美兼容
 - ⚡ **高性能轻量**：基于 Rust 编写，仅依赖标准库和少量核心库
@@ -123,7 +124,7 @@ systemctl restart nat-console
 - ✅ 结构化配置，可读性更好
 
 ```toml
-# ============ 基础转发示例 ============
+# ============ NAT 转发规则 ============
 
 # 1. 单端口转发 - HTTPS 流量转发
 [[rules]]
@@ -155,7 +156,7 @@ protocol = "udp"       # 仅 UDP 协议
 ip_version = "ipv4"
 comment = "DNS 查询转发"
 
-# ============ 本地重定向示例 ============
+# ============ 本地重定向规则 ============
 
 # 4. 单端口重定向到本机服务
 [[rules]]
@@ -176,9 +177,53 @@ protocol = "tcp"
 ip_version = "all"
 comment = "批量端口重定向到本机"
 
+# ============ 防火墙过滤规则 (Drop) ============
+
+# 6. 阻止特定 IPv4 地址访问
+[[rules]]
+type = "drop"
+chain = "input"                    # 链类型: input 或 forward
+src_ip = "180.213.132.211"        # 源 IP 地址
+protocol = "all"                   # 协议: all, tcp 或 udp
+comment = "阻止恶意 IP 访问"
+
+# 7. 阻止 IPv6 网段访问
+[[rules]]
+type = "drop"
+chain = "input"
+src_ip = "240e:328:1301::/48"     # IPv6 网段
+protocol = "all"
+comment = "阻止 IPv6 网段访问"
+
+# 8. 阻止特定端口（如 SSH）
+[[rules]]
+type = "drop"
+chain = "input"
+dst_port = 22                      # 目标端口
+protocol = "tcp"
+comment = "阻止 SSH 端口访问"
+
+# 9. 阻止端口范围
+[[rules]]
+type = "drop"
+chain = "forward"
+dst_port = 1000                    # 起始端口
+dst_port_end = 2000                # 结束端口
+protocol = "tcp"
+comment = "阻止转发到端口范围 1000-2000"
+
+# 10. 组合过滤：特定IP访问特定端口
+[[rules]]
+type = "drop"
+chain = "input"
+src_ip = "192.168.1.0/24"         # 源 IP 网段
+dst_port = 3306                    # 目标端口 (MySQL)
+protocol = "tcp"
+comment = "阻止内网访问 MySQL"
+
 # ============ 高级场景示例 ============
 
-# 6. 强制 IPv6 转发
+# 11. 强制 IPv6 转发
 [[rules]]
 type = "single"
 sport = 9001
@@ -188,7 +233,7 @@ protocol = "all"
 ip_version = "ipv6"    # 仅使用 IPv6 进行转发
 comment = "IPv6 专用服务"
 
-# 7. 双栈支持示例 - 自动选择 IPv4/IPv6
+# 12. 双栈支持示例 - 自动选择 IPv4/IPv6
 [[rules]]
 type = "single"
 sport = 10080
@@ -209,11 +254,15 @@ comment = "双栈 Web 服务"
 - `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
 - `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
+- `DROP,链类型,过滤条件[,协议]` - 防火墙过滤规则
 
 **参数说明**：
 
 - 协议可选值：`tcp`、`udp`、`all`（默认为 `all`）
-- IP 版本可选值：`ipv4`、`ipv6`、`all`（默认为 `all`）
+- 链类型可选值：`input`、`forward`
+- 过滤条件格式：`key=value`，支持 `src_ip`、`dst_ip`、`src_port`、`dst_port`
+- 端口格式：支持单个端口(如 `dst_port=443`)和端口段（如 `dst_port=1000-2000`）
+- ip地址格式：支持单个 IP（如`192.168.1.0`）和IP 网段（如`192.168.1.0/24`）
 - 以 `#` 开头的行为注释
 
 **配置示例**：
@@ -253,6 +302,26 @@ SINGLE,9001,9090,ipv6.example.com,all,ipv6
 
 # 双栈支持（根据客户端自动选择）
 SINGLE,10080,80,dual-stack.example.com,tcp,all
+
+# ============ 防火墙过滤规则 (Drop) ============
+
+# 阻止特定 IPv4 地址访问
+DROP,input,src_ip=180.213.132.211,all
+
+# 阻止 IPv6 网段访问
+DROP,input,src_ip=240e:328:1301::/48,all
+
+# 阻止 SSH 端口访问（所有IP）
+DROP,input,dst_port=22,tcp
+
+# 阻止端口范围转发
+DROP,forward,dst_port=1000-2000,tcp
+
+# 组合过滤：阻止特定网段访问MySQL
+DROP,input,src_ip=192.168.1.0/24,dst_port=3306,tcp
+
+# 阻止特定源端口
+DROP,forward,src_port=5000-6000,tcp
 
 # 禁用的规则（以 # 开头）
 # SINGLE,3000,3000,disabled.example.com

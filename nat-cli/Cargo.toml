@@ -16,4 +16,5 @@ serde_json.workspace = true
 chrono.workspace = true
 clap.workspace = true
 toml.workspace = true
+ipnetwork.workspace = true
 nat-common = { path = "../nat-common" }

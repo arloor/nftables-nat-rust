@@ -11,3 +11,4 @@ toml.workspace = true
 env_logger.workspace = true
 chrono.workspace = true
 clap.workspace = true
+ipnetwork.workspace = true
