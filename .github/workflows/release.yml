@@ -22,10 +22,20 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
       - name: mkdir
         run: mkdir -p target/release/
-      # - name: build
-      #   run: |
-      #     cargo build --release -p nat-cli
-      #     cp target/release/nat target/release/nat_gnu;
+      - name: zig_build_glibc
+        run: |
+          version=0.15.2
+          name=zig-x86_64-linux-${version}
+          curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /usr/local 
+          grep -qF 'export PATH="/usr/local/'${name}':$PATH"' ~/.bashrc && echo "👏PATH already set" || echo 'export PATH="/usr/local/'${name}':$PATH"' >> ~/.bashrc
+          source ~/.bashrc
+          zig version
+
+          cargo install cargo-zigbuild
+          cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17  
+          ls target/x86_64-unknown-linux-gnu/release
+          cp target/x86_64-unknown-linux-gnu/release/nat target/release/nat-glibc
+          cp target/x86_64-unknown-linux-gnu/release/nat-console target/release/nat-console-glibc
       - name: build_musl
         id: build_musl
         uses: arloor/rust_musl_action@latest
@@ -53,4 +63,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create ${version} target/release/nat target/release/nat-console setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
+          gh release create ${version} target/release/nat target/release/nat-console  target/release/nat-console-glibc target/release/nat-glibc setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
