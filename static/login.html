@@ -142,6 +142,9 @@
         const submitBtn = document.getElementById('submitBtn');
         const alertDiv = document.getElementById('alert');
 
+        // 检测是否在 iframe 中运行
+        const isInIframe = window.self !== window.top;
+
         function showAlert(message, isError = false) {
             alertDiv.textContent = message;
             alertDiv.className = `alert ${isError ? 'alert-error' : 'alert-success'}`;
@@ -152,19 +155,104 @@
             alertDiv.style.display = 'none';
         }
 
-        // 页面加载时读取保存的后端地址
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedApiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
-            document.getElementById('apiBaseUrl').value = savedApiBaseUrl;
+        // Storage Access API 支持
+        async function checkStorageAccess() {
+            if (!document.hasStorageAccess) {
+                console.log('Storage Access API 不可用');
+                return true; // API 不可用时假设有权限
+            }
+            try {
+                return await document.hasStorageAccess();
+            } catch (e) {
+                console.warn('检查 Storage Access 失败:', e);
+                return false;
+            }
+        }
+
+        async function requestStorageAccess() {
+            if (!document.requestStorageAccess) {
+                console.log('requestStorageAccess API 不可用');
+                return true; // API 不可用时假设成功
+            }
+            try {
+                await document.requestStorageAccess();
+                console.log('Storage Access 请求成功');
+                return true;
+            } catch (e) {
+                console.warn('Storage Access 请求失败:', e);
+                return false;
+            }
+        }
+
+        // 确保在 iframe 中有 storage access 权限
+        async function ensureStorageAccess() {
+            if (!isInIframe) {
+                return true; // 不在 iframe 中，无需请求
+            }
+
+            const hasAccess = await checkStorageAccess();
+            if (hasAccess) {
+                console.log('已有 Storage Access 权限');
+                return true;
+            }
+
+            console.log('正在请求 Storage Access 权限...');
+            return await requestStorageAccess();
+        }
+
+        // 页面加载时读取保存的后端地址并检查 storage access
+        window.addEventListener('DOMContentLoaded', async () => {
+            // 先尝试获取 storage access
+            if (isInIframe) {
+                const hasAccess = await checkStorageAccess();
+                if (!hasAccess) {
+                    showAlert('在 iframe 中运行，点击页面任意位置以启用 Cookie 访问', false);
+                    // 添加一次性点击事件来请求 storage access（需要用户交互）
+                    document.body.addEventListener('click', async function handleClick() {
+                        document.body.removeEventListener('click', handleClick);
+                        const granted = await requestStorageAccess();
+                        if (granted) {
+                            hideAlert();
+                            loadSavedSettings();
+                        } else {
+                            showAlert('无法获取 Cookie 访问权限，部分功能可能受限', true);
+                        }
+                    }, { once: true });
+                } else {
+                    loadSavedSettings();
+                }
+            } else {
+                loadSavedSettings();
+            }
         });
+
+        function loadSavedSettings() {
+            try {
+                const savedApiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+                document.getElementById('apiBaseUrl').value = savedApiBaseUrl;
+            } catch (e) {
+                console.warn('无法访问 localStorage:', e);
+            }
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideAlert();
 
+            // 确保有 storage access 权限
+            const hasAccess = await ensureStorageAccess();
+            if (!hasAccess && isInIframe) {
+                showAlert('需要 Cookie 访问权限才能登录，请点击页面后重试', true);
+                return;
+            }
+
             // 保存后端地址到 localStorage
             const apiBaseUrl = document.getElementById('apiBaseUrl').value.trim();
-            localStorage.setItem('apiBaseUrl', apiBaseUrl);
+            try {
+                localStorage.setItem('apiBaseUrl', apiBaseUrl);
+            } catch (e) {
+                console.warn('无法保存到 localStorage:', e);
+            }
 
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -178,7 +266,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include' // 支持跨域 cookie
                 });
 
                 const data = await response.json();
@@ -186,7 +275,11 @@
                 if (response.ok && data.success) {
                     // 保存 JWT token 到 localStorage
                     if (data.token) {
-                        localStorage.setItem('jwtToken', data.token);
+                        try {
+                            localStorage.setItem('jwtToken', data.token);
+                        } catch (e) {
+                            console.warn('无法保存 token 到 localStorage:', e);
+                        }
                     }
                     showAlert('登录成功！正在跳转...', false);
                     setTimeout(() => {
@@ -206,9 +299,19 @@
 
         // 检查是否已登录
         window.addEventListener('load', async () => {
+            // 确保有 storage access
+            await ensureStorageAccess();
+
             try {
-                const apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
-                const token = localStorage.getItem('jwtToken');
+                let apiBaseUrl = '';
+                let token = null;
+
+                try {
+                    apiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+                    token = localStorage.getItem('jwtToken');
+                } catch (e) {
+                    console.warn('无法访问 localStorage:', e);
+                }
 
                 const headers = {
                     'Content-Type': 'application/json',
@@ -220,7 +323,8 @@
 
                 const response = await fetch(`${apiBaseUrl}/api/me`, {
                     method: 'GET',
-                    headers: headers
+                    headers: headers,
+                    credentials: 'include' // 支持跨域 cookie
                 });
 
                 if (response.ok) {
