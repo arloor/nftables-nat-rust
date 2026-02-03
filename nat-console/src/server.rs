@@ -74,12 +74,13 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
                 })
                 .on_failure(()),
             tower_http::cors::CorsLayer::new()
-                .allow_origin(tower_http::cors::Any)
+                .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
                 .allow_headers([
                     header::AUTHORIZATION,
                     header::CONTENT_TYPE,
-                ]),
+                ])
+                .allow_credentials(true),
             tower_http::timeout::TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
                 Duration::from_secs(30),
