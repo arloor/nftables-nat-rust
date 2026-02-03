@@ -17,38 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set outputs
-        id: vars
-        run: echo "sha_short=$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
-      - name: mkdir
-        run: mkdir -p target/release/
-      - name: zig_build_glibc
-        run: |
-          version=0.15.2
-          name=zig-x86_64-linux-${version}
-          curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /tmp 
-          export PATH="/tmp/${name}:$PATH"
-          zig version
-
-          cargo install cargo-zigbuild
-          cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17  
-          ls target/x86_64-unknown-linux-gnu/release
-          cp target/x86_64-unknown-linux-gnu/release/nat target/release/nat
-          cp target/x86_64-unknown-linux-gnu/release/nat-console target/release/nat-console
-      # - name: build_musl
-      #   id: build_musl
-      #   uses: arloor/rust_musl_action@latest
-      #   with:
-      #     args: ""
-      #     use_musl: true
-      # - name: mv_musl_bin
+      # - name: zig_build_glibc
       #   run: |
-      #     # 如果target/release/不存在，则创建该文件夹
-      #     if [ ! -d "target/release/" ]; then
-      #       mkdir -p target/release/
-      #     fi
-      #     cp ${{ steps.build_musl.outputs.release_dir }}/nat target/release/nat;
-      #     cp ${{ steps.build_musl.outputs.release_dir }}/nat-console target/release/nat-console;
+      #     version=0.15.2
+      #     name=zig-x86_64-linux-${version}
+      #     curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /tmp 
+      #     export PATH="/tmp/${name}:$PATH"
+      #     zig version
+
+      #     cargo install cargo-zigbuild
+      #     cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17  
+      #     ls target/x86_64-unknown-linux-gnu/release
+      - name: build_zigbuild
+        id: build_zigbuild
+        uses: arloor/rust_musl_action@latest
+        with:
+          use_zigbuild: true
       - name: gihub release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release/'))
         env:
@@ -62,4 +46,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create ${version} target/release/nat target/release/nat-console setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
+          gh release create ${version} ${{ steps.build_zigbuild.outputs.release_dir }}/nat ${{ steps.build_zigbuild.outputs.release_dir }}/nat-console setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
