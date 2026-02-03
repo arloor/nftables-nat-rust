@@ -33,22 +33,22 @@ jobs:
           cargo install cargo-zigbuild
           cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17  
           ls target/x86_64-unknown-linux-gnu/release
-          cp target/x86_64-unknown-linux-gnu/release/nat target/release/nat-glibc
-          cp target/x86_64-unknown-linux-gnu/release/nat-console target/release/nat-console-glibc
-      - name: build_musl
-        id: build_musl
-        uses: arloor/rust_musl_action@latest
-        with:
-          args: ""
-          use_musl: true
-      - name: mv_musl_bin
-        run: |
-          # 如果target/release/不存在，则创建该文件夹
-          if [ ! -d "target/release/" ]; then
-            mkdir -p target/release/
-          fi
-          cp ${{ steps.build_musl.outputs.release_dir }}/nat target/release/nat;
-          cp ${{ steps.build_musl.outputs.release_dir }}/nat-console target/release/nat-console;
+          cp target/x86_64-unknown-linux-gnu/release/nat target/release/nat
+          cp target/x86_64-unknown-linux-gnu/release/nat-console target/release/nat-console
+      # - name: build_musl
+      #   id: build_musl
+      #   uses: arloor/rust_musl_action@latest
+      #   with:
+      #     args: ""
+      #     use_musl: true
+      # - name: mv_musl_bin
+      #   run: |
+      #     # 如果target/release/不存在，则创建该文件夹
+      #     if [ ! -d "target/release/" ]; then
+      #       mkdir -p target/release/
+      #     fi
+      #     cp ${{ steps.build_musl.outputs.release_dir }}/nat target/release/nat;
+      #     cp ${{ steps.build_musl.outputs.release_dir }}/nat-console target/release/nat-console;
       - name: gihub release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release/'))
         env:
@@ -62,4 +62,4 @@ jobs:
           fi
           git config --local user.email "admin@arloor.com"
           git config --local user.name "arloor"
-          gh release create ${version} target/release/nat target/release/nat-console  target/release/nat-console-glibc target/release/nat-glibc setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
+          gh release create ${version} target/release/nat target/release/nat-console setup.sh setup-console.sh setup-console-assets.sh -n "$version" -t "$version" --latest
