@@ -27,8 +27,7 @@ jobs:
           version=0.15.2
           name=zig-x86_64-linux-${version}
           curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /tmp 
-          grep -qF 'export PATH="/tmp/'${name}':$PATH"' ~/.bashrc && echo "👏PATH already set" || echo 'export PATH="/tmp/'${name}':$PATH"' >> ~/.bashrc
-          source ~/.bashrc
+          export PATH="/tmp/${name}:$PATH"
           zig version
 
           cargo install cargo-zigbuild
