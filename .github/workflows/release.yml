@@ -26,8 +26,8 @@ jobs:
         run: |
           version=0.15.2
           name=zig-x86_64-linux-${version}
-          curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /usr/local 
-          grep -qF 'export PATH="/usr/local/'${name}':$PATH"' ~/.bashrc && echo "👏PATH already set" || echo 'export PATH="/usr/local/'${name}':$PATH"' >> ~/.bashrc
+          curl -SsLf https://ziglang.org/download/${version}/${name}.tar.xz -o- | tar -xJf - -C /tmp 
+          grep -qF 'export PATH="/tmp/'${name}':$PATH"' ~/.bashrc && echo "👏PATH already set" || echo 'export PATH="/tmp/'${name}':$PATH"' >> ~/.bashrc
           source ~/.bashrc
           zig version
 
