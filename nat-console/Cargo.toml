@@ -38,6 +38,6 @@ rustls = { version = "0.23", features = ["aws_lc_rs"] }
 
 # 其他
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2"
 tracing = "0.1"
 time = { version = "0.3", features = ["macros"] }

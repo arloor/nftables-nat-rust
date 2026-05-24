@@ -14,9 +14,9 @@ log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = "0.4"
-clap = { version = "4.5", features = ["derive"] }
-toml = "0.9"
-ipnetwork = "0.20"
+clap = { version = "4.6", features = ["derive"] }
+toml = "1"
+ipnetwork = "0.21"
 
 # WebUI 相关依赖
 axum = "0.8"
@@ -34,5 +34,5 @@ tower-http = { version = "0.6", features = [
     "cors",
 ] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
-bcrypt = "0.17"
+bcrypt = "0.19"
 axum-extra = { version = "0.12", features = ["cookie"] }
