@@ -16,7 +16,7 @@ jobs:
   all:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # - name: zig_build_glibc
       #   run: |
       #     version=0.15.2
