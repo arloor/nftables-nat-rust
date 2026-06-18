@@ -1,11 +1,11 @@
 use crate::Args;
 use crate::handlers::{
-    AppState, get_config, get_current_user, get_rules, get_rules_json, login_handler,
-    logout_handler, save_config, hybrid_auth_middleware,
+    AppState, get_config, get_current_user, get_rules, get_rules_json, hybrid_auth_middleware,
+    login_handler, logout_handler, save_config,
 };
 use axum::{
     Router,
-    http::{StatusCode, Method, header},
+    http::{Method, StatusCode, header},
     middleware,
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -13,6 +13,7 @@ use axum::{
 use axum_bootstrap::TlsParam;
 use axum_bootstrap::jwt::JwtConfig;
 use log::info;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tower_http::services::ServeDir;
@@ -31,6 +32,10 @@ async fn serve_login() -> impl IntoResponse {
 }
 
 pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let port = args.port;
+    let host = args.host;
+    let listen_addr = SocketAddr::new(host.unwrap_or(IpAddr::V6(Ipv6Addr::UNSPECIFIED)), port);
+
     // 生成密码哈希
     let password_hash = bcrypt::hash(&args.password, bcrypt::DEFAULT_COST)?;
 
@@ -76,10 +81,7 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
             tower_http::cors::CorsLayer::new()
                 .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_headers([
-                    header::AUTHORIZATION,
-                    header::CONTENT_TYPE,
-                ])
+                .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
                 .allow_credentials(true),
             tower_http::timeout::TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
@@ -95,19 +97,24 @@ pub async fn run_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
 
     // 启动服务器
     let server =
-        axum_bootstrap::new_server(args.port, app, axum_bootstrap::generate_shutdown_receiver())
-            .with_timeout(Duration::from_secs(600));
+        axum_bootstrap::new_server(port, app, axum_bootstrap::generate_shutdown_receiver());
+    let server = if let Some(host) = host {
+        server.with_listen_ip(host)
+    } else {
+        server
+    }
+    .with_timeout(Duration::from_secs(600));
 
     // 如果提供了证书，使用 TLS
     let server = if let (Some(cert), Some(key)) = (args.cert, args.key) {
-        info!("Starting HTTPS server on port {}", args.port);
+        info!("Starting HTTPS server on {}", listen_addr);
         server.with_tls_param(Some(TlsParam {
             tls: true,
             cert,
             key,
         }))
     } else {
-        info!("Starting HTTP server on port {}", args.port);
+        info!("Starting HTTP server on {}", listen_addr);
         info!("⚠️  Warning: Running without TLS! This is not secure for production.");
         server
     };

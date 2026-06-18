@@ -25,6 +25,7 @@ cargo build --release --package nat-console
 
 ```bash
 ./target/release/nat-console \
+  --host 127.0.0.1 \
   --port 8080 \
   --username admin \
   --password your_password \
@@ -35,6 +36,7 @@ cargo build --release --package nat-console
 
 ```bash
 ./target/release/nat-console \
+  --host 0.0.0.0 \
   --port 8443 \
   --username admin \
   --password your_password \
@@ -57,6 +59,7 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 
 | 参数                  | 说明              | 必需             | 默认值                               |
 | --------------------- | ----------------- | ---------------- | ------------------------------------ |
+| `--host`              | 监听 IP           | 否               | `[::]`                               |
 | `--port, -p`          | 监听端口          | 否               | 8080                                 |
 | `--username, -u`      | 登录用户名        | 是               | -                                    |
 | `--password`          | 登录密码          | 是               | -                                    |

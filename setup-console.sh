@@ -6,6 +6,7 @@ usage() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
+    echo "  -H, --host IP           WebUI 监听 IP (默认: [::])"
     echo "  -p, --port PORT          WebUI 端口 (默认: 5533)"
     echo "  -c, --cert CERT_FILE     TLS 证书文件路径"
     echo "  -k, --key KEY_FILE       TLS 私钥文件路径"
@@ -13,6 +14,7 @@ usage() {
     echo ""
     echo "示例:"
     echo "  $0                                    # 使用默认端口和自签发证书"
+    echo "  $0 -H 127.0.0.1                       # 只监听本机 IPv4"
     echo "  $0 -p 8444                            # 指定端口，使用自签发证书"
     echo "  $0 -p 5533 -c /path/cert.pem -k /path/key.pem  # 使用自定义证书"
     echo ""
@@ -86,12 +88,17 @@ echo "依赖检查完成"
 echo ""
 
 # 解析命令行参数
+HOST=""
 PORT="5533"
 USER_CERT_FILE=""
 USER_KEY_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -H|--host)
+            HOST="$2"
+            shift 2
+            ;;
         -p|--port)
             PORT="$2"
             shift 2
@@ -200,6 +207,11 @@ done
 echo ""
 echo "配置信息:"
 echo "  配置格式: $CONFIG_TYPE"
+if [ -n "$HOST" ]; then
+    echo "  WebUI 监听 IP: $HOST"
+else
+    echo "  WebUI 监听 IP: [::]"
+fi
 echo "  WebUI 端口: $PORT"
 echo "  登录用户名: $USERNAME"
 echo "========================================="
@@ -208,6 +220,10 @@ echo ""
 # 创建 systemd service 文件
 echo "创建 systemd service..."
 SERVICE_FILE="/lib/systemd/system/nat-console.service"
+HOST_ARG=""
+if [ -n "$HOST" ]; then
+    HOST_ARG=" --host $HOST"
+fi
 tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=NAT Console WebUI Service
@@ -215,7 +231,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$INSTALL_PATH --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET --cert $CERT_FILE --key $KEY_FILE
+ExecStart=$INSTALL_PATH$HOST_ARG --port $PORT --username $USERNAME --password $PASSWORD --jwt-secret $JWT_SECRET --cert $CERT_FILE --key $KEY_FILE
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -244,7 +260,11 @@ echo "  开机自启: systemctl enable nat-console"
 echo "  查看日志: journalctl -u nat-console -f"
 echo ""
 echo "WebUI 配置:"
-echo "  访问地址: https://localhost:$PORT"
+if [ -n "$HOST" ]; then
+    echo "  访问地址: https://$HOST:$PORT"
+else
+    echo "  访问地址: https://localhost:$PORT"
+fi
 echo "  用户名: $USERNAME"
 echo "  密码: $PASSWORD"
 echo "========================================="
