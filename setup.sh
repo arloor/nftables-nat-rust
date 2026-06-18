@@ -48,6 +48,10 @@ else
     EXAMPLE_FILE="/etc/nat_example.toml"
 fi
 
+# 创建工作目录
+mkdir -p /opt/nat
+touch /opt/nat/env
+
 # 创建systemd服务
 echo "创建 systemd 服务..."
 cat > /lib/systemd/system/nat.service <<EOF
@@ -57,7 +61,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/nat
+WorkingDirectory=-/opt/nat
 EnvironmentFile=-/opt/nat/env
 ExecStart=$EXEC_START
 ExecStop=/bin/bash -c 'nft add table ip self-nat; nft delete table ip self-nat; nft add table ip6 self-nat; nft delete table ip6 self-nat; nft add table ip self-filter; nft delete table ip self-filter; nft add table ip6 self-filter; nft delete table ip6 self-filter'
@@ -72,10 +76,6 @@ EOF
 # 设置开机启动
 systemctl daemon-reload
 systemctl enable nat
-
-# 创建工作目录
-mkdir -p /opt/nat
-touch /opt/nat/env
 
 # 根据配置类型创建配置文件
 if [ "$CONFIG_TYPE" = "legacy" ]; then
