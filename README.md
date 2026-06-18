@@ -83,15 +83,16 @@ bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-r
 ### 安装管理界面 WebUI
 
 ```bash
-bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) # -p 5533  -k /root/.acme.sh/arloor.dev/arloor.dev.key -c /root/.acme.sh/arloor.dev/fullchain.cer
+bash <(curl -sSLf https://us.arloor.dev/https://github.com/arloor/nftables-nat-rust/releases/download/v2.0.0/setup-console.sh) # --host 0.0.0.0 -p 5533 -k /root/.acme.sh/arloor.dev/arloor.dev.key -c /root/.acme.sh/arloor.dev/fullchain.cer
 ```
 
 1. 安装过程会交互式提示输入用户名和密码。密码会保存在 systemd 文件中，注意安全。
-2. 通过 `-p` 参数可以指定 WebUI 监听端口，默认端口为 5533。
-3. 通过 `-c` 和 `-k` 参数可以指定自定义 TLS 证书和私钥文件路径，如果未提供，将自动生成自签名证书。
-4. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
+2. 通过 `--host` 参数可以指定 WebUI 监听 IP，默认监听 `[::]`。
+3. 通过 `-p` 参数可以指定 WebUI 监听端口，默认端口为 5533。
+4. 通过 `-c` 和 `-k` 参数可以指定自定义 TLS 证书和私钥文件路径，如果未提供，将自动生成自签名证书。
+5. 安装脚本会自动检测现有 NAT 服务的配置格式，并根据配置格式生成相应的 systemd service 文件。
 
-安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。
+安装完成后，访问 `https://your-server-ip:5533` 即可使用管理界面。如果通过 `--host` 指定了监听 IP，请使用对应 IP 访问。
 
 **多后端管理**：登录页面可配置后端 API 地址，支持跨域访问不同服务器。在"后端设置"标签页可添加、切换多个后端地址，方便管理多台服务器。留空后端地址则使用当前服务器。
 
