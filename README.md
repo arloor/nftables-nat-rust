@@ -137,7 +137,7 @@ protocol = "all"       # 协议: all, tcp 或 udp
 ip_version = "ipv4"    # IP 版本: ipv4, ipv6 或 all
 comment = "转发 HTTPS 到 example.com"
 
-# 2. 端口段转发 - 批量游戏端口
+# 2. 端口段转发 - 批量游戏端口（目标端口与本机端口相同）
 [[rules]]
 type = "range"
 port_start = 20000     # 起始端口
@@ -146,6 +146,17 @@ domain = "game.example.com"
 protocol = "tcp"       # 仅 TCP 协议
 ip_version = "all"     # 同时支持 IPv4 和 IPv6
 comment = "游戏服务器端口段"
+
+# 2b. 端口段平移 - 本机 20001-20100 转发到目标 10001-10100
+[[rules]]
+type = "range"
+port_start = 20001     # 本机起始端口
+port_end = 20100       # 本机结束端口（含）
+dport = 10001          # 目标起始端口；省略则与 port_start-port_end 相同
+domain = "b.example.com"
+protocol = "all"
+ip_version = "ipv4"
+comment = "等宽平移到另一公网端口段"
 
 # 3. UDP 专用转发 - DNS 服务
 [[rules]]
@@ -252,7 +263,8 @@ comment = "双栈 Web 服务"
 **基础格式**：
 
 - `SINGLE,本机端口,目标端口,目标地址[,协议][,IP版本]` - 单端口转发
-- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段转发
+- `RANGE,起始端口,结束端口,目标地址[,协议][,IP版本]` - 端口段原样转发
+- `RANGE,起始端口,结束端口,目标起始端口,目标地址[,协议][,IP版本]` - 端口段等宽平移
 - `REDIRECT,源端口,目标端口[,协议][,IP版本]` - 重定向到本机端口
 - `REDIRECT,起始端口-结束端口,目标端口[,协议][,IP版本]` - 端口段重定向
 - `DROP,链类型,过滤条件[,协议]` - 防火墙过滤规则
@@ -276,6 +288,9 @@ SINGLE,10443,443,example.com
 
 # 端口段转发 - 游戏服务器端口（20000-20100）
 RANGE,20000,20100,game.example.com
+
+# 端口段平移 - 本机 53051-53080 => 目标 51051-51080
+RANGE,53051,53080,51051,123.123.123.123
 
 # ============ 协议指定 ============
 

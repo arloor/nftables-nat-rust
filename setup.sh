@@ -125,11 +125,12 @@ protocol = "all"       # all, tcp 或 udp
 ip_version = "ipv4"    # ipv4, ipv6 或 all
 comment = "HTTPS 转发"
 
-# 端口段转发示例
+# 端口段转发示例（可选 dport 做等宽平移）
 [[rules]]
 type = "range"
 port_start = 20000      # 起始端口
 port_end = 20100        # 结束端口
+# dport = 10001         # 可选：目标起始端口，省略则与本机端口段相同
 domain = "example.com"
 protocol = "tcp"
 ip_version = "all"    # 同时支持 IPv4 和 IPv6

@@ -2,7 +2,7 @@
 use crate::ip;
 use ipnetwork::IpNetwork;
 use log::info;
-use nat_common::{Chain, IpVersion, NftCell, ParseError, Protocol, TomlConfig};
+use nat_common::{range_dnat_ports, Chain, IpVersion, NftCell, ParseError, Protocol, TomlConfig};
 use std::env;
 use std::fmt::Display;
 use std::fs;
@@ -290,13 +290,16 @@ fn build_nat_rules(
         NftCell::Range {
             port_start,
             port_end,
+            dport,
             protocol,
             ..
         } => {
             let proto = protocol.nft_proto();
+            let (dest_start, dest_end) = range_dnat_ports(*port_start, *port_end, *dport)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             let res = format!(
-                "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{port_start}-{port_end} comment \"{cell}\"\n\
-                add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {port_start}-{port_end} counter {snat_to_part} comment \"{cell}\"\n\n\
+                "add rule {family} self-nat PREROUTING ct state new {proto} dport {port_start}-{port_end} counter dnat to {fmt_ip}:{dest_start}-{dest_end} comment \"{cell}\"\n\
+                add rule {family} self-nat POSTROUTING ct state new {family} daddr {dst_ip} {proto} dport {dest_start}-{dest_end} counter {snat_to_part} comment \"{cell}\"\n\n\
                 ",
             );
             Ok(res)
@@ -426,6 +429,7 @@ pub(crate) fn example(conf: &str) {
         "{}",
         "SINGLE,10000,443,baidu.com,all,ipv4\n\
                     RANGE,1000,2000,baidu.com,tcp,ipv6\n\
+                    RANGE,53051,53080,51051,123.123.123.123,all,ipv4\n\
                     REDIRECT,8000,3128,all,ipv4\n\
                     REDIRECT,8000-9000,3128,tcp,all\n\
                     DROP,input,src_ip=180.213.132.211,all,ipv4\n\
@@ -433,6 +437,7 @@ pub(crate) fn example(conf: &str) {
                     DROP,forward,dst_port=22,tcp,all\n\
                     # 格式: TYPE,port(s),port/domain,protocol,ip_version\n\
                     # TYPE: SINGLE, RANGE, REDIRECT 或 DROP\n\
+                    # RANGE格式: RANGE,start,end,domain 或 RANGE,start,end,dport,domain\n\
                     # REDIRECT格式: REDIRECT,src_port,dst_port 或 REDIRECT,src_port-src_port_end,dst_port\n\
                     # DROP格式: DROP,chain,key=value,...,protocol,ip_version\n\
                     #   chain: input 或 forward\n\
@@ -500,10 +505,20 @@ pub fn toml_example(conf: &str) -> Result<(), io::Error> {
             NftCell::Range {
                 port_start: 1000,
                 port_end: 2000,
+                dport: None,
                 domain: "baidu.com".to_string(),
                 protocol: Protocol::Tcp,
                 ip_version: IpVersion::V4,
                 comment: Some("端口范围转发示例".to_string()),
+            },
+            NftCell::Range {
+                port_start: 53051,
+                port_end: 53080,
+                dport: Some(51051),
+                domain: "123.123.123.123".to_string(),
+                protocol: Protocol::All,
+                ip_version: IpVersion::V4,
+                comment: Some("端口段平移转发示例".to_string()),
             },
             NftCell::Redirect {
                 src_port: 8000,
@@ -707,5 +722,54 @@ mod redirect_build_tests {
         assert!(
             result.contains("add rule ip6 self-nat PREROUTING ct state new meta l4proto { tcp, udp } th dport 5000 redirect to :4000")
         );
+    }
+}
+
+#[allow(clippy::unwrap_used)]
+#[cfg(test)]
+mod range_build_tests {
+    use super::*;
+
+    #[test]
+    fn test_build_range_identity_ipv4() {
+        let cell = NftCell::Range {
+            port_start: 20000,
+            port_end: 20100,
+            dport: None,
+            domain: "1.1.1.1".to_string(),
+            protocol: Protocol::Tcp,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+
+        let result = cell.build().unwrap();
+        assert!(result.contains(
+            "add rule ip self-nat PREROUTING ct state new tcp dport 20000-20100 counter dnat to 1.1.1.1:20000-20100"
+        ));
+        assert!(result.contains(
+            "add rule ip self-nat POSTROUTING ct state new ip daddr 1.1.1.1 tcp dport 20000-20100 counter masquerade"
+        ));
+    }
+
+    #[test]
+    fn test_build_range_shift_ipv4() {
+        let cell = NftCell::Range {
+            port_start: 53051,
+            port_end: 53080,
+            dport: Some(51051),
+            domain: "123.123.123.123".to_string(),
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+
+        let result = cell.build().unwrap();
+        assert!(result.contains(
+            "add rule ip self-nat PREROUTING ct state new meta l4proto { tcp, udp } th dport 53051-53080 counter dnat to 123.123.123.123:51051-51080"
+        ));
+        assert!(result.contains(
+            "add rule ip self-nat POSTROUTING ct state new ip daddr 123.123.123.123 meta l4proto { tcp, udp } th dport 51051-51080 counter masquerade"
+        ));
+        assert!(!result.contains("th dport 53051-53080 counter masquerade"));
     }
 }

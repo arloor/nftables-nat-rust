@@ -254,6 +254,8 @@ pub enum NftCell {
         port_start: u16,
         #[serde(rename = "port_end")]
         port_end: u16,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dport: Option<u16>,
         #[serde(rename = "domain")]
         domain: String,
         #[serde(default)]
@@ -315,14 +317,24 @@ impl Display for NftCell {
             NftCell::Range {
                 port_start,
                 port_end,
+                dport,
                 domain,
                 protocol,
                 ip_version,
                 ..
-            } => write!(
-                f,
-                "RANGE,{port_start},{port_end},{domain},{protocol},{ip_version}"
-            ),
+            } => {
+                if let Some(dport) = dport {
+                    write!(
+                        f,
+                        "RANGE,{port_start},{port_end},{dport},{domain},{protocol},{ip_version}"
+                    )
+                } else {
+                    write!(
+                        f,
+                        "RANGE,{port_start},{port_end},{domain},{protocol},{ip_version}"
+                    )
+                }
+            }
             NftCell::Redirect {
                 src_port,
                 src_port_end,
@@ -516,10 +528,17 @@ impl TryFrom<&str> for NftCell {
                     )));
                 }
             }
-            "SINGLE" | "RANGE" => {
+            "SINGLE" => {
                 if cells.len() < 4 || cells.len() > 6 {
                     return Err(ParseError::InvalidFormat(format!(
                         "无效的配置行: {line}, 字段数量不正确（需要4-6个字段）"
+                    )));
+                }
+            }
+            "RANGE" => {
+                if cells.len() < 4 || cells.len() > 7 {
+                    return Err(ParseError::InvalidFormat(format!(
+                        "无效的配置行: {line}, RANGE类型需要4-7个字段"
                     )));
                 }
             }
@@ -562,11 +581,27 @@ impl TryFrom<&str> for NftCell {
             "RANGE" => {
                 let port_start = cells[1].trim().parse::<u16>()?;
                 let port_end = cells[2].trim().parse::<u16>()?;
+                let (dport, domain_idx) = parse_range_dport_and_domain_idx(&cells)?;
+                if domain_idx >= cells.len() {
+                    return Err(ParseError::InvalidFormat(format!(
+                        "无效的配置行: {line}, RANGE缺少目标地址"
+                    )));
+                }
+                let domain = cells[domain_idx].trim().to_string();
+                let protocol = cells
+                    .get(domain_idx + 1)
+                    .map(|s| Protocol::from(s.trim()))
+                    .unwrap_or(Protocol::All);
+                let ip_version = cells
+                    .get(domain_idx + 2)
+                    .map(|s| IpVersion::from(s.trim()))
+                    .unwrap_or(IpVersion::V4);
 
                 Ok(NftCell::Range {
                     port_start,
                     port_end,
-                    domain: cells[3].trim().to_string(),
+                    dport,
+                    domain,
                     protocol,
                     ip_version,
                     comment: None,
@@ -639,20 +674,19 @@ impl NftCell {
             NftCell::Range {
                 port_start,
                 port_end,
+                dport,
                 domain,
                 ..
             } => {
                 if domain.trim().is_empty() {
                     return Err("域名不能为空".to_string());
                 }
-                if port_start >= port_end {
-                    return Err(format!(
-                        "起始端口 {} 必须小于结束端口 {}",
-                        port_start, port_end
-                    ));
-                }
+                range_dnat_ports(*port_start, *port_end, *dport)?;
                 validate_port(*port_start)?;
                 validate_port(*port_end)?;
+                if let Some(dport) = dport {
+                    validate_port(*dport)?;
+                }
             }
             NftCell::Redirect {
                 src_port,
@@ -734,6 +768,49 @@ fn validate_port(port: u16) -> Result<(), String> {
     Ok(())
 }
 
+/// RANGE 规则的目标端口段。
+/// `dport` 为空时与本机端口段相同；否则从 `dport` 起做等宽平移。
+pub fn range_dnat_ports(
+    port_start: u16,
+    port_end: u16,
+    dport: Option<u16>,
+) -> Result<(u16, u16), String> {
+    if port_start >= port_end {
+        return Err(format!(
+            "起始端口 {} 必须小于结束端口 {}",
+            port_start, port_end
+        ));
+    }
+    let span = port_end - port_start;
+    let dest_start = dport.unwrap_or(port_start);
+    let dest_end = dest_start.checked_add(span).ok_or_else(|| {
+        format!("目标端口段溢出: {port_start}-{port_end} 映射到 {dest_start} 起超过 65535")
+    })?;
+    Ok((dest_start, dest_end))
+}
+
+fn is_legacy_protocol_or_ip_version(s: &str) -> bool {
+    s.eq_ignore_ascii_case("tcp")
+        || s.eq_ignore_ascii_case("udp")
+        || s.eq_ignore_ascii_case("all")
+        || s.eq_ignore_ascii_case("ipv4")
+        || s.eq_ignore_ascii_case("ipv6")
+}
+
+/// 解析 RANGE 的可选目标起始端口。
+/// 旧格式: RANGE,start,end,domain[,protocol][,ip_version]
+/// 新格式: RANGE,start,end,dport,domain[,protocol][,ip_version]
+fn parse_range_dport_and_domain_idx(cells: &[&str]) -> Result<(Option<u16>, usize), ParseError> {
+    if cells.len() >= 5 {
+        if let Ok(dport) = cells[3].trim().parse::<u16>() {
+            if !is_legacy_protocol_or_ip_version(cells[4].trim()) {
+                return Ok((Some(dport), 4));
+            }
+        }
+    }
+    Ok((None, 3))
+}
+
 /// 验证IP地址格式
 fn validate_ip_address(ip: &str, field_name: &str) -> Result<(), String> {
     // 尝试解析为 IpNetwork（支持 CIDR 表示法）
@@ -797,6 +874,7 @@ mod tests {
         let rule = NftCell::Range {
             port_start: 1000,
             port_end: 2000,
+            dport: None,
             domain: "example.com".to_string(),
             protocol: Protocol::Tcp,
             ip_version: IpVersion::All,
@@ -810,6 +888,7 @@ mod tests {
         let rule = NftCell::Range {
             port_start: 2000,
             port_end: 1000,
+            dport: None,
             domain: "example.com".to_string(),
             protocol: Protocol::Tcp,
             ip_version: IpVersion::V4,
@@ -954,6 +1033,120 @@ ip_version = "all"
         let content = "SINGLE,10000,443,example.com\nINVALID,123";
         let result = validate_legacy_config(content);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_try_from_range_identity() {
+        let cell = NftCell::try_from("RANGE,20000,20100,game.example.com,tcp,ipv4").unwrap();
+        match cell {
+            NftCell::Range {
+                port_start,
+                port_end,
+                dport,
+                domain,
+                protocol,
+                ip_version,
+                ..
+            } => {
+                assert_eq!(port_start, 20000);
+                assert_eq!(port_end, 20100);
+                assert_eq!(dport, None);
+                assert_eq!(domain, "game.example.com");
+                assert_eq!(protocol, Protocol::Tcp);
+                assert_eq!(ip_version, IpVersion::V4);
+            }
+            other => panic!("Expected Range, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_try_from_range_shift() {
+        let cell = NftCell::try_from("RANGE,53051,53080,51051,123.123.123.123,all,ipv4").unwrap();
+        match cell {
+            NftCell::Range {
+                port_start,
+                port_end,
+                dport,
+                domain,
+                protocol,
+                ip_version,
+                ..
+            } => {
+                assert_eq!(port_start, 53051);
+                assert_eq!(port_end, 53080);
+                assert_eq!(dport, Some(51051));
+                assert_eq!(domain, "123.123.123.123");
+                assert_eq!(protocol, Protocol::All);
+                assert_eq!(ip_version, IpVersion::V4);
+                assert_eq!(
+                    range_dnat_ports(port_start, port_end, dport).unwrap(),
+                    (51051, 51080)
+                );
+            }
+            other => panic!("Expected Range, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_try_from_range_numeric_domain_keeps_old_format() {
+        let cell = NftCell::try_from("RANGE,1000,2000,443,tcp").unwrap();
+        match cell {
+            NftCell::Range {
+                dport,
+                domain,
+                protocol,
+                ..
+            } => {
+                assert_eq!(dport, None);
+                assert_eq!(domain, "443");
+                assert_eq!(protocol, Protocol::Tcp);
+            }
+            other => panic!("Expected Range, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_validate_range_shift_overflow() {
+        let rule = NftCell::Range {
+            port_start: 1,
+            port_end: 100,
+            dport: Some(65500),
+            domain: "example.com".to_string(),
+            protocol: Protocol::Tcp,
+            ip_version: IpVersion::V4,
+            comment: None,
+        };
+        assert!(rule.validate().is_err());
+    }
+
+    #[test]
+    fn test_parse_range_shift_toml() {
+        let toml_str = r#"
+[[rules]]
+type = "range"
+port_start = 20001
+port_end = 20100
+dport = 10001
+domain = "b.example.com"
+protocol = "tcp"
+ip_version = "ipv4"
+"#;
+        let config = TomlConfig::from_toml_str(toml_str).unwrap();
+        match &config.rules[0] {
+            NftCell::Range {
+                port_start,
+                port_end,
+                dport,
+                domain,
+                ..
+            } => {
+                assert_eq!(*port_start, 20001);
+                assert_eq!(*port_end, 20100);
+                assert_eq!(*dport, Some(10001));
+                assert_eq!(domain, "b.example.com");
+            }
+            other => panic!("Expected Range, got {other:?}"),
+        }
     }
 
     #[test]
