@@ -921,6 +921,10 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
     out.push('\n');
 }
 
+fn map_key_set(name: &str) -> String {
+    format!("{name}_k")
+}
+
 fn emit_map(out: &mut String, family: &str, name: &str, type_spec: &str, elems: &[MapElem]) {
     if elems.is_empty() {
         return;
@@ -952,14 +956,48 @@ fn emit_map(out: &mut String, family: &str, name: &str, type_spec: &str, elems: 
         }
     }
     out.push_str("    }\n}\n");
+    // Linux < 6.5 rejects treating a named map as a set (`tcp dport @map`).
+    // Keep a companion set of the same keys for the match, and use the map
+    // only for the DNAT/redirect lookup (`dnat to tcp dport map @map`).
+    emit_map_key_set(out, family, &map_key_set(name), elems, interval);
+}
+
+fn emit_map_key_set(
+    out: &mut String,
+    family: &str,
+    name: &str,
+    elems: &[MapElem],
+    interval: bool,
+) {
+    out.push_str(&format!("add set {family} self-nat {name} {{\n"));
+    out.push_str("    type inet_service\n");
+    if interval {
+        out.push_str("    flags interval\n");
+    }
+    out.push_str("    elements = {\n");
+    for (i, elem) in elems.iter().enumerate() {
+        let comma = if i + 1 == elems.len() { "" } else { "," };
+        if elem.comment.is_empty() {
+            out.push_str(&format!("        {}{}\n", elem.span.emit(), comma));
+        } else {
+            out.push_str(&format!(
+                "        {} comment \"{}\"{}\n",
+                elem.span.emit(),
+                elem.comment,
+                comma
+            ));
+        }
+    }
+    out.push_str("    }\n}\n");
 }
 
 fn emit_redirect_rule(out: &mut String, family: &str, proto: &str, map: &str, elems: &[MapElem]) {
     if elems.is_empty() {
         return;
     }
+    let keys = map_key_set(map);
     out.push_str(&format!(
-        "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{map} redirect to {proto} dport map @{map}\n"
+        "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{keys} redirect to {proto} dport map @{map}\n"
     ));
 }
 
@@ -974,8 +1012,9 @@ fn emit_dnat_rule(
     if elems.is_empty() {
         return;
     }
+    let keys = map_key_set(map);
     out.push_str(&format!(
-        "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{map} counter ct mark set {CT_MARK} {dnat}\n"
+        "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{keys} counter ct mark set {CT_MARK} {dnat}\n"
     ));
 }
 
@@ -1235,12 +1274,13 @@ mod tests {
         })])
         .unwrap();
         assert!(script.contains("add map ip self-nat tcp_redirect"));
+        assert!(script.contains("add set ip self-nat tcp_redirect_k"));
         assert!(script.contains("8000 comment \"REDIRECT,8000,3128,all,ipv4\" : 3128"));
         assert!(script.contains(
-            "add rule ip self-nat PREROUTING fib daddr type local tcp dport @tcp_redirect redirect to tcp dport map @tcp_redirect"
+            "add rule ip self-nat PREROUTING fib daddr type local tcp dport @tcp_redirect_k redirect to tcp dport map @tcp_redirect"
         ));
         assert!(script.contains(
-            "add rule ip self-nat PREROUTING fib daddr type local udp dport @udp_redirect redirect to udp dport map @udp_redirect"
+            "add rule ip self-nat PREROUTING fib daddr type local udp dport @udp_redirect_k redirect to udp dport map @udp_redirect"
         ));
         assert!(!script.contains("add map ip6"));
         assert!(!script.contains("POSTROUTING"));
@@ -1294,7 +1334,8 @@ mod tests {
         })])
         .unwrap();
         assert!(script.contains("10000 comment \"web\" : 1.2.3.4 . 443"));
-        assert!(script.contains("fib daddr type local tcp dport @tcp_dnat counter ct mark set 0x4e4154 dnat ip addr . port to tcp dport map @tcp_dnat"));
+        assert!(script.contains("add set ip self-nat tcp_dnat_k"));
+        assert!(script.contains("fib daddr type local tcp dport @tcp_dnat_k counter ct mark set 0x4e4154 dnat ip addr . port to tcp dport map @tcp_dnat"));
         assert!(script.contains("ct mark 0x4e4154 counter masquerade"));
         assert!(!script.contains("add map ip6"));
         assert!(!script.contains("add chain ip self-filter"));
@@ -1314,10 +1355,12 @@ mod tests {
         })])
         .unwrap();
         assert!(script.contains("add map ip self-nat tcp_dnat_ip"));
+        assert!(script.contains("add set ip self-nat tcp_dnat_ip_k"));
         assert!(
             script.contains("1000-2000 comment \"RANGE,1000,2000,5.6.7.8,tcp,ipv4\" : 5.6.7.8")
         );
         assert!(script.contains("dnat to tcp dport map @tcp_dnat_ip"));
+        assert!(script.contains("tcp dport @tcp_dnat_ip_k"));
         assert!(!script.contains("tcp_dnat {"));
         check_nft(&script);
     }
@@ -1351,10 +1394,12 @@ mod tests {
         })])
         .unwrap();
         assert!(script.contains("add map ip6 self-nat tcp_dnat"));
+        assert!(script.contains("add set ip6 self-nat tcp_dnat_k"));
         assert!(script.contains(
             "9001 comment \"SINGLE,9001,9099,2001:db8::1,tcp,ipv6\" : 2001:db8::1 . 9099"
         ));
         assert!(script.contains("dnat ip6 addr . port to tcp dport map @tcp_dnat"));
+        assert!(script.contains("tcp dport @tcp_dnat_k"));
         assert!(!script.contains("add map ip self-nat"));
         check_nft(&script);
     }
@@ -1471,7 +1516,9 @@ mod tests {
         })])
         .unwrap();
         assert!(script.contains("add map ip self-nat tcp_dnat_ip"));
+        assert!(script.contains("add set ip self-nat tcp_dnat_ip_k"));
         assert!(script.contains("dnat to tcp dport map @tcp_dnat_ip"));
+        assert!(script.contains("tcp dport @tcp_dnat_ip_k"));
         assert!(!script.contains("dnat to 5.6.7.8:1000-2000"));
         check_nft(&script);
     }
