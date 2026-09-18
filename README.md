@@ -409,7 +409,7 @@ nft list map ip self-nat tcp_dnat_ip
 
 生成的 DNAT/REDIRECT 规则会匹配 `fib daddr type local`，只改写目的地址为本机的流量，避免劫持转发中的过路包。同一 family 的 SNAT 折叠为一条 `ct mark 0x4e4154 masquerade`。
 
-端口是否命中用普通 set 判断（`tcp dport @tcp_dnat_k`），真正改写地址才走 map（`dnat to tcp dport map @tcp_dnat`）。Linux 6.5 之前不能把具名 map 当 set 做成员查询，Debian 12 的 6.1 内核就属于这种情况。
+端口命中判断随内核版本切换：Linux 6.5 及以上直接写 `tcp dport @tcp_dnat`；更老的内核（例如 Debian 12 的 6.1）会额外生成 companion set，写成 `tcp dport @tcp_dnat_k`。真正改写地址都走 `dnat to tcp dport map @tcp_dnat`。
 
 RANGE 原样转发进 `tcp_dnat_ip`/`udp_dnat_ip`（保留目的端口）。等宽平移不能放进 map：nftables 要求 map value 是 singleton，`53051-53080 : 1.2.3.4 . 51051-51080` 会失败，因此生成一条内核原生 interval DNAT：`dnat to 1.2.3.4:51051-51080`。
 

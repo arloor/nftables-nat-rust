@@ -1,12 +1,14 @@
 use crate::config::RuntimeCell;
 use crate::ip;
 use ipnetwork::IpNetwork;
-use log::warn;
+use log::{info, warn};
 use nat_common::{Chain, IpVersion, NftCell, Protocol, range_dnat_ports};
 use std::env;
+use std::fs;
 use std::io;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 const CT_MARK: &str = "0x4e4154";
 const TABLES: [(&str, &str); 4] = [
@@ -361,8 +363,15 @@ impl Ruleset {
     }
 }
 
+/// Linux 6.5 起允许把具名 map 当 set 做成员查询（`tcp dport @map`）。
+const MAP_AS_SET_KERNEL: (u32, u32) = (6, 5);
+
 /// 根据运行时配置生成 nftables 脚本。
 pub fn build_script(cells: &[RuntimeCell]) -> Result<String, io::Error> {
+    build_script_with(cells, host_supports_map_as_set())
+}
+
+fn build_script_with(cells: &[RuntimeCell], map_as_set: bool) -> Result<String, io::Error> {
     let mut ruleset = Ruleset::new();
     for cell in cells {
         if let RuntimeCell::Rule(rule) = cell
@@ -371,7 +380,50 @@ pub fn build_script(cells: &[RuntimeCell]) -> Result<String, io::Error> {
             warn!("Failed to build rule for {rule:?}: {e}");
         }
     }
-    Ok(emit_script(&ruleset))
+    Ok(emit_script(&ruleset, map_as_set))
+}
+
+fn host_supports_map_as_set() -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let release = kernel_release().unwrap_or_else(|| "unknown".to_string());
+        let supported = kernel_supports_map_as_set(&release);
+        if supported {
+            info!(
+                "kernel {release} >= {}.{}, 使用 map 做端口匹配",
+                MAP_AS_SET_KERNEL.0, MAP_AS_SET_KERNEL.1
+            );
+        } else {
+            info!(
+                "kernel {release} < {}.{}, 使用 companion set 做端口匹配",
+                MAP_AS_SET_KERNEL.0, MAP_AS_SET_KERNEL.1
+            );
+        }
+        supported
+    })
+}
+
+fn kernel_release() -> Option<String> {
+    fs::read_to_string("/proc/sys/kernel/osrelease")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn kernel_supports_map_as_set(release: &str) -> bool {
+    parse_kernel_release(release).is_some_and(|ver| ver >= MAP_AS_SET_KERNEL)
+}
+
+fn parse_kernel_release(release: &str) -> Option<(u32, u32)> {
+    let mut parts = release.split('.');
+    let major = parse_leading_u32(parts.next()?)?;
+    let minor = parse_leading_u32(parts.next()?)?;
+    Some((major, minor))
+}
+
+fn parse_leading_u32(s: &str) -> Option<u32> {
+    let end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+    s.get(..end)?.parse().ok()
 }
 
 fn add_rule(ruleset: &mut Ruleset, cell: &NftCell) -> Result<(), io::Error> {
@@ -790,7 +842,7 @@ fn escape_comment(s: &str) -> String {
     }
     out
 }
-fn emit_script(ruleset: &Ruleset) -> String {
+fn emit_script(ruleset: &Ruleset, map_as_set: bool) -> String {
     let mut out = String::from("#!/usr/sbin/nft -f\n\n");
     out.push_str(
         "# Atomically replace managed tables. Empty tables are kept for listing; hooks are only added when needed.\n",
@@ -802,14 +854,14 @@ fn emit_script(ruleset: &Ruleset) -> String {
     }
     out.push('\n');
 
-    emit_nat(&mut out, Family::Ip, &ruleset.ip4);
-    emit_nat(&mut out, Family::Ip6, &ruleset.ip6);
+    emit_nat(&mut out, Family::Ip, &ruleset.ip4, map_as_set);
+    emit_nat(&mut out, Family::Ip6, &ruleset.ip6, map_as_set);
     emit_filter(&mut out, Family::Ip, &ruleset.filter4);
     emit_filter(&mut out, Family::Ip6, &ruleset.filter6);
     out
 }
 
-fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
+fn emit_nat(out: &mut String, family: Family, maps: &NatMaps, map_as_set: bool) {
     if maps.is_empty() {
         return;
     }
@@ -825,6 +877,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "tcp_dnat",
         &format!("inet_service : {} . inet_service", family.addr_type()),
         &maps.tcp_dnat,
+        map_as_set,
     );
     emit_map(
         out,
@@ -832,6 +885,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "udp_dnat",
         &format!("inet_service : {} . inet_service", family.addr_type()),
         &maps.udp_dnat,
+        map_as_set,
     );
     emit_map(
         out,
@@ -839,6 +893,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "tcp_dnat_ip",
         &format!("inet_service : {}", family.addr_type()),
         &maps.tcp_dnat_ip,
+        map_as_set,
     );
     emit_map(
         out,
@@ -846,6 +901,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "udp_dnat_ip",
         &format!("inet_service : {}", family.addr_type()),
         &maps.udp_dnat_ip,
+        map_as_set,
     );
     emit_map(
         out,
@@ -853,6 +909,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "tcp_redirect",
         "inet_service : inet_service",
         &maps.tcp_redirect,
+        map_as_set,
     );
     emit_map(
         out,
@@ -860,14 +917,29 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "udp_redirect",
         "inet_service : inet_service",
         &maps.udp_redirect,
+        map_as_set,
     );
 
     out.push_str(&format!(
         "add chain {fam} self-nat PREROUTING {{ type nat hook prerouting priority -110 ; }}\n"
     ));
 
-    emit_redirect_rule(out, fam, "tcp", "tcp_redirect", &maps.tcp_redirect);
-    emit_redirect_rule(out, fam, "udp", "udp_redirect", &maps.udp_redirect);
+    emit_redirect_rule(
+        out,
+        fam,
+        "tcp",
+        "tcp_redirect",
+        &maps.tcp_redirect,
+        map_as_set,
+    );
+    emit_redirect_rule(
+        out,
+        fam,
+        "udp",
+        "udp_redirect",
+        &maps.udp_redirect,
+        map_as_set,
+    );
     emit_dnat_rule(
         out,
         fam,
@@ -878,6 +950,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
             "dnat {} addr . port to tcp dport map @tcp_dnat",
             family.dnat_kw()
         ),
+        map_as_set,
     );
     emit_dnat_rule(
         out,
@@ -889,6 +962,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
             "dnat {} addr . port to udp dport map @udp_dnat",
             family.dnat_kw()
         ),
+        map_as_set,
     );
     emit_dnat_rule(
         out,
@@ -897,6 +971,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "tcp_dnat_ip",
         &maps.tcp_dnat_ip,
         "dnat to tcp dport map @tcp_dnat_ip",
+        map_as_set,
     );
     emit_dnat_rule(
         out,
@@ -905,6 +980,7 @@ fn emit_nat(out: &mut String, family: Family, maps: &NatMaps) {
         "udp_dnat_ip",
         &maps.udp_dnat_ip,
         "dnat to udp dport map @udp_dnat_ip",
+        map_as_set,
     );
     emit_shift_rules(out, family, "tcp", &maps.tcp_shift);
     emit_shift_rules(out, family, "udp", &maps.udp_shift);
@@ -925,7 +1001,22 @@ fn map_key_set(name: &str) -> String {
     format!("{name}_k")
 }
 
-fn emit_map(out: &mut String, family: &str, name: &str, type_spec: &str, elems: &[MapElem]) {
+fn map_match_name(name: &str, map_as_set: bool) -> std::borrow::Cow<'_, str> {
+    if map_as_set {
+        std::borrow::Cow::Borrowed(name)
+    } else {
+        std::borrow::Cow::Owned(map_key_set(name))
+    }
+}
+
+fn emit_map(
+    out: &mut String,
+    family: &str,
+    name: &str,
+    type_spec: &str,
+    elems: &[MapElem],
+    map_as_set: bool,
+) {
     if elems.is_empty() {
         return;
     }
@@ -957,9 +1048,9 @@ fn emit_map(out: &mut String, family: &str, name: &str, type_spec: &str, elems: 
     }
     out.push_str("    }\n}\n");
     // Linux < 6.5 rejects treating a named map as a set (`tcp dport @map`).
-    // Keep a companion set of the same keys for the match, and use the map
-    // only for the DNAT/redirect lookup (`dnat to tcp dport map @map`).
-    emit_map_key_set(out, family, &map_key_set(name), elems, interval);
+    if !map_as_set {
+        emit_map_key_set(out, family, &map_key_set(name), elems, interval);
+    }
 }
 
 fn emit_map_key_set(
@@ -991,11 +1082,18 @@ fn emit_map_key_set(
     out.push_str("    }\n}\n");
 }
 
-fn emit_redirect_rule(out: &mut String, family: &str, proto: &str, map: &str, elems: &[MapElem]) {
+fn emit_redirect_rule(
+    out: &mut String,
+    family: &str,
+    proto: &str,
+    map: &str,
+    elems: &[MapElem],
+    map_as_set: bool,
+) {
     if elems.is_empty() {
         return;
     }
-    let keys = map_key_set(map);
+    let keys = map_match_name(map, map_as_set);
     out.push_str(&format!(
         "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{keys} redirect to {proto} dport map @{map}\n"
     ));
@@ -1008,11 +1106,12 @@ fn emit_dnat_rule(
     map: &str,
     elems: &[MapElem],
     dnat: &str,
+    map_as_set: bool,
 ) {
     if elems.is_empty() {
         return;
     }
-    let keys = map_key_set(map);
+    let keys = map_match_name(map, map_as_set);
     out.push_str(&format!(
         "add rule {family} self-nat PREROUTING fib daddr type local {proto} dport @{keys} counter ct mark set {CT_MARK} {dnat}\n"
     ));
@@ -1234,6 +1333,14 @@ mod tests {
         RuntimeCell::Rule(cell)
     }
 
+    fn compat_script(cells: &[RuntimeCell]) -> Result<String, io::Error> {
+        build_script_with(cells, false)
+    }
+
+    fn modern_script(cells: &[RuntimeCell]) -> Result<String, io::Error> {
+        build_script_with(cells, true)
+    }
+
     fn check_nft(script: &str) {
         if !Path::new("/usr/sbin/nft").exists() {
             return;
@@ -1264,7 +1371,7 @@ mod tests {
 
     #[test]
     fn test_build_redirect_single_ipv4() {
-        let script = build_script(&[rule(NftCell::Redirect {
+        let script = compat_script(&[rule(NftCell::Redirect {
             src_port: 8000,
             src_port_end: None,
             dst_port: 3128,
@@ -1289,7 +1396,7 @@ mod tests {
 
     #[test]
     fn test_build_redirect_range_ipv4() {
-        let script = build_script(&[rule(NftCell::Redirect {
+        let script = compat_script(&[rule(NftCell::Redirect {
             src_port: 30001,
             src_port_end: Some(39999),
             dst_port: 45678,
@@ -1308,7 +1415,7 @@ mod tests {
 
     #[test]
     fn test_build_redirect_both_ipv() {
-        let script = build_script(&[rule(NftCell::Redirect {
+        let script = compat_script(&[rule(NftCell::Redirect {
             src_port: 5000,
             src_port_end: None,
             dst_port: 4000,
@@ -1324,7 +1431,7 @@ mod tests {
 
     #[test]
     fn test_build_single_dnat_uses_map_and_mark() {
-        let script = build_script(&[rule(NftCell::Single {
+        let script = compat_script(&[rule(NftCell::Single {
             sport: 10000,
             dport: 443,
             domain: "1.2.3.4".to_string(),
@@ -1344,7 +1451,7 @@ mod tests {
 
     #[test]
     fn test_build_range_preserves_port() {
-        let script = build_script(&[rule(NftCell::Range {
+        let script = compat_script(&[rule(NftCell::Range {
             port_start: 1000,
             port_end: 2000,
             dport: None,
@@ -1367,7 +1474,7 @@ mod tests {
 
     #[test]
     fn test_localhost_becomes_redirect() {
-        let script = build_script(&[rule(NftCell::Single {
+        let script = compat_script(&[rule(NftCell::Single {
             sport: 2222,
             dport: 22,
             domain: "localhost".to_string(),
@@ -1384,7 +1491,7 @@ mod tests {
 
     #[test]
     fn test_ipv6_dnat_and_empty_ipv4() {
-        let script = build_script(&[rule(NftCell::Single {
+        let script = compat_script(&[rule(NftCell::Single {
             sport: 9001,
             dport: 9099,
             domain: "2001:db8::1".to_string(),
@@ -1406,7 +1513,7 @@ mod tests {
 
     #[test]
     fn test_drop_src_ip_uses_set() {
-        let script = build_script(&[rule(NftCell::Drop {
+        let script = compat_script(&[rule(NftCell::Drop {
             chain: Chain::Input,
             src_ip: Some("8.8.8.0/24".to_string()),
             dst_ip: None,
@@ -1431,7 +1538,7 @@ mod tests {
 
     #[test]
     fn test_drop_port_and_combo() {
-        let script = build_script(&[
+        let script = compat_script(&[
             rule(NftCell::Drop {
                 chain: Chain::Input,
                 src_ip: None,
@@ -1466,7 +1573,7 @@ mod tests {
 
     #[test]
     fn test_comment_is_escaped() {
-        let script = build_script(&[rule(NftCell::Single {
+        let script = compat_script(&[rule(NftCell::Single {
             sport: 80,
             dport: 8080,
             domain: "10.0.0.1".to_string(),
@@ -1481,7 +1588,7 @@ mod tests {
 
     #[test]
     fn test_build_range_shift_uses_interval_dnat() {
-        let script = build_script(&[rule(NftCell::Range {
+        let script = compat_script(&[rule(NftCell::Range {
             port_start: 53051,
             port_end: 53080,
             dport: Some(51051),
@@ -1505,7 +1612,7 @@ mod tests {
 
     #[test]
     fn test_range_identity_dport_still_uses_map() {
-        let script = build_script(&[rule(NftCell::Range {
+        let script = compat_script(&[rule(NftCell::Range {
             port_start: 1000,
             port_end: 2000,
             dport: Some(1000),
@@ -1525,7 +1632,7 @@ mod tests {
 
     #[test]
     fn test_ipv6_range_shift() {
-        let script = build_script(&[rule(NftCell::Range {
+        let script = compat_script(&[rule(NftCell::Range {
             port_start: 20001,
             port_end: 20010,
             dport: Some(10001),
@@ -1544,11 +1651,43 @@ mod tests {
 
     #[test]
     fn test_no_rules_only_deletes_tables() {
-        let script = build_script(&[]).unwrap();
+        let script = compat_script(&[]).unwrap();
         assert!(script.contains("delete table ip self-nat"));
         assert!(script.contains("add table ip self-nat"));
         assert!(!script.contains("add chain"));
         assert!(!script.contains("add map"));
         check_nft(&script);
+    }
+
+    #[test]
+    fn test_kernel_map_as_set_threshold() {
+        assert!(!kernel_supports_map_as_set("6.1.0-37-amd64"));
+        assert!(!kernel_supports_map_as_set("6.4.15"));
+        assert!(!kernel_supports_map_as_set("5.15.0-91-generic"));
+        assert!(!kernel_supports_map_as_set("4.18.0-553.el8_10"));
+        assert!(!kernel_supports_map_as_set("unknown"));
+        assert!(kernel_supports_map_as_set("6.5.0"));
+        assert!(kernel_supports_map_as_set("6.5.0-rc1"));
+        assert!(kernel_supports_map_as_set("6.6.0-18-amd64"));
+        assert!(kernel_supports_map_as_set("6.12.48-1-lts"));
+        assert!(kernel_supports_map_as_set("6.18.33.2-microsoft-standard-WSL2"));
+    }
+
+    #[test]
+    fn test_modern_kernel_uses_map_as_set() {
+        let cells = [rule(NftCell::Single {
+            sport: 10000,
+            dport: 443,
+            domain: "1.2.3.4".to_string(),
+            protocol: Protocol::All,
+            ip_version: IpVersion::V4,
+            comment: Some("web".to_string()),
+        })];
+        let script = modern_script(&cells).unwrap();
+        assert!(!script.contains("add set ip self-nat tcp_dnat_k"));
+        assert!(script.contains("fib daddr type local tcp dport @tcp_dnat counter ct mark set 0x4e4154 dnat ip addr . port to tcp dport map @tcp_dnat"));
+        if host_supports_map_as_set() {
+            check_nft(&script);
+        }
     }
 }
